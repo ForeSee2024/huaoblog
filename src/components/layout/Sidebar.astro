@@ -1,22 +1,33 @@
 ---
 // Sidebar.astro: Kira 风格常驻侧边栏 (个人名片、五大标准分类、标签云)
-interface Props {
-  totalPosts?: number;
-}
-const { totalPosts = 68 } = Astro.props;
+import { getPublishedPosts } from '../../utils/posts';
+
+const allPosts = await getPublishedPosts();
+const totalPosts = allPosts.length;
+
+// 动态统计五大板块分类文章数
+const catCountMap: Record<string, number> = {};
+allPosts.forEach(post => {
+  const cat = post.data.category;
+  catCountMap[cat] = (catCountMap[cat] || 0) + 1;
+});
 
 const categories = [
-  { name: '软件工程与系统', count: 22, icon: 'fa-solid fa-code', color: '#38bdf8' },
-  { name: 'AI 与前沿科研', count: 14, icon: 'fa-solid fa-brain', color: '#a855f7' },
-  { name: '极客安全与攻防', count: 18, icon: 'fa-solid fa-shield-halved', color: '#ef4444' },
-  { name: '计算机体系沉淀', count: 11, icon: 'fa-solid fa-microchip', color: '#10b981' },
-  { name: '生活随笔与杂项', count: 8, icon: 'fa-solid fa-feather-pointed', color: '#f59e0b' },
+  { name: '软件工程与系统', count: catCountMap['软件工程与系统'] || 0, icon: 'fa-solid fa-code', color: '#38bdf8' },
+  { name: 'AI 与前沿科研', count: catCountMap['AI 与前沿科研'] || 0, icon: 'fa-solid fa-brain', color: '#a855f7' },
+  { name: '极客安全与攻防', count: catCountMap['极客安全与攻防'] || 0, icon: 'fa-solid fa-shield-halved', color: '#ef4444' },
+  { name: '计算机体系沉淀', count: catCountMap['计算机体系沉淀'] || 0, icon: 'fa-solid fa-microchip', color: '#10b981' },
+  { name: '生活随笔与杂项', count: catCountMap['生活随笔与杂项'] || 0, icon: 'fa-solid fa-feather-pointed', color: '#f59e0b' },
 ];
 
-const tags = [
-  'Rust', '大语言模型', 'Linux内核', 'Three.js', 
-  'Astro 5', 'Shiro反序列化', 'eBPF', '分布式系统', '极客生产力'
-];
+// 动态聚合真实标签集合
+const tagSet = new Set<string>();
+allPosts.forEach(post => {
+  (post.data.tags || []).forEach(t => tagSet.add(t));
+});
+const tags = Array.from(tagSet);
+const totalTagsCount = tags.length;
+const totalCatsCount = Object.keys(catCountMap).length;
 ---
 <aside class="w-full lg:w-72 flex flex-col gap-5 flex-shrink-0 order-2 lg:order-1">
   
@@ -45,18 +56,18 @@ const tags = [
       <span class="text-[var(--text-dim)]">全栈开发 • 学术科研 • 攻防实战</span>
     </p>
 
-    <!-- 统计行 -->
+    <!-- 动态统计行 -->
     <div class="grid grid-cols-3 py-3 border-y border-[var(--border-subtle)] mb-5">
       <a href="/archive" class="no-underline group">
         <div class="font-mono text-base font-extrabold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors">{totalPosts}</div>
         <div class="text-[10px] font-bold text-[var(--text-dim)] tracking-wider">POSTS</div>
       </a>
       <a href="/archive" class="no-underline group border-x border-[var(--border-subtle)]">
-        <div class="font-mono text-base font-extrabold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors">26</div>
+        <div class="font-mono text-base font-extrabold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors">{totalTagsCount}</div>
         <div class="text-[10px] font-bold text-[var(--text-dim)] tracking-wider">TAGS</div>
       </a>
       <a href="/archive" class="no-underline group">
-        <div class="font-mono text-base font-extrabold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors">5</div>
+        <div class="font-mono text-base font-extrabold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors">{totalCatsCount}</div>
         <div class="text-[10px] font-bold text-[var(--text-dim)] tracking-wider">CATS</div>
       </a>
     </div>
@@ -78,7 +89,7 @@ const tags = [
     </div>
   </div>
 
-  <!-- 五大标准知识体系分类卡片 -->
+  <!-- 五大标准知识体系分类卡片 (真实聚合统计) -->
   <div class="cyber-card p-5">
     <div class="flex items-center gap-2 text-sm font-extrabold text-[var(--text-hero)] mb-3 pb-2 border-b border-[var(--border-subtle)]">
       <i class="fa-solid fa-folder-tree text-[var(--accent)]"></i>
@@ -97,7 +108,7 @@ const tags = [
     </div>
   </div>
 
-  <!-- 技术与科研标签云卡片 -->
+  <!-- 技术与科研标签云卡片 (真实文章提取) -->
   <div class="cyber-card p-5">
     <div class="flex items-center gap-2 text-sm font-extrabold text-[var(--text-hero)] mb-3 pb-2 border-b border-[var(--border-subtle)]">
       <i class="fa-solid fa-tags text-[var(--accent)]"></i>

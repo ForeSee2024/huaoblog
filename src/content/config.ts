@@ -23,7 +23,7 @@ const postsCollection = defineCollection({
     series: z.string().optional(), // 跨领域或系列文章聚合
     featured: z.boolean().default(false),
     draft: z.boolean().default(false), // 草稿标记
-    views: z.string().default('1,000+'),
+    views: z.string().optional(),
     
     // 封面图 (支持本地 /images/posts/... 绝对路径或外部 CDN URL)
     coverImage: z.string().optional(),

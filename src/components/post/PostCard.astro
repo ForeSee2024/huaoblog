@@ -38,10 +38,12 @@ const dateStr = pubDate.toISOString().split('T')[0];
           <i class="fa-regular fa-calendar text-[10px]"></i>
           {dateStr}
         </span>
-        <span class="text-[var(--text-dim)] flex items-center gap-1 font-mono">
-          <i class="fa-solid fa-eye text-[10px]"></i>
-          {views}
-        </span>
+        {views && (
+          <span class="text-[var(--text-dim)] flex items-center gap-1 font-mono">
+            <i class="fa-solid fa-eye text-[10px]"></i>
+            {views}
+          </span>
+        )}
         {extraMeta?.difficulty && (
           <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--bg-surface-elevated)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
             难度: {extraMeta.difficulty}

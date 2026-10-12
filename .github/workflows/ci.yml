@@ -1,0 +1,32 @@
+name: CI Quality Gate (Astro Check & Build)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  quality-check:
+    name: Type Check & Production Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Project Dependencies
+        run: npm ci
+
+      - name: Run Astro Type & Template Check
+        run: npm run check
+
+      - name: Run Production Static Build & Pagefind Indexing
+        run: npm run build

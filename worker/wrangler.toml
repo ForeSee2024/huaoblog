@@ -1,0 +1,8 @@
+name = "decap-oauth-worker"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+# 部署指令：
+# 1. npx wrangler secret put GITHUB_CLIENT_ID
+# 2. npx wrangler secret put GITHUB_CLIENT_SECRET
+# 3. npx wrangler deploy

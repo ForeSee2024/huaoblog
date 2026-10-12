@@ -1,35 +1,140 @@
-# Decap CMS 生产级配置蓝图
-# 认证模式说明：
-# 采用标准的 GitHub OAuth 流程。由于静态页面无法自行解密 GitHub Client Secret，
-# 认证通过部署在 Cloudflare Worker 的轻量 OAuth 网关中转（base_url: https://your-oauth-worker.workers.dev）
+# Decap CMS 生产级配置规范 (Cloudflare Pages + GitHub 架构)
+# 发布工作流：editorial_workflow (草稿看板模式：Drafts -> In Review -> Ready -> Publish)
+publish_mode: editorial_workflow
+
+# 后台与认证配置
+# 采用 GitHub OAuth 认证。静态 /admin 页面通过部署在 Cloudflare Worker 的轻量 OAuth 网关换取 Access Token
 backend:
   name: github
-  repo: your-username/blogWeb # 替换为博主的 GitHub 实际仓库名
-  branch: main
-  base_url: https://auth.kael-nexus.dev # 或轻量 Cloudflare OAuth Worker 地址
+  repo: your-username/blogWeb # 替换为博主的 GitHub 实际仓库名 (格式: owner/repo)
+  branch: main                # 生产环境发布目标分支
+  base_url: https://auth.kael-nexus.dev # Cloudflare OAuth Worker 代理域名
   auth_endpoint: auth
 
-# 媒体图片统一管理管线
-# 图片落盘于 public/images/posts，浏览器直读路径为 /images/posts
+# 媒体管理：图片直接上传落盘至 public/images/posts，浏览器端绝对路径为 /images/posts/
 media_folder: "public/images/posts"
 public_folder: "/images/posts"
+
+# 预览联动配置 (配合 Cloudflare Pages 分支预览)
+# 文章实时预览路径：posts/YYYY-MM-DD-slug
+preview_path: "posts/{{slug}}"
 
 collections:
   - name: "posts"
     label: "技术博文与文章"
+    label_singular: "文章"
     folder: "src/content/posts"
     create: true
     slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
     extension: "md"
     format: "frontmatter"
+    summary: "{{title}} ({{category}} - {{pubDate}})"
+    sortable_fields: ["pubDate", "title", "category"]
+    
+    # 编辑器字段层级：核心字段置顶，进阶与元数据字段归类
     fields:
-      - { label: "文章标题", name: "title", widget: "string", required: true }
-      - { label: "文章摘要", name: "description", widget: "text", required: true }
-      - { label: "发布时间", name: "pubDate", widget: "datetime", format: "YYYY-MM-DD", dateFormat: "YYYY-MM-DD", timeFormat: false, required: true }
-      - { label: "所属分类", name: "category", widget: "select", options: ["软件工程与系统", "AI 与前沿科研", "极客安全与攻防", "计算机体系沉淀", "生活随笔与杂项"], required: true }
-      - { label: "标签列表", name: "tags", widget: "list", required: false }
-      - { label: "所属系列", name: "series", widget: "string", required: false }
-      - { label: "精选置顶", name: "featured", widget: "boolean", default: false }
-      - { label: "设为草稿", name: "draft", widget: "boolean", default: false }
-      - { label: "封面图片", name: "coverImage", widget: "image", required: false }
-      - { label: "正文内容", name: "body", widget: "markdown" }
+      # 核心三要素：标题、分类、正文 (快速写作第一焦点)
+      - label: "文章标题"
+        name: "title"
+        widget: "string"
+        required: true
+        hint: "简洁有吸引力的技术标题，100字符以内"
+
+      - label: "所属分类"
+        name: "category"
+        widget: "select"
+        options:
+          - "软件工程与系统"
+          - "AI 与前沿科研"
+          - "极客安全与攻防"
+          - "计算机体系沉淀"
+          - "生活随笔与杂项"
+        required: true
+        default: "软件工程与系统"
+
+      - label: "正文内容"
+        name: "body"
+        widget: "markdown"
+        modes: ["rich_text", "raw"]
+        buttons:
+          - bold
+          - italic
+          - code
+          - link
+          - heading-two
+          - heading-three
+          - quote
+          - bulleted-list
+          - numbered-list
+          - code-block
+        editor_components:
+          - image
+          - code-block
+        hint: "支持标准 Markdown、代码块语法高亮与数学公式。可通过工具栏或直接拖拽图片上传。"
+
+      # 概要与发布时间 (默认当天)
+      - label: "文章摘要"
+        name: "description"
+        widget: "text"
+        required: true
+        hint: "一两句话概括文章核心技术点，用于 SEO、主页卡片与全文索引 (建议 50-200 字符)"
+
+      - label: "发布时间"
+        name: "pubDate"
+        widget: "datetime"
+        format: "YYYY-MM-DD"
+        dateFormat: "YYYY-MM-DD"
+        timeFormat: false
+        required: true
+        hint: "默认取当天日期。文章通过后台 Publish 审核后将在 Cloudflare Pages 构建上线"
+
+      # 进阶属性 (选填)
+      - label: "封面图片"
+        name: "coverImage"
+        widget: "image"
+        required: false
+        choose_url: false
+        hint: "选填。上传或选择卡片封面图，留空将采用分类默认极客背景"
+
+      - label: "技术标签"
+        name: "tags"
+        widget: "list"
+        required: false
+        hint: "选填。如：Rust, Linux, LLM, Three.js 等"
+
+      - label: "所属系列"
+        name: "series"
+        widget: "string"
+        required: false
+        hint: "选填。连续技术专栏名称，如：深入理解操作系统、LLM 落地实战"
+
+      - label: "精选置顶"
+        name: "featured"
+        widget: "boolean"
+        default: false
+        required: false
+        hint: "开启后将在博客主页与列表页顶部高亮置顶展示"
+
+      - label: "标记为草稿"
+        name: "draft"
+        widget: "boolean"
+        default: false
+        required: false
+        hint: "在 Editorial Workflow 中草稿由工作流状态控制；若手动勾选此项，合并后在生产站仍将处于隐藏状态"
+
+      - label: "预估阅读量/初始值"
+        name: "views"
+        widget: "string"
+        required: false
+        hint: "选填。演示展示用或由访问统计组件后续回填"
+
+      - label: "科研与工程扩展元数据"
+        name: "extraMeta"
+        widget: "object"
+        required: false
+        collapsed: true
+        fields:
+          - { label: "实战靶场/赛事", name: "targetEvent", widget: "string", required: false }
+          - { label: "难度等级", name: "difficulty", widget: "select", options: ["入门", "进阶", "硬核"], required: false }
+          - { label: "论文 DOI", name: "paperDoi", widget: "string", required: false }
+          - { label: "配套开源仓库", name: "repoUrl", widget: "string", required: false }
