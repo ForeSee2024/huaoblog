@@ -1,43 +1,28 @@
 /**
- * Cloudflare Worker: Decap CMS GitHub OAuth 认证网关 (企业级零信任加固版)
+ * Cloudflare Worker: Decap CMS GitHub OAuth 认证网关 (生产级严格零信任版)
  * 
- * 安全契约 (严格零回退准则)：
- * 1. 严格白名单强制校验：ALLOWED_ORIGINS 为必需配置，无白名单、来源为空或未在白名单内时，/auth 与 /callback 一律阻断并返回 403，绝不回退至通配符 '*'；
- * 2. 严格 CSRF 防护：/auth 签发基于 HttpOnly + SameSite=Lax Cookie 的强随机 state 会话，并在 /callback 进行双向防篡改核对；
- * 3. postMessage 纯定向派发：仅向验证合法的 targetOrigin 派发 Token，握手过程强校验 event.origin，彻底杜绝跨站 Token 窃取。
+ * 安全契约 (严格生产边界准则)：
+ * 1. 严格白名单强制要求：ALLOWED_ORIGINS 为生产必需环境变量，禁止通配符 *.pages.dev，所有合法域名必须显式精确指定；
+ * 2. 移除内置本地后门：本地来源 (http://localhost:4321) 不再隐式默认放行，仅在 ALLOWED_ORIGINS 中显式列出时才允许，彻底防范生产环境绕过；
+ * 3. 严格 CSRF 防护：/auth 签发基于 HttpOnly + SameSite=Lax Cookie 的强随机 state 会话，并在 /callback 进行双向防篡改核对；
+ * 4. postMessage 纯定向派发：仅向验证合法的 targetOrigin 派发 Token，握手过程强校验 event.origin，彻底杜绝跨站 Token 窃取。
  * 
  * 环境变量配置 (必需):
  * - GITHUB_CLIENT_ID: GitHub OAuth App 的 Client ID
  * - GITHUB_CLIENT_SECRET: GitHub OAuth App 的 Client Secret
- * - ALLOWED_ORIGINS: (必需) 逗号分隔的合法博客域名，例如 "https://kael-nexus.pages.dev,http://localhost:4321"
+ * - ALLOWED_ORIGINS: (必需) 逗号分隔的精确博客后台域名，例如 "https://kael-nexus.pages.dev,http://localhost:4321"
  */
 
-// 默认本地开发白名单 (仅在本地调试使用)
-const LOCAL_DEV_ORIGINS = [
-  'http://localhost:4321',
-  'http://127.0.0.1:4321',
-];
-
 function isOriginAllowed(origin, env) {
-  if (!origin) return false;
+  if (!origin || !env.ALLOWED_ORIGINS) return false;
   
-  // 提取配置的生产白名单
-  const configuredList = (env.ALLOWED_ORIGINS || '')
+  // 仅允许显式配置在 ALLOWED_ORIGINS 中的具体域名，禁止任何全局通配
+  const allowList = env.ALLOWED_ORIGINS
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
-  
-  // 合并本地调试域名与用户配置白名单
-  const allowList = [...LOCAL_DEV_ORIGINS, ...configuredList];
 
-  return allowList.some(allowed => {
-    // 支持 *.pages.dev 通配子域名匹配
-    if (allowed.startsWith('*.')) {
-      const suffix = allowed.slice(1);
-      return origin.endsWith(suffix);
-    }
-    return allowed === origin;
-  });
+  return allowList.includes(origin);
 }
 
 function parseCookies(cookieHeader) {
@@ -56,9 +41,16 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // 0. 前置检查：必须配置 GitHub Client Credentials
+    // 0. 前置严格检查：必需环境变量
     if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET) {
-      return new Response('OAuth 网关未就绪：缺少 GITHUB_CLIENT_ID 或 GITHUB_CLIENT_SECRET 环境变量配置', {
+      return new Response('500 Internal Error: 缺少 GITHUB_CLIENT_ID 或 GITHUB_CLIENT_SECRET 环境变量配置', {
+        status: 500,
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      });
+    }
+
+    if (!env.ALLOWED_ORIGINS || !env.ALLOWED_ORIGINS.trim()) {
+      return new Response('500 Internal Error: 必需配置 ALLOWED_ORIGINS 环境变量以确保来源白名单安全', {
         status: 500,
         headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       });
@@ -81,10 +73,10 @@ export default {
         }
       }
 
-      // 零容忍安全断言：未提供来源或来源不在白名单中，坚决拒绝发起授权
+      // 零容忍严格校验：未提供来源或来源不在显式白名单中，坚决拒绝发起授权
       if (!clientOrigin || !isOriginAllowed(clientOrigin, env)) {
         return new Response(
-          `403 Forbidden: 未经授权的博客后台域名 (${clientOrigin || '未知来源'})。请检查 Worker 的 ALLOWED_ORIGINS 配置。`,
+          `403 Forbidden: 未经授权的博客后台域名 (${clientOrigin || '未知来源'})。必须显式配置在 Worker 的 ALLOWED_ORIGINS 白名单中。`,
           { status: 403, headers: { 'Content-Type': 'text/plain;charset=UTF-8' } }
         );
       }
@@ -142,7 +134,7 @@ export default {
         clientOrigin = '';
       }
 
-      // 二次严格白名单校验：回调来源必须通过白名单判定，决不允许任何通配符回退
+      // 二次严格白名单校验：回调来源必须精确匹配白名单
       if (!clientOrigin || !isOriginAllowed(clientOrigin, env)) {
         return new Response(
           `403 Forbidden: 回调来源校验失败 (${clientOrigin || '非法域名'})，已被安全阻断。`,
@@ -150,7 +142,7 @@ export default {
         );
       }
 
-      const targetOrigin = clientOrigin; // 严格锁死为白名单域名，决不使用 '*'
+      const targetOrigin = clientOrigin; // 严格锁死为白名单域名
       const clearCookie = 'oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/callback; Max-Age=0';
 
       try {
@@ -253,7 +245,7 @@ export default {
     }
 
     // 默认根路径返回网关健康状态
-    return new Response('Decap CMS Zero-Trust GitHub OAuth Gateway is active.', {
+    return new Response('Decap CMS Strict Zero-Trust GitHub OAuth Gateway is active.', {
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
     });
   },

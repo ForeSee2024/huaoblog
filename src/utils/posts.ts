@@ -17,40 +17,24 @@ export function isPreviewEnvironment(): boolean {
 /**
  * 获取符合发布状态的文章列表
  * 
- * 过滤与即时发布准则：
- * 1. 草稿过滤：
- *    - 正式生产构建 (main 分支) 严格排除 draft === true 的文章；
- *    - 若处于预览环境 (如 Cloudflare Pages 分支预览或本地开发)，放行草稿以便 Decap CMS 后台预览与校对。
- * 2. 时区与即时发布保护 (消除 UTC/北京时间 8 小时时差陷阱)：
- *    - 采用“即时发布优先”策略：作者在后台点击 Publish 并合并到 main 分支后即刻上线。
- *    - 对当天日期 (YYYY-MM-DD) 采取宽容放行保护：以北京时间 (UTC+8) 当日结束时刻为界，
- *      杜绝因 JavaScript 将 YYYY-MM-DD 解析为 UTC 00:00:00 (北京时间早 8:00) 导致早间构建被误判为未来文章的问题。
+ * 核心准则 (单一发布状态与即时生效)：
+ * 1. 发布状态唯一性：
+ *    - 线上可见性完全由是否合并入生产分支 (main) 决定；
+ *    - 在 main 分支正式构建中，仅过滤显式标有 draft === true 的本地测试草稿；
+ *    - 若处于预览分支 (如 Cloudflare Pages 分支预览或本地开发)，放行所有草稿。
+ * 2. 彻底废除未来日期隐藏限制 (零例外即时发布)：
+ *    - 既然第一版已取消每日定时重建，pubDate 仅作为文章卡片展示与倒序排列的时间戳；
+ *    - 彻底移除对未来日期的过滤拦截，作者无论选择当天还是未来日期，一旦在后台点击 Publish 合并入 main，
+ *      文章 100% 即刻在线可见，彻底消除“显示已发布却找不到文章”的逻辑陷阱。
  */
 export async function getPublishedPosts(options?: { forceIncludeDrafts?: boolean }): Promise<CollectionEntry<'posts'>[]> {
   const posts = await getCollection('posts');
   const allowDrafts = options?.forceIncludeDrafts ?? isPreviewEnvironment();
-  
-  // 计算北京时间当天结束时刻的 UTC 时间戳
-  // 当前时间加上 8 小时偏移获取北京时间日期对象，并设置为当天 23:59:59.999
-  const now = new Date();
-  const cstTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-  const endOfTodayCST = new Date(Date.UTC(
-    cstTime.getUTCFullYear(),
-    cstTime.getUTCMonth(),
-    cstTime.getUTCDate(),
-    15, 59, 59, 999 // UTC 15:59:59 对应 CST 23:59:59
-  ));
 
   return posts
     .filter(post => {
-      // 1. 草稿过滤
+      // 仅在正式环境过滤明确声明 draft === true 的文章
       if (!allowDrafts && post.data.draft) return false;
-
-      // 2. 远期定时文章过滤 (当天发布的文章无条件放行，只有超出当天 24 小时之后的未来文章在正式生产环境才拦截)
-      if (!allowDrafts && post.data.pubDate.getTime() > endOfTodayCST.getTime()) {
-        return false;
-      }
-
       return true;
     })
     .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());

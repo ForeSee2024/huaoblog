@@ -15,7 +15,7 @@
 </head>
 <body>
   <script>
-    // 注入后台预览面板专有样式与 KaTeX 样式表
+    // 注入后台预览面板专有样式与 KaTeX 样式表至预览 iframe
     CMS.registerPreviewStyle("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
     CMS.registerPreviewStyle("https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css");
     
@@ -75,7 +75,7 @@
         background: #0e1320;
         border: 1px solid #1e293b;
         border-radius: 0.75rem;
-        padding: 1rem;
+        padding: 1.25rem;
         margin-bottom: 1.5rem;
       }
       .tag-pill {
@@ -97,7 +97,8 @@
     `;
     CMS.registerPreviewStyle(customPreviewStyles, { raw: true });
 
-    // 注册支持 LaTeX 公式自动渲染的实时预览模板
+    // 注册支持 LaTeX 公式自动渲染的标准实时预览模板
+    // 遵照 Decap 官方接口契约：采用 this.props.document / window 与标准 React ref 回调绑定容器
     const PostPreview = createClass({
       componentDidMount: function() {
         this.renderFormulas();
@@ -107,32 +108,37 @@
       },
       renderFormulas: function() {
         try {
-          const node = ReactDOM.findDOMNode(this);
-          if (!node) return;
-          const doc = node.ownerDocument;
-          const win = doc.defaultView;
+          const container = this.previewContainer;
+          if (!container) return;
 
-          // 若 iframe 未注入 auto-render，动态注入
+          // 使用 Decap 官方提供的 iframe 专属 document 与 window
+          const doc = this.props.document || container.ownerDocument;
+          const win = this.props.window || (doc ? doc.defaultView : window);
+
+          if (!win) return;
+
+          // 确保 iframe 内部具备 KaTeX 引擎，按需优雅注入
           if (!win.renderMathInElement) {
-            if (!doc.getElementById('katex-engine-js')) {
+            if (!doc.getElementById('katex-iframe-engine')) {
               const s1 = doc.createElement('script');
-              s1.id = 'katex-engine-js';
+              s1.id = 'katex-iframe-engine';
               s1.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js';
               s1.onload = () => {
                 const s2 = doc.createElement('script');
+                s2.id = 'katex-iframe-auto-render';
                 s2.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js';
                 s2.onload = () => {
-                  this.execMathRender(node, win);
+                  this.execMathRender(container, win);
                 };
                 doc.head.appendChild(s2);
               };
               doc.head.appendChild(s1);
             }
           } else {
-            this.execMathRender(node, win);
+            this.execMathRender(container, win);
           }
         } catch (err) {
-          console.warn('预览公式渲染捕获异常:', err);
+          console.warn('Decap 预览公式渲染捕获异常:', err);
         }
       },
       execMathRender: function(container, win) {
@@ -154,11 +160,22 @@
         const pubDate = entry.getIn(['data', 'pubDate']) || '';
         const body = this.props.widgetFor('body');
 
-        return h('div', { className: 'article-preview-root' },
+        return h('div', { 
+            className: 'article-preview-root',
+            ref: (el) => { this.previewContainer = el; }
+          },
+          // 顶部状态信息卡
           h('div', { className: 'meta-box' },
-            h('span', { className: 'tag-pill' }, category),
-            h('span', { style: { color: '#64748b', fontSize: '0.85rem' } }, pubDate ? String(pubDate).split('T')[0] : ''),
-            h('h1', { style: { marginTop: '0.75rem' } }, title),
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' } },
+              h('div', {},
+                h('span', { className: 'tag-pill' }, category),
+                h('span', { style: { color: '#64748b', fontSize: '0.85rem' } }, pubDate ? String(pubDate).split('T')[0] : '')
+              ),
+              h('span', { style: { fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 } },
+                '● 内嵌实时仿真渲染已就绪'
+              )
+            ),
+            h('h1', { style: { margin: '0.5rem 0' } }, title),
             description ? h('blockquote', {}, description) : null
           ),
           h('div', { className: 'post-body' }, body)
