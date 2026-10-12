@@ -1,0 +1,138 @@
+---
+// HeaderNav.astro: 响应式顶部悬浮胶囊分段导航栏 (移动端优先自适应，绝对不溢出)
+interface Props {
+  currentPath?: string;
+}
+const { currentPath = '/' } = Astro.props;
+---
+<header class="fixed top-3 sm:top-5 left-0 right-0 z-50 flex justify-center px-2 sm:px-4 pointer-events-none">
+  <nav class="pointer-events-auto max-w-[calc(100vw-16px)] sm:max-w-max flex items-center justify-between sm:justify-start gap-1 sm:gap-2 p-1 sm:p-1.5 rounded-full border border-[var(--border-card)] bg-[var(--bg-card)] backdrop-blur-xl shadow-lg transition-all duration-300">
+    
+    <!-- 品牌标志 (移动端紧凑简写，桌面端全称) -->
+    <a href="/" class="flex items-center gap-1.5 px-2 sm:px-3 py-1 text-xs font-black tracking-wider text-[var(--text-hero)] no-underline hover:text-[var(--accent)] transition-colors flex-shrink-0">
+      <span class="w-6 h-6 flex items-center justify-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] flex-shrink-0">
+        <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"/>
+          <path d="M3.27 6.96 12 12.01l8.73-5.05"/>
+          <path d="M12 22.08V12"/>
+        </svg>
+      </span>
+      <span class="hidden sm:inline">KAEL.NEXUS</span>
+      <span class="inline sm:hidden font-mono text-[11px]">KAEL</span>
+    </a>
+
+    <!-- 分段导航药丸容器 (手机端图标化，平板及桌面端图文并茂) -->
+    <div class="relative flex items-center bg-[var(--bg-glass)] p-0.5 sm:p-1 rounded-full overflow-hidden" id="nav-segments">
+      <div class="nav-slider absolute h-[calc(100%-6px)] rounded-full bg-[var(--accent)] transition-all duration-300 pointer-events-none opacity-90 shadow-[0_0_12px_var(--accent-glow)]" id="nav-slider"></div>
+      
+      <a href="/" class:list={["nav-item relative z-10 flex items-center gap-1 px-2.5 sm:px-3 py-1 text-xs font-bold rounded-full transition-colors no-underline", currentPath === '/' ? 'text-[var(--accent-contrast)] active' : 'text-[var(--text-muted)] hover:text-[var(--text-hero)]']} data-path="/" title="首页">
+        <i class="fa-solid fa-house text-[11px]"></i>
+        <span class="hidden md:inline">首页</span>
+      </a>
+
+      <a href="/posts" class:list={["nav-item relative z-10 flex items-center gap-1 px-2.5 sm:px-3 py-1 text-xs font-bold rounded-full transition-colors no-underline", currentPath.startsWith('/posts') ? 'text-[var(--accent-contrast)] active' : 'text-[var(--text-muted)] hover:text-[var(--text-hero)]']} data-path="/posts" title="技术博文">
+        <i class="fa-solid fa-book-open text-[11px]"></i>
+        <span class="hidden md:inline">博文</span>
+      </a>
+
+      <a href="/archive" class:list={["nav-item relative z-10 flex items-center gap-1 px-2.5 sm:px-3 py-1 text-xs font-bold rounded-full transition-colors no-underline", currentPath === '/archive' ? 'text-[var(--accent-contrast)] active' : 'text-[var(--text-muted)] hover:text-[var(--text-hero)]']} data-path="/archive" title="归档">
+        <i class="fa-solid fa-box-archive text-[11px]"></i>
+        <span class="hidden md:inline">归档</span>
+      </a>
+
+      <a href="/friends" class:list={["nav-item relative z-10 flex items-center gap-1 px-2.5 sm:px-3 py-1 text-xs font-bold rounded-full transition-colors no-underline", currentPath === '/friends' ? 'text-[var(--accent-contrast)] active' : 'text-[var(--text-muted)] hover:text-[var(--text-hero)]']} data-path="/friends" title="友链">
+        <i class="fa-solid fa-user-group text-[11px]"></i>
+        <span class="hidden md:inline">友链</span>
+      </a>
+
+      <a href="/about" class:list={["nav-item relative z-10 flex items-center gap-1 px-2.5 sm:px-3 py-1 text-xs font-bold rounded-full transition-colors no-underline", currentPath === '/about' ? 'text-[var(--accent-contrast)] active' : 'text-[var(--text-muted)] hover:text-[var(--text-hero)]']} data-path="/about" title="关于">
+        <i class="fa-solid fa-user-astronaut text-[11px]"></i>
+        <span class="hidden md:inline">关于</span>
+      </a>
+    </div>
+
+    <div class="hidden sm:block w-[1px] h-4 bg-[var(--border-subtle)] mx-0.5"></div>
+
+    <!-- 全局搜索胶囊按钮 -->
+    <button class="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-hero)] hover:border-[var(--accent)] text-xs font-semibold transition-all cursor-pointer flex-shrink-0" id="btn-open-search" title="全局搜索 (快捷键 ⌘K / Ctrl+K)">
+      <i class="fa-solid fa-magnifying-glass text-[11px] text-[var(--accent)]"></i>
+      <kbd class="hidden lg:inline px-1 py-0.2 text-[9px] font-mono bg-[var(--bg-glass)] border border-[var(--border-subtle)] rounded text-[var(--text-dim)]">⌘K</kbd>
+    </button>
+
+    <!-- 调色盘与设置 -->
+    <div class="relative flex-shrink-0">
+      <button class="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-hero)] hover:bg-[var(--bg-glass)] transition-colors cursor-pointer" id="btn-palette" title="主题色彩矩阵">
+        <i class="fa-solid fa-palette text-xs"></i>
+      </button>
+
+      <div class="palette-dropdown absolute top-full right-0 mt-2 w-48 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-card)] shadow-2xl backdrop-blur-2xl hidden" id="palette-dropdown">
+        <span class="text-[11px] font-bold text-[var(--text-dim)] block mb-2">主题色调 (Theme Accent)</span>
+        <div class="grid grid-cols-4 gap-2 mb-2">
+          <button class="swatch w-7 h-7 rounded-full bg-[#38bdf8] border-2 border-transparent transition-transform hover:scale-110 cursor-pointer" data-accent="cyberblue" title="Cyber Blue (科技蓝)"></button>
+          <button class="swatch w-7 h-7 rounded-full bg-[#34d399] border-2 border-transparent transition-transform hover:scale-110 cursor-pointer" data-accent="neoncyan" title="Neon Cyan (极客青)"></button>
+          <button class="swatch w-7 h-7 rounded-full bg-[#818cf8] border-2 border-transparent transition-transform hover:scale-110 cursor-pointer" data-accent="violet" title="Electric Violet (紫罗兰)"></button>
+          <button class="swatch w-7 h-7 rounded-full bg-[#fbbf24] border-2 border-transparent transition-transform hover:scale-110 cursor-pointer" data-accent="lumine" title="Lumine Gold (琥珀金)"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 深浅明暗切换按钮 -->
+    <button class="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-hero)] hover:bg-[var(--bg-glass)] transition-colors cursor-pointer flex-shrink-0" id="btn-theme-toggle" title="切换深色/浅色模式">
+      <i class="fa-solid fa-moon text-xs" id="theme-nav-icon"></i>
+    </button>
+  </nav>
+</header>
+
+<script>
+  function updateNavSlider() {
+    const slider = document.getElementById('nav-slider');
+    const activeItem = document.querySelector('.nav-item.active') as HTMLElement;
+    if (slider && activeItem) {
+      slider.style.width = `${activeItem.offsetWidth}px`;
+      slider.style.left = `${activeItem.offsetLeft}px`;
+      slider.style.opacity = '1';
+    }
+  }
+
+  function syncNavThemeIcon() {
+    const icon = document.getElementById('theme-nav-icon');
+    if (!icon) return;
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    icon.className = isDark ? 'fa-solid fa-moon text-xs' : 'fa-solid fa-sun text-xs';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    updateNavSlider();
+    syncNavThemeIcon();
+
+    const btnPalette = document.getElementById('btn-palette');
+    const dropdown = document.getElementById('palette-dropdown');
+    btnPalette?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdown?.classList.toggle('hidden');
+    });
+    document.addEventListener('click', () => dropdown?.classList.add('hidden'));
+
+    document.querySelectorAll('.swatch').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const accent = (btn as HTMLElement).dataset.accent || 'cyberblue';
+        document.documentElement.dataset.accent = accent;
+        localStorage.setItem('blog-accent', accent);
+        window.dispatchEvent(new CustomEvent('accent-changed', { detail: { accent } }));
+      });
+    });
+
+    const btnThemeToggle = document.getElementById('btn-theme-toggle');
+    btnThemeToggle?.addEventListener('click', () => {
+      const isDark = document.documentElement.dataset.theme === 'dark';
+      const newTheme = isDark ? 'light' : 'dark';
+      document.documentElement.dataset.theme = newTheme;
+      localStorage.setItem('blog-theme', newTheme);
+      syncNavThemeIcon();
+      window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: newTheme } }));
+    });
+  });
+
+  window.addEventListener('resize', updateNavSlider);
+  window.addEventListener('theme-changed', syncNavThemeIcon);
+</script>

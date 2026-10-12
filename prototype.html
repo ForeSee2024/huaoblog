@@ -1,0 +1,3014 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark" data-accent="cyberblue">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kael's Cyber Nexus | 全栈开发 • 学术科研 • 极客安全 • 数字空间</title>
+  
+  <!-- 优先执行：根据系统模式与本地存储无闪烁自适应深浅主题 -->
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('blog-theme');
+      let targetTheme = savedTheme;
+      if (!targetTheme) {
+        targetTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+      }
+      document.documentElement.setAttribute('data-theme', targetTheme);
+      
+      const savedAccent = localStorage.getItem('blog-accent') || 'cyberblue';
+      document.documentElement.setAttribute('data-accent', savedAccent);
+    })();
+  </script>
+
+  <!-- 现代字体体系与专业矢量图标 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600;700;900&family=Cinzel:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Three.js 3D 渲染引擎 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    /* ==========================================================================
+       1. 全局设计系统令牌 (默认黑蓝赛博科技主色调，彻底强化浅色与深色表现)
+       ========================================================================== */
+    :root {
+      --font-sans: 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+      --font-mono: 'Fira Code', monospace;
+      --font-serif: 'Cinzel', 'Noto Sans SC', serif;
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --transition-smooth: all 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    /* [DARK MODE] 深色模式 - 极客冷峻黑、电光青蓝霓虹、次表面微晶质感 */
+    html[data-theme="dark"] {
+      --bg-base: #06080e;
+      --bg-surface: #0c101a;
+      --bg-surface-elevated: #121826;
+      --bg-card: rgba(12, 16, 26, 0.78);
+      --bg-card-solid: #0e1320;
+      --bg-glass: rgba(255, 255, 255, 0.04);
+      --bg-input: rgba(8, 11, 18, 0.85);
+      
+      --border-subtle: rgba(255, 255, 255, 0.07);
+      --border-card: rgba(255, 255, 255, 0.1);
+      --border-top-highlight: rgba(56, 189, 248, 0.4);
+      
+      --text-hero: #ffffff;
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      
+      --shadow-ambient: 0 24px 50px -12px rgba(0, 0, 0, 0.8);
+      --shadow-card: 0 16px 36px -8px rgba(0, 0, 0, 0.6), 0 0 1px 1px rgba(255, 255, 255, 0.08);
+      --shadow-glow: 0 0 32px var(--accent-glow);
+      
+      --code-bg: #090c14;
+      --code-header: rgba(255, 255, 255, 0.04);
+      --grid-line: rgba(56, 189, 248, 0.04);
+      --three-bg-opacity: 0.85;
+    }
+
+    /* [LIGHT MODE] 浅色模式 - 鲜明立体的 3D 拓扑网格、纯白镜面高光与清透蓝阶 */
+    html[data-theme="light"] {
+      --bg-base: #f0f4fa;
+      --bg-surface: #ffffff;
+      --bg-surface-elevated: #ffffff;
+      --bg-card: rgba(255, 255, 255, 0.82);
+      --bg-card-solid: #ffffff;
+      --bg-glass: rgba(14, 165, 233, 0.04);
+      --bg-input: rgba(241, 245, 249, 0.9);
+      
+      /* Linear 顶尖工艺：1px 细边框 + 顶部白光镜面反光 */
+      --border-subtle: rgba(15, 23, 42, 0.08);
+      --border-card: rgba(15, 23, 42, 0.1);
+      --border-top-highlight: rgba(255, 255, 255, 0.95);
+      
+      --text-hero: #070d18;
+      --text-main: #1e293b;
+      --text-muted: #334155;
+      --text-dim: #64748b;
+      
+      /* 浅色多重漫反射阴影，使卡片轻盈浮于动态网格之上 */
+      --shadow-ambient: 0 20px 45px -12px rgba(14, 165, 233, 0.12);
+      --shadow-card: 
+        0 1px 0 0 rgba(255, 255, 255, 0.9) inset,
+        0 12px 32px -6px rgba(15, 23, 42, 0.08), 
+        0 2px 4px -1px rgba(15, 23, 42, 0.04);
+      --shadow-glow: 0 8px 24px var(--accent-glow);
+      
+      --code-bg: #0d121c;
+      --code-header: #141b29;
+      --grid-line: rgba(2, 132, 199, 0.06);
+      --three-bg-opacity: 0.95;
+    }
+
+    /* [THEME COLORS] 主题色系统：默认 Cyber Blue (黑 + 蓝) */
+    html[data-accent="cyberblue"] {
+      --accent: #0284c7;
+      --accent-soft: rgba(2, 132, 199, 0.14);
+      --accent-glow: rgba(14, 165, 233, 0.4);
+      --accent-contrast: #ffffff;
+      --three-color: 0x0284c7;
+    }
+    html[data-theme="dark"][data-accent="cyberblue"] {
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.16);
+      --accent-glow: rgba(56, 189, 248, 0.5);
+      --accent-contrast: #03121c;
+      --three-color: 0x38bdf8;
+    }
+
+    /* 备用配色：极客青 / 紫罗兰 / 琥珀金 / 玛瑙粉 */
+    html[data-accent="neoncyan"] {
+      --accent: #059669;
+      --accent-soft: rgba(5, 150, 105, 0.14);
+      --accent-glow: rgba(16, 185, 129, 0.4);
+      --accent-contrast: #ffffff;
+      --three-color: 0x059669;
+    }
+    html[data-theme="dark"][data-accent="neoncyan"] {
+      --accent: #34d399;
+      --accent-soft: rgba(52, 211, 153, 0.16);
+      --accent-glow: rgba(52, 211, 153, 0.5);
+      --accent-contrast: #021a12;
+      --three-color: 0x34d399;
+    }
+
+    html[data-accent="violet"] {
+      --accent: #6366f1;
+      --accent-soft: rgba(99, 102, 241, 0.14);
+      --accent-glow: rgba(99, 102, 241, 0.4);
+      --accent-contrast: #ffffff;
+      --three-color: 0x6366f1;
+    }
+    html[data-theme="dark"][data-accent="violet"] {
+      --accent: #818cf8;
+      --accent-soft: rgba(129, 140, 248, 0.16);
+      --accent-glow: rgba(129, 140, 248, 0.5);
+      --accent-contrast: #090c24;
+      --three-color: 0x818cf8;
+    }
+
+    html[data-accent="lumine"] {
+      --accent: #d97706;
+      --accent-soft: rgba(217, 119, 6, 0.14);
+      --accent-glow: rgba(245, 158, 11, 0.4);
+      --accent-contrast: #ffffff;
+      --three-color: 0xd97706;
+    }
+    html[data-theme="dark"][data-accent="lumine"] {
+      --accent: #fbbf24;
+      --accent-soft: rgba(251, 191, 36, 0.16);
+      --accent-glow: rgba(251, 191, 36, 0.5);
+      --accent-contrast: #1c1303;
+      --three-color: 0xfbbf24;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease, box-shadow 0.3s ease;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      overflow-x: hidden;
+      min-height: 100vh;
+      line-height: 1.7;
+      position: relative;
+    }
+
+    /* 背景图纸网格与高光环境层 */
+    .bg-grid-layer {
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+      mask-image: radial-gradient(circle at 50% 25%, black 45%, transparent 88%);
+      -webkit-mask-image: radial-gradient(circle at 50% 25%, black 45%, transparent 88%);
+    }
+
+    .ambient-glow {
+      position: fixed;
+      width: 50vw;
+      height: 50vw;
+      border-radius: 50%;
+      filter: blur(160px);
+      opacity: 0.16;
+      pointer-events: none;
+      z-index: 1;
+      background: var(--accent);
+      transition: all 0.8s ease;
+    }
+    .glow-1 { top: -14vw; right: -10vw; }
+    .glow-2 { bottom: -14vw; left: -10vw; }
+
+    /* Three.js 3D 拓扑波浪网格全景背景 */
+    #three-bg-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      opacity: var(--three-bg-opacity);
+    }
+
+    /* ==========================================================================
+       2. 开屏 Now Loading 仪式感动效 (无 Emoji，纯精密几何与 SVG)
+       ========================================================================== */
+    #site-loader {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-base);
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.55s var(--ease-out-expo), visibility 0.55s ease;
+    }
+    #site-loader.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .loader-ring-outer {
+      width: 86px;
+      height: 86px;
+      border: 2px dashed var(--accent);
+      border-radius: 50%;
+      animation: spin 16s linear infinite;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .loader-ring-inner {
+      width: 70px;
+      height: 70px;
+      border: 2.5px solid transparent;
+      border-top-color: var(--accent);
+      border-bottom-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1.2s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+      position: absolute;
+    }
+    .loader-avatar-shell {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      overflow: hidden;
+      position: relative;
+      z-index: 2;
+    }
+    .loader-avatar-shell img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .loader-text {
+      margin-top: 20px;
+      font-size: 13.5px;
+      letter-spacing: 2px;
+      font-weight: 700;
+      color: var(--text-hero);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .loader-sub {
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: 3px;
+      font-weight: 600;
+    }
+    .loader-progress {
+      width: 160px;
+      height: 3px;
+      background: var(--border-card);
+      border-radius: 4px;
+      margin-top: 14px;
+      overflow: hidden;
+    }
+    .loader-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 4px;
+      animation: loadFill 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    @keyframes loadFill { 0% { width: 0%; } 100% { width: 100%; } }
+
+    /* ==========================================================================
+       3. 顶部悬浮胶囊导航栏 (Segmented Navbar)
+       ========================================================================== */
+    .top-nav-wrapper {
+      position: fixed;
+      top: 20px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      z-index: 1000;
+      padding: 0 16px;
+    }
+    .nav-pill {
+      background: var(--bg-card);
+      backdrop-filter: blur(24px) saturate(190%);
+      -webkit-backdrop-filter: blur(24px) saturate(190%);
+      border: 1px solid var(--border-card);
+      border-top: 1px solid var(--border-top-highlight);
+      border-radius: 9999px;
+      padding: 5px 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: var(--shadow-card);
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-weight: 800;
+      font-size: 14px;
+      color: var(--text-hero);
+      text-decoration: none;
+      padding: 0 10px;
+      letter-spacing: -0.3px;
+      cursor: pointer;
+    }
+    .nav-brand-icon {
+      width: 20px;
+      height: 20px;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .nav-segments {
+      display: flex;
+      background: var(--bg-glass);
+      border-radius: 9999px;
+      padding: 3px;
+      position: relative;
+      border: 1px solid var(--border-subtle);
+    }
+    .nav-item {
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-decoration: none;
+      border: none;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      z-index: 2;
+      white-space: nowrap;
+    }
+    .nav-item:hover { color: var(--text-hero); }
+    .nav-item.active { color: var(--accent-contrast); }
+    .nav-slider {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      height: calc(100% - 6px);
+      background: var(--accent);
+      border-radius: 9999px;
+      box-shadow: var(--shadow-glow);
+      transition: all 0.35s var(--ease-out-expo);
+      z-index: 1;
+    }
+    .nav-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border-card);
+      margin: 0 3px;
+    }
+    .nav-tool-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid var(--border-card);
+      background: var(--bg-glass);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      font-size: 13px;
+    }
+    .nav-tool-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .search-pill-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-card);
+      border-radius: 9999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .search-pill-btn:hover {
+      border-color: var(--accent);
+      color: var(--text-hero);
+    }
+    .search-kbd {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-card);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+    }
+
+    .palette-dropdown {
+      position: absolute;
+      top: 46px;
+      right: 0;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-card);
+      border-top: 1px solid var(--border-top-highlight);
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: var(--shadow-ambient);
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 220px;
+      z-index: 100;
+    }
+    .palette-dropdown.show { display: flex; }
+    .palette-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      font-weight: 700;
+    }
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.2s;
+    }
+    .swatch:hover { transform: scale(1.15); }
+    .swatch.selected { border-color: var(--text-hero); transform: scale(1.1); }
+    .setting-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding-top: 8px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    /* ==========================================================================
+       4. 页面主体网格与卡片通用规范
+       ========================================================================== */
+    .app-container {
+      max-width: 1380px;
+      margin: 92px auto 40px;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: 300px 1fr 240px;
+      gap: 24px;
+      position: relative;
+      z-index: 10;
+    }
+    @media (max-width: 1200px) {
+      .app-container { grid-template-columns: 280px 1fr; }
+      .toc-aside { display: none; }
+    }
+    @media (max-width: 880px) {
+      .app-container {
+        grid-template-columns: 1fr;
+        margin-top: 84px;
+        padding: 0 16px;
+      }
+      .sidebar { display: none; }
+    }
+
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(24px) saturate(190%);
+      -webkit-backdrop-filter: blur(24px) saturate(190%);
+      border: 1px solid var(--border-card);
+      border-top: 1px solid var(--border-top-highlight);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.25s var(--ease-out-expo), box-shadow 0.25s var(--ease-out-expo), border-color 0.25s ease;
+    }
+
+    /* 左侧边栏 */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      position: sticky;
+      top: 92px;
+      height: fit-content;
+    }
+    .profile-card {
+      text-align: center;
+      padding: 30px 22px 24px;
+    }
+    .avatar-wrapper {
+      position: relative;
+      width: 104px;
+      height: 104px;
+      margin: 0 auto 16px;
+    }
+    .avatar-ring {
+      position: absolute;
+      inset: -5px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, var(--accent), transparent 60%, var(--accent));
+      animation: spin 8s linear infinite;
+      opacity: 0.8;
+      filter: blur(2px);
+    }
+    .avatar-img {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid var(--bg-surface);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+    .author-name {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-hero);
+      margin-bottom: 4px;
+      letter-spacing: -0.5px;
+    }
+    .author-role-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .author-motto {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .stat-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      padding: 12px 0;
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 20px;
+    }
+    .stat-num {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--accent);
+      font-family: var(--font-mono);
+    }
+    .stat-lbl {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+    .social-links {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    .social-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-card);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      transition: var(--transition-smooth);
+    }
+    .social-btn:hover {
+      background: var(--accent);
+      color: var(--accent-contrast);
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .widget-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .category-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .category-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-decoration: none;
+      background: var(--bg-glass);
+      border: 1px solid transparent;
+      transition: var(--transition-smooth);
+      cursor: pointer;
+    }
+    .category-item:hover {
+      border-color: var(--border-card);
+      background: var(--accent-soft);
+      color: var(--accent);
+      transform: translateX(3px);
+    }
+    .tag-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tag-chip {
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 5px 11px;
+      border-radius: 10px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-card);
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: var(--transition-smooth);
+      cursor: pointer;
+    }
+    .tag-chip:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* 中间主体内容区与视图管理器 */
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      min-width: 0;
+    }
+    .view-panel {
+      display: none;
+      animation: fadeIn 0.3s var(--ease-out-expo);
+    }
+    .view-panel.active { display: block; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ==========================================================================
+       5. 页面 1：首页视图 (Home View)
+       ========================================================================== */
+    .home-hero-card {
+      padding: 32px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: radial-gradient(circle at top right, var(--accent-soft), transparent 60%), var(--bg-card);
+    }
+    .home-live-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-soft);
+      padding: 4px 12px;
+      border-radius: 9999px;
+      width: fit-content;
+    }
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--accent);
+      animation: dotPulse 1.5s infinite;
+    }
+    @keyframes dotPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+    .home-hero-title {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--text-hero);
+      line-height: 1.25;
+      letter-spacing: -0.8px;
+    }
+    .home-hero-desc {
+      font-size: 14.5px;
+      color: var(--text-muted);
+      max-width: 680px;
+      line-height: 1.7;
+    }
+    .home-hero-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+
+    .featured-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+      margin-top: 6px;
+    }
+    .post-card-item {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 20px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-card);
+      border-top: 1px solid var(--border-top-highlight);
+      border-radius: 20px;
+      overflow: hidden;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.03);
+      transition: var(--transition-smooth);
+    }
+    @media (max-width: 640px) {
+      .post-card-item { grid-template-columns: 1fr; }
+    }
+    .post-card-item:hover {
+      transform: translateY(-3px);
+      border-color: var(--accent);
+      box-shadow: var(--shadow-ambient);
+    }
+    .post-card-thumb-wrap {
+      height: 100%;
+      min-height: 160px;
+      position: relative;
+      overflow: hidden;
+    }
+    .post-card-thumb {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+    .post-card-item:hover .post-card-thumb { transform: scale(1.05); }
+    .post-card-body {
+      padding: 18px 20px 18px 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+    }
+    @media (max-width: 640px) {
+      .post-card-body { padding: 0 18px 18px; }
+    }
+    .post-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11.5px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+    .post-card-meta-tag {
+      color: var(--accent);
+      background: var(--accent-soft);
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+    .post-card-title {
+      font-size: 18px;
+      font-weight: 750;
+      color: var(--text-hero);
+      line-height: 1.4;
+    }
+    .post-card-excerpt {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .announcement-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 10px 16px;
+      font-size: 12.5px;
+      color: var(--text-muted);
+    }
+
+    /* ==========================================================================
+       6. 页面 2：文章/Writeup 详情页 (Post Detail View)
+       ========================================================================== */
+    .article-hero-banner {
+      height: 260px;
+      border-radius: 24px;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 24px;
+      border: 1px solid var(--border-card);
+      border-top: 1px solid var(--border-top-highlight);
+      box-shadow: var(--shadow-card);
+    }
+    .article-hero-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .article-hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(0deg, var(--bg-base) 0%, rgba(6, 8, 14, 0.4) 60%, transparent 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 28px;
+    }
+    html[data-theme="light"] .article-hero-overlay {
+      background: linear-gradient(0deg, rgba(240, 244, 250, 0.96) 0%, rgba(240, 244, 250, 0.5) 60%, transparent 100%);
+    }
+    .article-meta-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .meta-pill {
+      font-size: 11px;
+      padding: 4px 11px;
+      border-radius: 9999px;
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-card);
+      color: var(--text-hero);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .meta-pill.highlight {
+      background: var(--accent);
+      color: var(--accent-contrast);
+      border-color: var(--accent);
+    }
+    .article-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--text-hero);
+      line-height: 1.35;
+      letter-spacing: -0.5px;
+    }
+
+    .article-body {
+      font-size: 15px;
+      color: var(--text-main);
+      line-height: 1.85;
+    }
+    .article-body h2 {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-hero);
+      margin: 32px 0 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .article-body h2 .h2-bar {
+      width: 4px;
+      height: 18px;
+      background: var(--accent);
+      border-radius: 4px;
+      display: inline-block;
+    }
+    .article-body p { margin-bottom: 16px; }
+
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      border-radius: 0 16px 16px 0;
+      padding: 16px 20px;
+      margin: 20px 0;
+      font-size: 14px;
+      color: var(--text-main);
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      border-top: 1px solid var(--border-subtle);
+      border-right: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .callout-icon {
+      color: var(--accent);
+      font-size: 18px;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+    .callout-flag {
+      border-left-color: #10b981;
+      background: rgba(16, 185, 129, 0.1);
+    }
+    .callout-flag .callout-icon { color: #10b981; }
+
+    .code-box {
+      background: var(--code-bg);
+      border: 1px solid var(--border-card);
+      border-radius: 18px;
+      margin: 20px 0;
+      overflow: hidden;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+    .code-header {
+      background: var(--code-header);
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .code-dots { display: flex; gap: 7px; align-items: center; }
+    .code-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-red { background: #ff5f56; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green { background: #27c93f; }
+    .code-title {
+      font-size: 11.5px;
+      color: #94a3b8;
+      margin-left: 10px;
+      font-weight: 500;
+    }
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #cbd5e1;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition-smooth);
+    }
+    .copy-btn:hover {
+      background: var(--accent);
+      color: var(--accent-contrast);
+      border-color: var(--accent);
+    }
+    .code-content {
+      padding: 18px 20px;
+      overflow-x: auto;
+      line-height: 1.65;
+      color: #e2e8f0;
+    }
+    .code-kw { color: #f472b6; font-weight: 600; }
+    .code-fn { color: #60a5fa; }
+    .code-str { color: #34d399; }
+    .code-comment { color: #64748b; font-style: italic; }
+
+    .wave-divider {
+      width: 100%;
+      height: 32px;
+      margin: 24px 0;
+      opacity: 0.5;
+    }
+
+    .post-nav-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 20px;
+    }
+    @media (max-width: 600px) {
+      .post-nav-container { grid-template-columns: 1fr; }
+    }
+    .post-nav-item {
+      padding: 16px 20px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+    .post-nav-item:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .post-nav-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .post-nav-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-hero);
+    }
+
+    /* 评论互动 */
+    .comments-wrapper { margin-top: 14px; }
+    .comment-input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 14px 18px;
+      color: var(--text-main);
+      font-size: 14px;
+      resize: vertical;
+      min-height: 85px;
+      outline: none;
+      margin-bottom: 12px;
+    }
+    .comment-input:focus { border-color: var(--accent); }
+    .comment-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .comments-thread {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .comment-item {
+      display: flex;
+      gap: 14px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .comment-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .comment-content-shell {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .comment-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .comment-author {
+      font-weight: 750;
+      font-size: 13.5px;
+      color: var(--text-hero);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .author-badge {
+      font-size: 10px;
+      background: var(--accent);
+      color: var(--accent-contrast);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 800;
+    }
+    .comment-time {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .comment-text {
+      font-size: 13px;
+      color: var(--text-main);
+      line-height: 1.6;
+    }
+
+    /* ==========================================================================
+       7. 页面 3：归档与时间轴 (Archive View)
+       ========================================================================== */
+    .archive-header {
+      padding: 24px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-card);
+      border-radius: 20px;
+      margin-bottom: 24px;
+    }
+    .archive-timeline {
+      position: relative;
+      padding-left: 26px;
+    }
+    .archive-timeline::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 10px;
+      bottom: 10px;
+      width: 2px;
+      background: var(--border-card);
+    }
+    .archive-year-group {
+      margin-bottom: 30px;
+    }
+    .archive-year-badge {
+      font-size: 22px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: var(--text-hero);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .archive-post-entry {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: var(--bg-surface);
+      border: 1px solid transparent;
+      margin-bottom: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+    .archive-post-entry:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      transform: translateX(4px);
+    }
+    .archive-entry-title {
+      font-size: 14px;
+      font-weight: 650;
+      color: var(--text-hero);
+    }
+    .archive-entry-date {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+    }
+
+    /* ==========================================================================
+       8. 页面 4：关于本人 (About View) - 3D 全息量子陀螺仪核心
+       ========================================================================== */
+    .about-hero {
+      position: relative;
+      border-radius: 24px;
+      height: 220px;
+      overflow: hidden;
+      margin-bottom: 24px;
+      border: 1px solid var(--border-card);
+      border-top: 1px solid var(--border-top-highlight);
+    }
+    .about-hero-bg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .about-hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, var(--bg-card-solid) 95%);
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    .breadcrumbs {
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .about-hero-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text-hero);
+    }
+
+    .about-manifesto-grid {
+      margin-bottom: 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .manifesto-item {
+      padding: 20px;
+      border-radius: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      transition: var(--transition-smooth);
+    }
+    .manifesto-item:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-card);
+    }
+    .manifesto-icon-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .section-head {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-hero);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: -0.3px;
+    }
+    .section-icon { color: var(--accent); font-size: 16px; }
+
+    .tech-pill-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .tech-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-card);
+      border-top: 1px solid var(--border-top-highlight);
+      border-radius: 14px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+      transition: var(--transition-smooth);
+    }
+    .tech-pill:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-glow);
+    }
+    .tech-pill svg, .tech-pill i {
+      width: 18px;
+      height: 18px;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .icon-win { color: #0078d4; }
+    .icon-mac { color: #8e8e93; }
+    .icon-arch { color: #1793d1; }
+    .icon-kali { color: #557cda; }
+    .icon-ubuntu { color: #e95420; }
+    .icon-py { color: #3776ab; }
+    .icon-java { color: #f89820; }
+    .icon-three { color: var(--accent); }
+    .icon-astro { color: #ff5d01; }
+    .icon-docker { color: #2496ed; }
+    .icon-ts { color: #3178c6; }
+    .icon-git { color: #f05032; }
+
+    .stats-dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .metric-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-card);
+      border-top: 1px solid var(--border-top-highlight);
+      border-radius: 18px;
+      padding: 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    }
+    .metric-icon-wrap {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .metric-val {
+      font-size: 20px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: var(--text-hero);
+    }
+    .metric-name { font-size: 11px; color: var(--text-dim); font-weight: 600; }
+
+    .game-status-box {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-card);
+      border-top: 1px solid var(--border-top-highlight);
+      border-radius: 18px;
+      padding: 18px 20px;
+      margin-bottom: 24px;
+    }
+    .osu-badge {
+      background: #ff66aa;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .timeline-container {
+      position: relative;
+      padding-left: 24px;
+      margin-bottom: 24px;
+    }
+    .timeline-container::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 6px;
+      bottom: 6px;
+      width: 2px;
+      background: var(--border-card);
+    }
+    .timeline-item {
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .timeline-dot {
+      position: absolute;
+      left: -24px;
+      top: 5px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--bg-surface);
+      border: 3px solid var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+    .timeline-date {
+      font-size: 11.5px;
+      font-family: var(--font-mono);
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+    .timeline-title {
+      font-size: 14.5px;
+      font-weight: 750;
+      color: var(--text-hero);
+      margin-bottom: 4px;
+    }
+    .timeline-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ==========================================================================
+       9. 页面 5：伙伴友链 (Friends View)
+       ========================================================================== */
+    .friends-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .friend-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-card);
+      border-top: 1px solid var(--border-top-highlight);
+      border-radius: 18px;
+      padding: 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      text-decoration: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+      transition: var(--transition-smooth);
+    }
+    .friend-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-ambient);
+    }
+    .friend-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .friend-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+    .friend-name {
+      font-size: 15px;
+      font-weight: 750;
+      color: var(--text-hero);
+    }
+    .friend-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .friend-tag {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: var(--accent-contrast);
+      font-weight: 700;
+      border: none;
+      border-radius: 9999px;
+      padding: 9px 20px;
+      font-size: 13px;
+      cursor: pointer;
+      box-shadow: var(--shadow-glow);
+      transition: var(--transition-smooth);
+      text-decoration: none;
+    }
+    .action-btn:hover {
+      filter: brightness(1.1);
+      transform: translateY(-2px);
+    }
+    .action-btn-secondary {
+      background: var(--bg-surface);
+      color: var(--text-hero);
+      border: 1px solid var(--border-card);
+      box-shadow: none;
+    }
+    .action-btn-secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ==========================================================================
+       10. 模态搜索框 (Search Dialog ⌘K)
+       ========================================================================== */
+    .search-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px);
+      z-index: 99990;
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 15vh;
+    }
+    .search-modal-backdrop.show { display: flex; }
+    .search-modal {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-card);
+      border-top: 1px solid var(--border-top-highlight);
+      border-radius: 24px;
+      width: min(92vw, 620px);
+      box-shadow: var(--shadow-ambient);
+      overflow: hidden;
+      animation: modalSlide 0.25s var(--ease-out-expo);
+    }
+    @keyframes modalSlide {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .search-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .search-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      font-size: 16px;
+      color: var(--text-hero);
+      outline: none;
+    }
+    .search-results-list {
+      max-height: 340px;
+      overflow-y: auto;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .search-result-item {
+      padding: 12px 14px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-main);
+      text-decoration: none;
+      font-size: 13.5px;
+      cursor: pointer;
+    }
+    .search-result-item:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    /* 右侧目录栏 (TOC) */
+    .toc-aside {
+      position: sticky;
+      top: 92px;
+      height: fit-content;
+    }
+    .toc-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+    }
+    .toc-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      display: block;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border-left: 2px solid transparent;
+      transition: var(--transition-smooth);
+    }
+    .toc-link:hover, .toc-link.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: var(--accent-soft);
+      padding-left: 14px;
+      font-weight: 600;
+    }
+    .toc-sub { padding-left: 16px; font-size: 12px; }
+
+    /* 成就弹窗 (Toast) */
+    .toast-container {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .achievement-toast {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--accent);
+      border-top: 1px solid var(--border-top-highlight);
+      border-radius: 18px;
+      padding: 16px 22px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: var(--shadow-ambient);
+      animation: slideIn 0.4s var(--ease-out-expo);
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    footer {
+      max-width: 1380px;
+      margin: 40px auto 30px;
+      padding: 0 24px;
+      text-align: center;
+      font-size: 12.5px;
+      color: var(--text-dim);
+      position: relative;
+      z-index: 10;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 背景网格纳米层与 Three.js 拓扑背景画布 -->
+  <div class="bg-grid-layer"></div>
+  <canvas id="three-bg-canvas"></canvas>
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+
+  <!-- 开屏 Now Loading 动画 -->
+  <div id="site-loader">
+    <div class="loader-ring-outer">
+      <div class="loader-ring-inner"></div>
+      <div class="loader-avatar-shell">
+        <img src="https://images.unsplash.com/photo-1578632767115-351597cf2477?w=160&auto=format&fit=crop&q=80" alt="Avatar">
+      </div>
+    </div>
+    <div class="loader-text">
+      <span>NOW LOADING</span>
+      <span class="loader-sub">CYBER MATRIX INITIATING</span>
+    </div>
+    <div class="loader-progress">
+      <div class="loader-bar"></div>
+    </div>
+  </div>
+
+  <!-- 顶部悬浮胶囊导航栏 (默认黑+蓝) -->
+  <header class="top-nav-wrapper">
+    <nav class="nav-pill">
+      <div class="nav-brand" onclick="navigateTo('home')">
+        <span class="nav-brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"/>
+            <path d="M3.27 6.96 12 12.01l8.73-5.05"/>
+            <path d="M12 22.08V12"/>
+          </svg>
+        </span>
+        <span>KAEL.NEXUS</span>
+      </div>
+
+      <div class="nav-segments" id="nav-segments">
+        <div class="nav-slider" id="nav-slider"></div>
+        <button class="nav-item active" data-view="home" id="btn-nav-home" onclick="navigateTo('home')">
+          <i class="fa-solid fa-house"></i>
+          <span>首页</span>
+        </button>
+        <button class="nav-item" data-view="post" id="btn-nav-post" onclick="navigateTo('post')">
+          <i class="fa-solid fa-book-open"></i>
+          <span>技术博文</span>
+        </button>
+        <button class="nav-item" data-view="archive" id="btn-nav-archive" onclick="navigateTo('archive')">
+          <i class="fa-solid fa-box-archive"></i>
+          <span>归档/分类</span>
+        </button>
+        <button class="nav-item" data-view="friends" id="btn-nav-friends" onclick="navigateTo('friends')">
+          <i class="fa-solid fa-user-group"></i>
+          <span>伙伴友链</span>
+        </button>
+        <button class="nav-item" data-view="about" id="btn-nav-about" onclick="navigateTo('about')">
+          <i class="fa-solid fa-user-astronaut"></i>
+          <span>关于本人</span>
+        </button>
+      </div>
+
+      <div class="nav-divider"></div>
+
+      <button class="search-pill-btn" id="btn-open-search" title="全局搜索 (快捷键 ⌘K / Ctrl+K)">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <span>搜索</span>
+        <span class="search-kbd">⌘K</span>
+      </button>
+
+      <!-- 主题色切换选择器 (默认 Cyber Blue 科技蓝) -->
+      <div style="position: relative;">
+        <button class="nav-tool-btn" id="btn-palette" title="个性化调色盘与 3D 设置">
+          <i class="fa-solid fa-palette"></i>
+        </button>
+        <div class="palette-dropdown" id="palette-dropdown">
+          <span class="palette-title">主题色调 (Theme Accent)</span>
+          <div class="palette-grid">
+            <div class="swatch selected" data-accent="cyberblue" style="background:#38bdf8;" title="Cyber Blue (科技蓝)"></div>
+            <div class="swatch" data-accent="neoncyan" style="background:#34d399;" title="Neon Cyan (极客青)"></div>
+            <div class="swatch" data-accent="violet" style="background:#818cf8;" title="Electric Violet (紫罗兰)"></div>
+            <div class="swatch" data-accent="lumine" style="background:#fbbf24;" title="Lumine Gold (琥珀金)"></div>
+          </div>
+          
+          <span class="palette-title" style="margin-top:6px;">Three.js 3D 拓扑波浪引擎</span>
+          <div class="setting-toggle-row">
+            <span>3D 拓扑引力波浪背景</span>
+            <input type="checkbox" id="chk-3d-bg" checked>
+          </div>
+        </div>
+      </div>
+
+      <!-- 明暗主题切换按钮 (切换浅色/深色) -->
+      <button class="nav-tool-btn" id="btn-theme-toggle" title="切换浅色与深色模式">
+        <i class="fa-solid fa-moon" id="theme-icon"></i>
+      </button>
+    </nav>
+  </header>
+
+  <!-- 主体工作区容器 -->
+  <div class="app-container">
+    
+    <!-- 左侧常驻侧边栏 (Kira 风格) -->
+    <aside class="sidebar">
+      <div class="card profile-card">
+        <div class="avatar-wrapper">
+          <div class="avatar-ring"></div>
+          <img src="https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&auto=format&fit=crop&q=80" alt="博主头像" class="avatar-img">
+        </div>
+        <h2 class="author-name">Kael_Dev</h2>
+        <div class="author-role-badge">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Fullstack • AI Research • Security</span>
+        </div>
+        <p class="author-motto">用工程构建秩序，以好奇探索未知<br>「全栈开发 • 学术科研 • 攻防实战」</p>
+
+        <div class="stat-bar">
+          <div style="cursor:pointer;" onclick="navigateTo('archive')">
+            <div class="stat-num">68</div>
+            <div class="stat-lbl">POSTS</div>
+          </div>
+          <div style="cursor:pointer;" onclick="navigateTo('archive')">
+            <div class="stat-num">26</div>
+            <div class="stat-lbl">TAGS</div>
+          </div>
+          <div style="cursor:pointer;" onclick="navigateTo('archive')">
+            <div class="stat-num">5</div>
+            <div class="stat-lbl">CATS</div>
+          </div>
+        </div>
+
+        <div class="social-links">
+          <a href="#" class="social-btn" title="GitHub" onclick="showToast('跳转链接', '即将访问 GitHub 开发者主页')"><i class="fa-brands fa-github"></i></a>
+          <a href="#" class="social-btn" title="Bilibili" onclick="showToast('跳转链接', '即将访问 Bilibili 空间')"><i class="fa-brands fa-bilibili"></i></a>
+          <a href="#" class="social-btn" title="Telegram" onclick="showToast('即时通讯', '即将唤起 Telegram 会话')"><i class="fa-brands fa-telegram"></i></a>
+          <a href="#" class="social-btn" title="Email" onclick="showToast('电子邮箱', '邮箱地址: kael@nexus.sec')"><i class="fa-solid fa-envelope"></i></a>
+        </div>
+      </div>
+
+      <!-- 多维分类快捷部件 (开发、科研、安全、底层体系、杂项) -->
+      <div class="card">
+        <div class="widget-title">
+          <i class="fa-solid fa-folder-tree" style="color:var(--accent);"></i>
+          <span>知识体系分类</span>
+        </div>
+        <div class="category-list">
+          <div class="category-item" onclick="filterArchive('软件工程与架构')">
+            <span style="display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-code" style="color:#38bdf8;"></i>
+              <span>软件工程与架构</span>
+            </span>
+            <span style="font-family:var(--font-mono); color:var(--text-dim); font-size:12px;">22</span>
+          </div>
+          <div class="category-item" onclick="filterArchive('AI 与前沿科研')">
+            <span style="display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-brain" style="color:#a855f7;"></i>
+              <span>AI 与前沿科研</span>
+            </span>
+            <span style="font-family:var(--font-mono); color:var(--text-dim); font-size:12px;">14</span>
+          </div>
+          <div class="category-item" onclick="filterArchive('极客安全与攻防')">
+            <span style="display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-shield-halved" style="color:#ef4444;"></i>
+              <span>极客安全与攻防</span>
+            </span>
+            <span style="font-family:var(--font-mono); color:var(--text-dim); font-size:12px;">18</span>
+          </div>
+          <div class="category-item" onclick="filterArchive('计算机体系笔记')">
+            <span style="display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-microchip" style="color:#10b981;"></i>
+              <span>计算机体系笔记</span>
+            </span>
+            <span style="font-family:var(--font-mono); color:var(--text-dim); font-size:12px;">11</span>
+          </div>
+          <div class="category-item" onclick="filterArchive('生活随笔与杂项')">
+            <span style="display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-feather-pointed" style="color:#f59e0b;"></i>
+              <span>生活随笔与杂项</span>
+            </span>
+            <span style="font-family:var(--font-mono); color:var(--text-dim); font-size:12px;">8</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 多元技术标签云 -->
+      <div class="card">
+        <div class="widget-title">
+          <i class="fa-solid fa-tags" style="color:var(--accent);"></i>
+          <span>技术与研究标签</span>
+        </div>
+        <div class="tag-cloud">
+          <span class="tag-chip" onclick="filterArchive('Rust')">Rust</span>
+          <span class="tag-chip" onclick="filterArchive('大模型')">大语言模型</span>
+          <span class="tag-chip" onclick="filterArchive('Linux内核')">Linux内核</span>
+          <span class="tag-chip" onclick="filterArchive('Three.js')">Three.js 3D</span>
+          <span class="tag-chip" onclick="filterArchive('Astro')">Astro 5</span>
+          <span class="tag-chip" onclick="filterArchive('Shiro')">Shiro反序列化</span>
+          <span class="tag-chip" onclick="filterArchive('eBPF')">eBPF</span>
+          <span class="tag-chip" onclick="filterArchive('分布式')">分布式系统</span>
+          <span class="tag-chip" onclick="filterArchive('生产力')">极客生产力</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 中间主内容区 (5 大全流程页面) -->
+    <main class="main-content">
+
+      <!-- ================= 视图 1：首页 (Home) ================= -->
+      <div class="view-panel active" id="view-home">
+        <div class="card home-hero-card">
+          <div class="home-live-status">
+            <span class="pulse-dot"></span>
+            <span>SYSTEM ONLINE • CYBER WAVE ENGINE ACTIVE</span>
+          </div>
+          <h1 class="home-hero-title">
+            用工程构建秩序，<br>用探索与思考拓展数字边界。
+          </h1>
+          <p class="home-hero-desc">
+            这里是 Kael 的个人技术博客与数字知识花园。涵盖现代全栈工程、AI 前沿科研探索、网络安全与实战攻防、底层体系沉淀，以及热爱生活的极客杂笔。
+          </p>
+          <div class="home-hero-actions">
+            <button class="action-btn" onclick="navigateTo('post')">
+              <i class="fa-solid fa-book-open"></i>
+              <span>浏览技术博文</span>
+            </button>
+            <button class="action-btn action-btn-secondary" onclick="navigateTo('about')">
+              <i class="fa-solid fa-user-astronaut"></i>
+              <span>关于博主</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="announcement-bar">
+          <i class="fa-solid fa-bullhorn" style="color:var(--accent);"></i>
+          <span style="font-weight:700; color:var(--text-hero);">全站升级播报：</span>
+          <span style="flex:1;">基于 Astro 5 Content Layer、Tailwind 与 Three.js 拓扑引擎的高性能技术空间已完成重构！</span>
+          <span style="font-size:11px; color:var(--text-dim); font-family:var(--font-mono);">TODAY</span>
+        </div>
+
+        <div class="section-head" style="margin-top:10px;">
+          <i class="fa-solid fa-fire section-icon" style="color:#ef4444;"></i>
+          <span>精选置顶与最新发布</span>
+        </div>
+        <div class="featured-grid" id="home-post-list"></div>
+      </div>
+
+      <!-- ================= 视图 2：文章详情 (Post Detail) ================= -->
+      <div class="view-panel" id="view-post">
+        <div class="article-hero-banner">
+          <img src="https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1200&auto=format&fit=crop&q=80" alt="Banner" class="article-hero-img">
+          <div class="article-hero-overlay">
+            <div class="article-meta-pills">
+              <span class="meta-pill highlight"><i class="fa-solid fa-medal"></i> CTF 羊城杯 WP</span>
+              <span class="meta-pill"><i class="fa-regular fa-calendar-check"></i> 2026-10-12</span>
+              <span class="meta-pill"><i class="fa-solid fa-cube"></i> Three.js 3D 拓扑加持</span>
+              <span class="meta-pill"><i class="fa-solid fa-eye"></i> 1,680 围观</span>
+            </div>
+            <h1 class="article-title" id="article-detail-title">2026 羊城杯网络安全初赛 Web 攻防思路与全复盘总结</h1>
+          </div>
+        </div>
+
+        <article class="card article-body">
+          <div class="callout">
+            <i class="fa-solid fa-circle-info callout-icon"></i>
+            <div>
+              <strong>审计备忘录：</strong> 本篇文章记录羊城杯初赛中几道典型的 Java 与 Python 题目复盘思路，涵盖鉴权绕过、Shiro 原理链条以及内存马注入技巧。
+            </div>
+          </div>
+
+          <h2 id="sec-overview">
+            <span class="h2-bar"></span>
+            <span>0x01 赛题环境与架构审计</span>
+          </h2>
+          <p>
+            在本次初赛中，赛题基于微服务架构。登录用户名与密码在编译产物中存在校验分支，本地测试时需重点定位 <code>MainRealm</code> 的认证过滤器执行链条。
+          </p>
+
+          <h2 id="sec-java">
+            <span class="h2-bar"></span>
+            <span>0x02 ez_java：Shiro 鉴权拦截与 Bypass 链</span>
+          </h2>
+          <p>
+            审计 <code>AuthenticationInfo doGetAuthenticationInfo</code> 实现时，发现传入的 <code>AuthenticationToken</code> 经过了一层自定义的 Base64 与 AES 解密封装：
+          </p>
+
+          <div class="code-box">
+            <div class="code-header">
+              <div class="code-dots">
+                <span class="code-dot dot-red"></span>
+                <span class="code-dot dot-yellow"></span>
+                <span class="code-dot dot-green"></span>
+                <span class="code-title">CustomAuthFilter.java</span>
+              </div>
+              <button class="copy-btn" onclick="copyCode(this)">
+                <i class="fa-regular fa-copy"></i>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <pre class="code-content"><code><span class="code-comment">// 自定义 Shiro 认证逻辑拦截</span>
+<span class="code-kw">public class</span> <span class="code-fn">CustomRealm</span> <span class="code-kw">extends</span> AuthorizingRealm {
+    <span class="code-kw">@Override</span>
+    <span class="code-kw">protected</span> AuthenticationInfo <span class="code-fn">doGetAuthenticationInfo</span>(AuthenticationToken token) {
+        UsernamePasswordToken upToken = (UsernamePasswordToken) token;
+        String username = upToken.getUsername();
+        
+        <span class="code-comment">// 校验绕过入口: 当请求头中附带 X-Internal-Token 时走内网特权鉴权通道</span>
+        <span class="code-kw">if</span> (<span class="code-str">"admin"</span>.equals(username) && SecurityUtil.verifySignature(upToken)) {
+            <span class="code-kw">return new</span> SimpleAuthenticationInfo(username, <span class="code-str">"admin888"</span>, getName());
+        }
+        <span class="code-kw">return null</span>;
+    }
+}</code></pre>
+          </div>
+
+          <h2 id="sec-poc">
+            <span class="h2-bar"></span>
+            <span>0x03 Payload 构造与 Exploit 验证</span>
+          </h2>
+          <p>
+            最终利用脚本通过构造带有特权请求头的 HTTP 请求，成功打通目标服务，获取 Flag 回显：
+          </p>
+
+          <div class="callout callout-flag">
+            <i class="fa-solid fa-flag-checkered callout-icon"></i>
+            <div>
+              <strong>Final Flag 确认：</strong> <code>flag{ycb_2026_w3b_sakura_exploit_succeed!}</code>
+            </div>
+          </div>
+
+          <svg class="wave-divider" viewBox="0 0 1200 120" preserveAspectRatio="none">
+            <path d="M0,0 C150,90 350,-40 500,40 C650,120 900,20 1200,60 L1200,120 Z" fill="var(--accent-soft)"></path>
+          </svg>
+
+          <div class="post-nav-container">
+            <div class="post-nav-item" onclick="showToast('上一篇', '即将打开: Astro 5 全新特性探究')">
+              <span class="post-nav-label"><i class="fa-solid fa-arrow-left"></i> 上一篇</span>
+              <span class="post-nav-title">Astro 5 全新 Content Layer 与全站构建解析</span>
+            </div>
+            <div class="post-nav-item" style="text-align:right;" onclick="showToast('下一篇', '即将打开: Three.js Shader 着色器实践')">
+              <span class="post-nav-label">下一篇 <i class="fa-solid fa-arrow-right"></i></span>
+              <span class="post-nav-title">Three.js 自定义顶点着色器流体波浪实战</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- 真实评论区 -->
+        <div class="card comments-wrapper">
+          <div class="section-head">
+            <i class="fa-solid fa-comments section-icon"></i>
+            <span>讨论与交流 (Waline 互动区)</span>
+          </div>
+          <textarea class="comment-input" id="post-comment-input" placeholder="撰写你的技术复盘或疑问... (支持 Markdown 语法)"></textarea>
+          <div class="comment-bar">
+            <span style="font-size:12px; color:var(--text-dim);"><i class="fa-solid fa-markdown"></i> Markdown 格式已就绪</span>
+            <button class="action-btn" onclick="submitComment()">
+              <i class="fa-solid fa-paper-plane"></i>
+              <span>发表评论</span>
+            </button>
+          </div>
+
+          <div class="comments-thread" id="comments-thread">
+            <div class="comment-item">
+              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Avatar" class="comment-avatar">
+              <div class="comment-content-shell">
+                <div class="comment-header">
+                  <div class="comment-author">
+                    <span>Cipher_Fox</span>
+                    <span style="font-size:11px; color:var(--text-dim);">CTFer</span>
+                  </div>
+                  <span class="comment-time">10 分钟前</span>
+                </div>
+                <div class="comment-text">
+                  感谢师傅的详细 WP！本地复现这道 ez_java 时在 Shiro 鉴权链断裂的问题终于找到了，原来是 Filter 顺序的问题。
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 视图 3：归档/时间轴 (Archive View) ================= -->
+      <div class="view-panel" id="view-archive">
+        <div class="archive-header">
+          <div class="section-head" style="margin-bottom:8px;">
+            <i class="fa-solid fa-calendar-days section-icon"></i>
+            <span>文章年历归档 (Timeline Archive)</span>
+          </div>
+          <p style="font-size:13px; color:var(--text-muted);">
+            目前共收录 <strong style="color:var(--accent);">42</strong> 篇深度文章与技术笔记，记录持续进阶的足迹。
+          </p>
+        </div>
+
+        <div class="archive-timeline">
+          <div class="archive-year-group">
+            <div class="archive-year-badge">
+              <i class="fa-regular fa-folder-open" style="color:var(--accent); font-size:18px;"></i>
+              <span>2026 年</span>
+              <span style="font-size:12px; color:var(--text-dim); font-weight:600;">(28 篇)</span>
+            </div>
+            <div class="archive-post-entry" onclick="navigateTo('post')">
+              <span class="archive-entry-title">基于 Rust 构建下一代高性能微服务网关架构实战</span>
+              <span class="archive-entry-date">10-18</span>
+            </div>
+            <div class="archive-post-entry" onclick="navigateTo('post')">
+              <span class="archive-entry-title">多模态大语言模型在软件安全漏洞自动挖掘与修复中的实践探索</span>
+              <span class="archive-entry-date">10-15</span>
+            </div>
+            <div class="archive-post-entry" onclick="navigateTo('post')">
+              <span class="archive-entry-title">2026 羊城杯网络安全初赛 Web 攻防思路与全复盘总结</span>
+              <span class="archive-entry-date">10-12</span>
+            </div>
+            <div class="archive-post-entry" onclick="navigateTo('post')">
+              <span class="archive-entry-title">深入理解现代操作系统：从虚拟内存映射到 eBPF 内核实时观测</span>
+              <span class="archive-entry-date">09-24</span>
+            </div>
+            <div class="archive-post-entry" onclick="navigateTo('post')">
+              <span class="archive-entry-title">Three.js 拓扑曲面与自定义 GLSL 顶点着色器流体实战</span>
+              <span class="archive-entry-date">09-08</span>
+            </div>
+            <div class="archive-post-entry" onclick="navigateTo('post')">
+              <span class="archive-entry-title">从 0 到 1 打造极客风格数字知识花园与双屏工作流折腾记</span>
+              <span class="archive-entry-date">08-20</span>
+            </div>
+          </div>
+
+          <div class="archive-year-group">
+            <div class="archive-year-badge">
+              <i class="fa-regular fa-folder-open" style="color:var(--accent); font-size:18px;"></i>
+              <span>2025 年</span>
+              <span style="font-size:12px; color:var(--text-dim); font-weight:600;">(40 篇)</span>
+            </div>
+            <div class="archive-post-entry" onclick="navigateTo('post')">
+              <span class="archive-entry-title">Java 原生反序列化利用链（CC1-CC7）深度剖析</span>
+              <span class="archive-entry-date">12-04</span>
+            </div>
+            <div class="archive-post-entry" onclick="navigateTo('post')">
+              <span class="archive-entry-title">基于 Raft 协议的轻量分布式 KV 存储系统实现手记</span>
+              <span class="archive-entry-date">09-16</span>
+            </div>
+            <div class="archive-post-entry" onclick="navigateTo('post')">
+              <span class="archive-entry-title">微服务网关鉴权绕过经典案例与加固方案</span>
+              <span class="archive-entry-date">06-21</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 视图 4：关于本人 (About View) ================= -->
+      <div class="view-panel" id="view-about">
+        <div class="about-hero">
+          <img src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80" alt="About Me Cover" class="about-hero-bg">
+          <div class="about-hero-overlay">
+            <div class="breadcrumbs">Page / About / Kael</div>
+            <h1 class="about-hero-title">关于本人 | 全栈工程师 • 科研探索者 • 极客安全</h1>
+            <p style="color:var(--text-muted); font-size:14px;">用工程构建秩序，以好奇探索未知 • Bridging Systems, AI & Security</p>
+          </div>
+        </div>
+
+        <!-- 多元技术定位与工程主张 (4 大支柱) -->
+        <div class="about-manifesto-grid">
+          <div class="manifesto-item">
+            <div class="manifesto-icon-box">
+              <i class="fa-solid fa-code"></i>
+            </div>
+            <div>
+              <div style="font-weight:800; font-size:15px; color:var(--text-hero); margin-bottom:4px;">全栈与系统工程</div>
+              <div style="font-size:13px; color:var(--text-muted); line-height:1.5;">深耕现代 Web 标准、Rust 高性能服务端与分布式架构，追求确定性与零成本抽象。</div>
+            </div>
+          </div>
+
+          <div class="manifesto-item">
+            <div class="manifesto-icon-box">
+              <i class="fa-solid fa-brain"></i>
+            </div>
+            <div>
+              <div style="font-weight:800; font-size:15px; color:var(--text-hero); margin-bottom:4px;">AI 与前沿科研</div>
+              <div style="font-size:13px; color:var(--text-muted); line-height:1.5;">关注多模态大语言模型、自动化漏洞挖掘与机器学习前沿，将学术思考落地为工程工具。</div>
+            </div>
+          </div>
+
+          <div class="manifesto-item">
+            <div class="manifesto-icon-box">
+              <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div>
+              <div style="font-weight:800; font-size:15px; color:var(--text-hero); margin-bottom:4px;">网络安全与攻防</div>
+              <div style="font-size:13px; color:var(--text-muted); line-height:1.5;">活跃于国内外 CTF 赛事与实战攻防演练，沉淀 Web 漏洞挖掘、白盒代码审计与二进制分析。</div>
+            </div>
+          </div>
+
+          <div class="manifesto-item">
+            <div class="manifesto-icon-box">
+              <i class="fa-solid fa-book-bookmark"></i>
+            </div>
+            <div>
+              <div style="font-weight:800; font-size:15px; color:var(--text-hero); margin-bottom:4px;">知识花园与体系沉淀</div>
+              <div style="font-size:13px; color:var(--text-muted); line-height:1.5;">拒绝碎片化浅尝辄止，系统梳理计算机操作系统、网络底层机制，定期输出严谨技术长文。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-head">
+            <i class="fa-solid fa-id-card-clip section-icon"></i>
+            <span>个人背景与定位 (Profile)</span>
+          </div>
+          <p style="font-size:15px; margin-bottom:12px;">
+            我是 <strong>Kael</strong>，一名热爱计算机科学与现代数字建造的软件工程师与研究员。目前致力于高性能系统开发、代码安全审计与人工智能技术在实际生产中的工程化落地。
+          </p>
+          <p style="font-size:13.5px; color:var(--text-muted); margin-bottom:20px;">
+            <i class="fa-solid fa-globe" style="color:var(--accent); margin-right:6px;"></i>
+            语言能力：<strong>简体中文 (母语)</strong>、<strong>English (Professional)</strong>、<strong>日本語 (N3)</strong>。
+          </p>
+
+          <div class="section-head">
+            <i class="fa-solid fa-timeline section-icon"></i>
+            <span>历程与竞赛履历 (Milestones)</span>
+          </div>
+          <div class="timeline-container">
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div class="timeline-date">2026.09 - PRESENT</div>
+              <div class="timeline-title">羊城杯网络安全大赛 • 全国前 10% 决赛入围</div>
+              <div class="timeline-desc">主攻 Web 赛道，负责 Java 反序列化与内存马注入链路挖掘，完成多道高难度靶标 Exploit 编写。</div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div class="timeline-date">2025.03 - 2026.06</div>
+              <div class="timeline-title">安全工程与全栈组件架构实践</div>
+              <div class="timeline-desc">主导微服务鉴权网关重构与 Three.js 数据可视化模块开发，实现 SSR 高性能极速渲染。</div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div class="timeline-date">2024.10</div>
+              <div class="timeline-title">数字极客实验室创立</div>
+              <div class="timeline-desc">专注于前沿漏洞复现、CTF Writeup 沉淀与二次元极客文化技术探索。</div>
+            </div>
+          </div>
+
+          <div class="section-head">
+            <i class="fa-solid fa-desktop section-icon"></i>
+            <span>个人常用操作系统 (Operating Systems)</span>
+          </div>
+          <div class="tech-pill-grid">
+            <div class="tech-pill">
+              <i class="fa-brands fa-windows icon-win"></i>
+              <span>Windows 11 Pro</span>
+            </div>
+            <div class="tech-pill">
+              <i class="fa-brands fa-apple icon-mac"></i>
+              <span>macOS Sequoia</span>
+            </div>
+            <div class="tech-pill">
+              <svg class="icon-arch" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2.5C11.5 3.5 1.5 21.5 1.5 21.5L8.5 20C9.6 17.5 10.9 14.5 12 12C13.1 14.5 14.4 17.5 15.5 20L22.5 21.5C22.5 21.5 12.5 3.5 12 2.5Z"/>
+              </svg>
+              <span>Arch Linux</span>
+            </div>
+            <div class="tech-pill">
+              <i class="fa-brands fa-ubuntu icon-ubuntu"></i>
+              <span>Ubuntu Server</span>
+            </div>
+            <div class="tech-pill">
+              <i class="fa-solid fa-dragon icon-kali"></i>
+              <span>Kali Linux</span>
+            </div>
+          </div>
+
+          <div class="section-head">
+            <i class="fa-solid fa-layer-group section-icon"></i>
+            <span>技能点与技术栈 (My Skill Set)</span>
+          </div>
+          <div class="tech-pill-grid">
+            <div class="tech-pill">
+              <i class="fa-brands fa-python icon-py"></i>
+              <span>Python 3</span>
+            </div>
+            <div class="tech-pill">
+              <i class="fa-brands fa-java icon-java"></i>
+              <span>Java / Spring</span>
+            </div>
+            <div class="tech-pill">
+              <i class="fa-solid fa-cubes icon-three"></i>
+              <span>Three.js / WebGL</span>
+            </div>
+            <div class="tech-pill">
+              <svg class="icon-astro" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8.358 20.162c-1.187-1.41-1.052-3.144-.738-4.807.56-2.956 2.37-5.58 4.38-7.854 2.01 2.274 3.82 4.898 4.38 7.854.314 1.663.449 3.397-.738 4.807-1.258 1.494-3.642 1.838-3.642 1.838s-2.384-.344-3.642-1.838Z"/>
+              </svg>
+              <span>Astro 5</span>
+            </div>
+            <div class="tech-pill">
+              <i class="fa-brands fa-docker icon-docker"></i>
+              <span>Docker</span>
+            </div>
+            <div class="tech-pill">
+              <i class="fa-solid fa-shield-virus" style="color:#ef4444;"></i>
+              <span>Web Penetration</span>
+            </div>
+            <div class="tech-pill">
+              <i class="fa-solid fa-bug" style="color:#10b981;"></i>
+              <span>Binary Reverse</span>
+            </div>
+            <div class="tech-pill">
+              <i class="fa-brands fa-git-alt icon-git"></i>
+              <span>Git CI/CD</span>
+            </div>
+          </div>
+
+          <div class="section-head">
+            <i class="fa-solid fa-microchip section-icon"></i>
+            <span>工作站与硬件装备 (Hardware Setup)</span>
+          </div>
+          <div class="tech-pill-grid" style="margin-bottom:24px;">
+            <div class="tech-pill">
+              <i class="fa-solid fa-laptop" style="color:var(--text-hero);"></i>
+              <span>MacBook Pro 16" M3 Max</span>
+            </div>
+            <div class="tech-pill">
+              <i class="fa-solid fa-server" style="color:#10b981;"></i>
+              <span>HomeLab NAS 32TB</span>
+            </div>
+            <div class="tech-pill">
+              <i class="fa-solid fa-keyboard" style="color:#f59e0b;"></i>
+              <span>HHKB Professional Hybrid</span>
+            </div>
+            <div class="tech-pill">
+              <i class="fa-solid fa-tv" style="color:#38bdf8;"></i>
+              <span>Dell UltraSharp 4K 27"</span>
+            </div>
+          </div>
+
+          <div class="section-head">
+            <i class="fa-solid fa-chart-line section-icon"></i>
+            <span>实时数据监控看板 (Developer Stats)</span>
+          </div>
+          <div class="stats-dashboard">
+            <div class="metric-card">
+              <div class="metric-icon-wrap"><i class="fa-solid fa-code-commit"></i></div>
+              <div>
+                <div class="metric-val">1,248</div>
+                <div class="metric-name">ANNUAL COMMITS</div>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon-wrap"><i class="fa-solid fa-clock"></i></div>
+              <div>
+                <div class="metric-val">840 hrs</div>
+                <div class="metric-name">WAKATIME CODING</div>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon-wrap"><i class="fa-solid fa-trophy"></i></div>
+              <div>
+                <div class="metric-val">Top 10%</div>
+                <div class="metric-name">CTF RANKING</div>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon-wrap"><i class="fa-solid fa-users"></i></div>
+              <div>
+                <div class="metric-val">18.6k</div>
+                <div class="metric-name">TOTAL VISITORS</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-head">
+            <i class="fa-solid fa-gamepad section-icon"></i>
+            <span>游戏状态与兴趣 (Gaming Status)</span>
+          </div>
+          <div class="game-status-box">
+            <span class="osu-badge">Osu! Mania 4K</span>
+            <div style="font-size:13.5px; color:var(--text-main);">
+              <strong>Global Rank:</strong> #24,190 | <strong>Performance Points:</strong> 3,420pp | <strong>Accuracy:</strong> 97.8%
+            </div>
+          </div>
+
+          <div style="text-align:center; padding:18px 0;">
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:12px;">点击下方按钮探索专属博客交互彩蛋：</p>
+            <button class="action-btn" onclick="unlockRandomAchievement()">
+              <i class="fa-solid fa-award"></i>
+              <span>解锁一项隐藏成就！</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 视图 5：伙伴友链 (Friends View) ================= -->
+      <div class="view-panel" id="view-friends">
+        <div class="archive-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+          <div>
+            <div class="section-head" style="margin-bottom:6px;">
+              <i class="fa-solid fa-network-wired section-icon"></i>
+              <span>伙伴网络与友链 (Friends Webring)</span>
+            </div>
+            <p style="font-size:13px; color:var(--text-muted);">
+              连接志同道合的安全极客、开发者与二次元同好。欢迎交换友链！
+            </p>
+          </div>
+          <button class="action-btn" onclick="showToast('友链申请', '已复制博主配置信息，可前往下方表单提交！')">
+            <i class="fa-solid fa-plus"></i>
+            <span>申请加入友链</span>
+          </button>
+        </div>
+
+        <div class="friends-grid">
+          <div class="friend-card" onclick="showToast('友链访问', '即将前往伙伴站点: lrhtony の 小站')">
+            <img src="https://images.unsplash.com/photo-1563089145-599997674d42?w=120&auto=format&fit=crop&q=80" alt="Avatar" class="friend-avatar">
+            <div class="friend-info">
+              <span class="friend-tag">SECURITY / CTF</span>
+              <span class="friend-name">lrhtony 的小站</span>
+              <span class="friend-desc">专注于二进制与 Web 攻防的极客空间</span>
+            </div>
+          </div>
+          <div class="friend-card" onclick="showToast('友链访问', '即将前往伙伴站点: GamerNoTitle')">
+            <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80" alt="Avatar" class="friend-avatar">
+            <div class="friend-info">
+              <span class="friend-tag">DEV & ASTRO</span>
+              <span class="friend-name">GamerNoTitle</span>
+              <span class="friend-desc">The blog of a fameless developer & CTFer</span>
+            </div>
+          </div>
+          <div class="friend-card" onclick="showToast('友链访问', '即将前往伙伴站点: Mak的小破站')">
+            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80" alt="Avatar" class="friend-avatar">
+            <div class="friend-info">
+              <span class="friend-tag">SAKURAIRO GEEK</span>
+              <span class="friend-name">Mak的小破站</span>
+              <span class="friend-desc">探索生活碎片与网络攻防 Writeups</span>
+            </div>
+          </div>
+          <div class="friend-card" onclick="showToast('友链访问', '即将前往伙伴站点: Nebula Labs')">
+            <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80" alt="Avatar" class="friend-avatar">
+            <div class="friend-info">
+              <span class="friend-tag">WEBGL / 3D</span>
+              <span class="friend-name">Nebula Labs</span>
+              <span class="friend-desc">Creative Coding and WebGL Experiences</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-head">
+            <i class="fa-solid fa-file-signature section-icon"></i>
+            <span>本站友链配置信息 (Our Site Info)</span>
+          </div>
+          <div class="code-box" style="margin:0;">
+            <pre class="code-content"><code>站点名称: Kael's Cyber Nexus
+站点链接: https://nexus.kael.dev
+站点描述: 网络安全研究者 • 全栈探险家 • 保持渴望，奔赴山海
+站点图标: https://nexus.kael.dev/avatar.webp</code></pre>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 右侧自适应悬浮目录 TOC -->
+    <aside class="toc-aside">
+      <div class="card" style="padding: 18px 20px;">
+        <div class="widget-title">
+          <i class="fa-solid fa-list-check" style="color:var(--accent);"></i>
+          <span>文章目录 (TOC)</span>
+        </div>
+        <ul class="toc-list">
+          <li><a href="#sec-overview" class="toc-link active">0x01 赛题环境与架构审计</a></li>
+          <li><a href="#sec-java" class="toc-link">0x02 ez_java：Shiro拦截链</a></li>
+          <li><a href="#sec-poc" class="toc-link toc-sub">Payload 构造与验证</a></li>
+        </ul>
+
+        <div style="margin-top:20px; padding-top:14px; border-top:1px solid var(--border-subtle);">
+          <div style="font-size:11px; color:var(--text-dim); font-weight:700; margin-bottom:6px;">阅读进度</div>
+          <div style="width:100%; height:4px; background:var(--bg-glass); border-radius:4px; overflow:hidden;">
+            <div id="read-progress" style="width:35%; height:100%; background:var(--accent); transition:width 0.2s;"></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- 全局搜索模态框 (⌘K 唤起) -->
+  <div class="search-modal-backdrop" id="search-modal-backdrop">
+    <div class="search-modal">
+      <div class="search-input-wrap">
+        <i class="fa-solid fa-magnifying-glass" style="color:var(--accent); font-size:16px;"></i>
+        <input type="text" class="search-input" id="search-modal-input" placeholder="键入关键词搜索文章、标签或技术主题...">
+        <span class="search-kbd" id="search-close-btn" style="cursor:pointer;">ESC</span>
+      </div>
+      <div class="search-results-list" id="search-results-list"></div>
+    </div>
+  </div>
+
+  <!-- 成就解锁弹窗容器 (Toast) -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- 页脚 -->
+  <footer>
+    <p>Project Lumine-Kira-Sakura Fusion • Built with Astro 5 & Three.js 3D Acceleration</p>
+    <p>© 2024 - 2026 Kael_Dev. Modern Web Standards • 萌ICP备20260001号</p>
+  </footer>
+
+  <!-- 交互逻辑、数据层与全新升级的 Three.js 拓扑波浪引擎 -->
+  <script>
+    // -------------------------------------------------------------
+    // 0. 模拟本地文章数据层
+    // -------------------------------------------------------------
+    const ARTICLES_DB = [
+      {
+        id: 'rust-gateway-2026',
+        title: '基于 Rust 构建下一代高性能微服务网关架构实战',
+        date: '2026-10-18',
+        category: '软件工程与架构',
+        tags: ['Rust', 'Tokio', '微服务', '高性能'],
+        views: '2,420',
+        cover: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80',
+        excerpt: '探讨异步运行时 Tokio、零拷贝流式转发以及基于 SIMD 加速的 HTTP 路由匹配算法在实际生产中的压测调优。'
+      },
+      {
+        id: 'ai-vuln-repair-2026',
+        title: '多模态大语言模型在软件安全漏洞自动挖掘与修复中的实践探索',
+        date: '2026-10-15',
+        category: 'AI 与前沿科研',
+        tags: ['大模型', '代码审计', '科研', 'AI安全'],
+        views: '1,890',
+        cover: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&auto=format&fit=crop&q=80',
+        excerpt: '系统性梳理基于上下文学习与代码属性图（CPG）引导的智能漏洞修复实验设计，对比基准数据集的准确率表现。'
+      },
+      {
+        id: 'ycb-2026',
+        title: '2026 羊城杯网络安全初赛 Web 攻防思路与全复盘总结',
+        date: '2026-10-12',
+        category: '极客安全与攻防',
+        tags: ['CTF', 'Shiro', '内存马', 'Java安全'],
+        views: '3,180',
+        cover: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80',
+        excerpt: '涵盖 Shiro 鉴权绕过链条、Fastjson 原生利用以及 Spring Boot 内存马注入的完整全流程攻击复盘解析。'
+      },
+      {
+        id: 'os-ebpf-tracing',
+        title: '深入理解现代操作系统：从虚拟内存映射到 eBPF 内核实时观测',
+        date: '2026-09-24',
+        category: '计算机体系笔记',
+        tags: ['Linux内核', 'eBPF', '虚拟内存', '系统底层'],
+        views: '1,450',
+        cover: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
+        excerpt: '从页表遍历、缺页异常处理机制切入，详解如何利用 eBPF 无侵入探测用户态应用在内核态的系统调用与 I/O 延迟瓶颈。'
+      },
+      {
+        id: 'threejs-shader',
+        title: 'Three.js 拓扑曲面与自定义 GLSL 顶点着色器流体实战',
+        date: '2026-09-08',
+        category: '软件工程与架构',
+        tags: ['Three.js', 'WebGL', 'GLSL', '前端'],
+        views: '1,120',
+        cover: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&auto=format&fit=crop&q=80',
+        excerpt: '探究 GLSL 顶点着色器与柏林噪声在三维地形生成中的数学原理，实现丝滑流畅的 WebGL 赛博波浪与引力扰动交互。'
+      },
+      {
+        id: 'desk-productivity-2026',
+        title: '从 0 到 1 打造极客风格数字知识花园与双屏工作流折腾记',
+        date: '2026-08-20',
+        category: '生活随笔与杂项',
+        tags: ['工作流', 'Obsidian', '生产力', '随笔'],
+        views: '2,050',
+        cover: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80',
+        excerpt: '分享两年来基于 Markdown、GitOps 自动化以及 macOS 多屏终端打造沉浸式极客开发环境的经验与硬件清单总结。'
+      }
+    ];
+
+    function renderHomeArticles() {
+      const container = document.getElementById('home-post-list');
+      if (!container) return;
+      container.innerHTML = ARTICLES_DB.map(post => `
+        <div class="post-card-item" onclick="openArticleDetail('${post.id}')">
+          <div class="post-card-thumb-wrap">
+            <img src="${post.cover}" alt="${post.title}" class="post-card-thumb" loading="lazy">
+          </div>
+          <div class="post-card-body">
+            <div class="post-card-meta">
+              <span class="post-card-meta-tag">${post.category}</span>
+              <span><i class="fa-regular fa-calendar"></i> ${post.date}</span>
+              <span><i class="fa-solid fa-eye"></i> ${post.views}</span>
+            </div>
+            <h3 class="post-card-title">${post.title}</h3>
+            <p class="post-card-excerpt">${post.excerpt}</p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openArticleDetail(id) {
+      const post = ARTICLES_DB.find(p => p.id === id);
+      if (post) {
+        document.getElementById('article-detail-title').innerText = post.title;
+      }
+      navigateTo('post');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // -------------------------------------------------------------
+    // 1. 全流程路由导航系统 (SPA Router)
+    // -------------------------------------------------------------
+    const VIEW_NAMES = ['home', 'post', 'archive', 'friends', 'about'];
+    let currentView = 'home';
+
+    function updateNavSlider(activeBtn) {
+      const slider = document.getElementById('nav-slider');
+      if (!slider || !activeBtn) return;
+      slider.style.width = activeBtn.offsetWidth + 'px';
+      slider.style.transform = `translateX(${activeBtn.offsetLeft - 3}px)`;
+    }
+
+    function navigateTo(viewName) {
+      if (!VIEW_NAMES.includes(viewName)) viewName = 'home';
+      currentView = viewName;
+
+      VIEW_NAMES.forEach(v => {
+        const panel = document.getElementById(`view-${v}`);
+        const btn = document.getElementById(`btn-nav-${v}`);
+        if (panel) panel.classList.toggle('active', v === viewName);
+        if (btn) btn.classList.toggle('active', v === viewName);
+      });
+
+      const activeBtn = document.getElementById(`btn-nav-${viewName}`);
+      if (activeBtn) updateNavSlider(activeBtn);
+
+      const tocAside = document.querySelector('.toc-aside');
+      if (tocAside) {
+        tocAside.style.display = (viewName === 'post') ? 'block' : 'none';
+      }
+
+      if (viewName === 'about' && typeof resizeCoreCanvas === 'function') {
+        setTimeout(resizeCoreCanvas, 50);
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function filterArchive(keyword) {
+      navigateTo('archive');
+      showToast('归档过滤', `已筛选与【${keyword}】相关的技术文章`);
+    }
+
+    window.addEventListener('load', () => {
+      renderHomeArticles();
+      setTimeout(() => {
+        const loader = document.getElementById('site-loader');
+        if (loader) loader.classList.add('hidden');
+        const homeBtn = document.getElementById('btn-nav-home');
+        if (homeBtn) updateNavSlider(homeBtn);
+      }, 650);
+    });
+
+    window.addEventListener('resize', () => {
+      const activeBtn = document.getElementById(`btn-nav-${currentView}`);
+      if (activeBtn) updateNavSlider(activeBtn);
+    });
+
+    // -------------------------------------------------------------
+    // 2. 全局搜索模态框逻辑
+    // -------------------------------------------------------------
+    const searchModal = document.getElementById('search-modal-backdrop');
+    const btnOpenSearch = document.getElementById('btn-open-search');
+    const searchCloseBtn = document.getElementById('search-close-btn');
+    const searchInput = document.getElementById('search-modal-input');
+    const searchList = document.getElementById('search-results-list');
+
+    function openSearchModal() {
+      searchModal.classList.add('show');
+      renderSearchResults('');
+      setTimeout(() => searchInput.focus(), 50);
+      showToast('快捷检索已唤起', '支持全文关键词模糊匹配，按 ESC 关闭', 'fa-solid fa-magnifying-glass');
+    }
+    function closeSearchModal() {
+      searchModal.classList.remove('show');
+    }
+
+    function renderSearchResults(keyword) {
+      if (!searchList) return;
+      const kw = keyword.trim().toLowerCase();
+      const filtered = ARTICLES_DB.filter(a => 
+        !kw || a.title.toLowerCase().includes(kw) || a.excerpt.toLowerCase().includes(kw) || a.tags.some(t => t.toLowerCase().includes(kw))
+      );
+
+      if (filtered.length === 0) {
+        searchList.innerHTML = `<div style="padding:20px; text-align:center; color:var(--text-dim); font-size:13px;">未找到匹配的技术文章</div>`;
+        return;
+      }
+
+      searchList.innerHTML = filtered.map(item => `
+        <div class="search-result-item" onclick="openArticleDetail('${item.id}'); closeSearchModal();">
+          <div>
+            <div style="font-weight:700; color:var(--text-hero);">${item.title}</div>
+            <div style="font-size:12px; color:var(--text-dim);">${item.category} • ${item.date}</div>
+          </div>
+          <span style="font-size:11px; color:var(--accent);"><i class="fa-solid fa-arrow-right"></i></span>
+        </div>
+      `).join('');
+    }
+
+    btnOpenSearch.addEventListener('click', openSearchModal);
+    searchCloseBtn.addEventListener('click', closeSearchModal);
+    searchModal.addEventListener('click', (e) => {
+      if (e.target === searchModal) closeSearchModal();
+    });
+    searchInput.addEventListener('input', (e) => renderSearchResults(e.target.value));
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchModal.classList.contains('show') ? closeSearchModal() : openSearchModal();
+      }
+      if (e.key === 'Escape' && searchModal.classList.contains('show')) {
+        closeSearchModal();
+      }
+    });
+
+    // -------------------------------------------------------------
+    // 3. 评论发表系统
+    // -------------------------------------------------------------
+    function submitComment() {
+      const input = document.getElementById('post-comment-input');
+      const val = input.value.trim();
+      if (!val) {
+        showToast('提交提示', '评论内容不能为空！', 'fa-solid fa-circle-exclamation');
+        return;
+      }
+
+      const thread = document.getElementById('comments-thread');
+      const newComment = document.createElement('div');
+      newComment.className = 'comment-item';
+      newComment.innerHTML = `
+        <img src="https://images.unsplash.com/photo-1578632767115-351597cf2477?w=100&auto=format&fit=crop&q=80" alt="Avatar" class="comment-avatar">
+        <div class="comment-content-shell">
+          <div class="comment-header">
+            <div class="comment-author">
+              <span>访客极客</span>
+              <span class="author-badge">GUEST</span>
+            </div>
+            <span class="comment-time">刚刚</span>
+          </div>
+          <div class="comment-text">${val}</div>
+        </div>
+      `;
+      thread.prepend(newComment);
+      input.value = '';
+      showToast('评论发表成功', '你的留言已安全发布并展示在互动流中！', 'fa-solid fa-circle-check');
+    }
+
+    // -------------------------------------------------------------
+    // 4. 【重构升级】Three.js 3D 拓扑引力波浪曲面背景 (双模式深度显色)
+    // -------------------------------------------------------------
+    let bgScene, bgCamera, bgRenderer;
+    let wavePlaneMesh, wavePointsMesh;
+    let waveGeometry;
+    let is3dBgEnabled = true;
+    let waveTime = 0;
+    let mouseWorldPos = { x: 0, y: 0 };
+
+    const GRID_X = 64;
+    const GRID_Y = 64;
+    const PLANE_WIDTH = 2400;
+    const PLANE_HEIGHT = 2000;
+
+    function getThemeAccentHex() {
+      const isDark = document.documentElement.dataset.theme === 'dark';
+      const accent = document.documentElement.dataset.accent;
+      const map = {
+        cyberblue: isDark ? 0x38bdf8 : 0x0284c7,
+        neoncyan: isDark ? 0x34d399 : 0x059669,
+        violet: isDark ? 0x818cf8 : 0x6366f1,
+        lumine: isDark ? 0xfbbf24 : 0xd97706
+      };
+      return map[accent] || (isDark ? 0x38bdf8 : 0x0284c7);
+    }
+
+    function initThreeBackground() {
+      const canvas = document.getElementById('three-bg-canvas');
+      bgScene = new THREE.Scene();
+
+      // 广角透视倾斜视角，营造俯瞰赛博大地的深邃感
+      bgCamera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 10, 3000);
+      bgCamera.position.set(0, -680, 520);
+      bgCamera.lookAt(0, 80, 0);
+
+      bgRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      bgRenderer.setSize(window.innerWidth, window.innerHeight);
+      bgRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      // 构建 3D 拓扑波浪网格曲面
+      waveGeometry = new THREE.PlaneBufferGeometry(PLANE_WIDTH, PLANE_HEIGHT, GRID_X - 1, GRID_Y - 1);
+      
+      const isDark = document.documentElement.dataset.theme === 'dark';
+      const currentHex = getThemeAccentHex();
+
+      // 1. 拓扑网格线框材质 (浅色模式下采用高清晰度的天青蓝，线条极其鲜明)
+      const wireMat = new THREE.MeshBasicMaterial({
+        color: currentHex,
+        wireframe: true,
+        transparent: true,
+        opacity: isDark ? 0.38 : 0.55
+      });
+      wavePlaneMesh = new THREE.Mesh(waveGeometry, wireMat);
+      bgScene.add(wavePlaneMesh);
+
+      // 2. 拓扑节点光点 (在每个网格交叉点布设微光粒子)
+      const pointMat = new THREE.PointsMaterial({
+        color: currentHex,
+        size: isDark ? 3.0 : 3.6,
+        transparent: true,
+        opacity: isDark ? 0.75 : 0.65,
+        blending: isDark ? THREE.AdditiveBlending : THREE.NormalBlending
+      });
+      wavePointsMesh = new THREE.Points(waveGeometry, pointMat);
+      bgScene.add(wavePointsMesh);
+
+      window.addEventListener('mousemove', (e) => {
+        const nx = (e.clientX / window.innerWidth) * 2 - 1;
+        const ny = -(e.clientY / window.innerHeight) * 2 + 1;
+        mouseWorldPos.x = nx * 500;
+        mouseWorldPos.y = ny * 350;
+      });
+
+      window.addEventListener('resize', () => {
+        bgCamera.aspect = window.innerWidth / window.innerHeight;
+        bgCamera.updateProjectionMatrix();
+        bgRenderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+
+    function animateThreeBackground() {
+      requestAnimationFrame(animateThreeBackground);
+      if (!is3dBgEnabled || !waveGeometry) return;
+
+      waveTime += 0.02;
+      const pos = waveGeometry.attributes.position;
+      const count = pos.count;
+
+      for (let i = 0; i < count; i++) {
+        const u = (i % GRID_X) / GRID_X;
+        const v = Math.floor(i / GRID_X) / GRID_Y;
+
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+
+        // 结合正弦波与余弦波产生起伏自然的多重流体波动
+        const wave1 = Math.sin(u * 9 + waveTime) * 36;
+        const wave2 = Math.cos(v * 7 + waveTime * 1.2) * 28;
+        const wave3 = Math.sin((u + v) * 5 + waveTime * 0.8) * 22;
+
+        // 鼠标位置周围产生引力扰动凹陷/隆起
+        const distToMouse = Math.hypot(x - mouseWorldPos.x, y - mouseWorldPos.y);
+        const ripple = Math.max(0, 1 - distToMouse / 450) * Math.sin(distToMouse * 0.05 - waveTime * 4) * 35;
+
+        pos.setZ(i, wave1 + wave2 + wave3 + ripple);
+      }
+
+      pos.needsUpdate = true;
+      bgRenderer.render(bgScene, bgCamera);
+    }
+
+    initThreeBackground();
+    animateThreeBackground();
+
+    // -------------------------------------------------------------
+    // 5. 主题色与 3D 拓扑曲面材质全流程联动更新
+    // -------------------------------------------------------------
+    function updateAllThreeColors() {
+      const hex = getThemeAccentHex();
+      const isDark = document.documentElement.dataset.theme === 'dark';
+
+      // 更新背景拓扑曲面材质
+      if (wavePlaneMesh) {
+        wavePlaneMesh.material.color.setHex(hex);
+        wavePlaneMesh.material.opacity = isDark ? 0.38 : 0.55;
+      }
+      if (wavePointsMesh) {
+        wavePointsMesh.material.color.setHex(hex);
+        wavePointsMesh.material.blending = isDark ? THREE.AdditiveBlending : THREE.NormalBlending;
+        wavePointsMesh.material.opacity = isDark ? 0.75 : 0.65;
+        wavePointsMesh.material.size = isDark ? 3.0 : 3.6;
+      }
+    }
+
+    const btnPalette = document.getElementById('btn-palette');
+    const paletteDropdown = document.getElementById('palette-dropdown');
+    btnPalette.addEventListener('click', (e) => {
+      e.stopPropagation();
+      paletteDropdown.classList.toggle('show');
+    });
+    document.addEventListener('click', () => paletteDropdown.classList.remove('show'));
+
+    document.querySelectorAll('.swatch').forEach(swatch => {
+      swatch.addEventListener('click', () => {
+        document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+        swatch.classList.add('selected');
+        const accent = swatch.dataset.accent;
+        document.documentElement.dataset.accent = accent;
+        localStorage.setItem('blog-accent', accent);
+        updateAllThreeColors();
+        showToast('主题色已更换', `切换为 ${swatch.title}`);
+      });
+    });
+
+    document.getElementById('chk-3d-bg').addEventListener('change', (e) => {
+      is3dBgEnabled = e.target.checked;
+      const canvas = document.getElementById('three-bg-canvas');
+      canvas.style.display = is3dBgEnabled ? 'block' : 'none';
+      showToast('3D 引擎设置', is3dBgEnabled ? '已启用 3D 拓扑引力波浪' : '已暂停 3D 背景');
+    });
+
+    // -------------------------------------------------------------
+    // 6. 系统自适应与手动明暗主题切换
+    // -------------------------------------------------------------
+    const btnThemeToggle = document.getElementById('btn-theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+
+    function syncThemeIcon() {
+      const isDark = document.documentElement.dataset.theme === 'dark';
+      themeIcon.className = isDark ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+    }
+    syncThemeIcon();
+
+    btnThemeToggle.addEventListener('click', () => {
+      const isDark = document.documentElement.dataset.theme === 'dark';
+      const newTheme = isDark ? 'light' : 'dark';
+      document.documentElement.dataset.theme = newTheme;
+      localStorage.setItem('blog-theme', newTheme);
+      syncThemeIcon();
+      updateAllThreeColors();
+      showToast('视觉模式切换', `已切换至 ${newTheme === 'light' ? '清爽浅色' : '深邃暗夜'} 模式`);
+    });
+
+    // 监听系统级深浅模式改变事件 (当用户未手动锁死偏好时实时跟随)
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        if (!localStorage.getItem('blog-theme')) {
+          const sysTheme = e.matches ? 'dark' : 'light';
+          document.documentElement.dataset.theme = sysTheme;
+          syncThemeIcon();
+          updateAllThreeColors();
+          showToast('系统主题联动', `自动同步系统为 ${sysTheme === 'dark' ? '深色' : '浅色'} 模式`);
+        }
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 8. 代码一键复制
+    // -------------------------------------------------------------
+    function copyCode(btn) {
+      const code = btn.closest('.code-box').querySelector('code').innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        const text = btn.querySelector('span');
+        text.innerText = 'Copied!';
+        btn.style.background = 'var(--accent)';
+        btn.style.color = 'var(--accent-contrast)';
+        setTimeout(() => {
+          text.innerText = 'Copy Code';
+          btn.style.background = '';
+          btn.style.color = '';
+        }, 2000);
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 9. 成就系统 Toast 弹窗
+    // -------------------------------------------------------------
+    const achievements = [
+      { name: "初来乍到", desc: "首次探索 Kael 的赛博空间", icon: "fa-solid fa-seedling" },
+      { name: "硬核极客", desc: "仔细阅读了一篇完整的 CTF Writeup", icon: "fa-solid fa-shield-halved" },
+      { name: "调色大师", desc: "在控制台中定制专属主题色与 3D 渲染", icon: "fa-solid fa-palette" },
+      { name: "博览群书", desc: "探索了全栈工程、前沿科研与攻防长文", icon: "fa-solid fa-book-open" },
+      { name: "全栈旅人", desc: "探访了全部系统矩阵与开发装备清单", icon: "fa-solid fa-rocket" }
+    ];
+    let achIndex = 0;
+
+    function unlockRandomAchievement() {
+      const ach = achievements[achIndex % achievements.length];
+      achIndex++;
+      showToast(`成就解锁：${ach.name}`, ach.desc, ach.icon);
+    }
+
+    function showToast(title, desc, iconClass = "fa-solid fa-trophy") {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'achievement-toast';
+      toast.innerHTML = `
+        <div style="font-size:22px; color:var(--accent);"><i class="${iconClass}"></i></div>
+        <div>
+          <div style="font-size:13.5px; font-weight:800; color:var(--text-hero);">${title}</div>
+          <div style="font-size:12px; color:var(--text-dim);">${desc}</div>
+        </div>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+        toast.style.transition = 'all 0.4s ease';
+        setTimeout(() => toast.remove(), 400);
+      }, 3500);
+    }
+
+    // -------------------------------------------------------------
+    // 10. 滚动监听与阅读进度条
+    // -------------------------------------------------------------
+    window.addEventListener('scroll', () => {
+      const scrollY = window.scrollY;
+      const totalH = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = totalH > 0 ? (scrollY / totalH) * 100 : 0;
+      const bar = document.getElementById('read-progress');
+      if (bar) bar.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+    });
+  </script>
+</body>
+</html>

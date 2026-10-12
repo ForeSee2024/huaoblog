@@ -1,0 +1,29 @@
+---
+// ThemeScript.astro: 零闪烁系统级主题自适应探测与响应脚本
+---
+<script is:inline>
+  (function() {
+    // 1. 初始化主题模式 (优先读取本地偏好，否则自动跟随系统偏好)
+    const savedTheme = localStorage.getItem('blog-theme');
+    let targetTheme = savedTheme;
+    if (!targetTheme) {
+      targetTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+    }
+    document.documentElement.setAttribute('data-theme', targetTheme);
+
+    // 2. 初始化强调色 (默认 cyberblue 科技蓝)
+    const savedAccent = localStorage.getItem('blog-accent') || 'cyberblue';
+    document.documentElement.setAttribute('data-accent', savedAccent);
+
+    // 3. 监听系统级模式变更 (当用户未手动强制指定时实时无缝同步)
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        if (!localStorage.getItem('blog-theme')) {
+          const sysTheme = e.matches ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', sysTheme);
+          window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: sysTheme } }));
+        }
+      });
+    }
+  })();
+</script>

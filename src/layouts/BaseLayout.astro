@@ -1,0 +1,66 @@
+---
+// BaseLayout.astro: 全站通用基础布局
+import ThemeScript from '../components/common/ThemeScript.astro';
+import ThreeWaveBg from '../components/common/ThreeWaveBg.astro';
+import HeaderNav from '../components/layout/HeaderNav.astro';
+import SearchModal from '../components/common/SearchModal.astro';
+import Toast from '../components/common/Toast.astro';
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = "Kael's Cyber Nexus | 全栈开发 • 学术科研 • 极客安全 • 数字空间",
+  description = "融合 Lumine 交互、Kira 双栏格局与 Sakurairo 极客动效的现代个人技术空间。"
+} = Astro.props;
+
+const currentPath = Astro.url.pathname;
+---
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark" data-accent="cyberblue">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+
+  <!-- 免闪烁系统自适应深浅主题与强调色探测 -->
+  <ThemeScript />
+
+  <!-- 现代字体体系与专业矢量图标库 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600;700;900&family=Cinzel:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body class="selection:bg-[var(--accent)] selection:text-[var(--accent-contrast)]">
+  
+  <!-- 辅助工程网格层与 Three.js 3D 拓扑波浪画布 -->
+  <div class="bg-grid-layer"></div>
+  <ThreeWaveBg />
+
+  <!-- 顶部悬浮胶囊导航 -->
+  <div data-pagefind-ignore>
+    <HeaderNav currentPath={currentPath} />
+  </div>
+
+  <!-- 主体工作区容器 -->
+  <div class="relative z-10 max-w-7xl mx-auto px-4 pt-24 pb-16 min-h-screen">
+    <slot />
+  </div>
+
+  <!-- 全局检索模态框与通知 Toast -->
+  <SearchModal />
+  <Toast />
+
+  <!-- 极客页脚 -->
+  <footer data-pagefind-ignore class="relative z-10 text-center py-8 border-t border-[var(--border-subtle)] text-xs text-[var(--text-dim)]">
+    <p class="mb-1.5 font-medium">Project Lumine-Kira-Sakura Fusion • Built with Astro 5 & Three.js 3D Acceleration</p>
+    <p>© 2024 - 2026 Kael_Dev. Modern Web Standards • 萌ICP备20260001号</p>
+  </footer>
+
+</body>
+</html>

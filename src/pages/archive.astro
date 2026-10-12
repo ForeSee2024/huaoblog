@@ -1,0 +1,75 @@
+---
+// archive.astro: 年份时间轴归档页 (过滤草稿与未来日期，移动端优先排布)
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Sidebar from '../components/layout/Sidebar.astro';
+import { getPublishedPosts } from '../utils/posts';
+
+const sortedPosts = await getPublishedPosts();
+
+// 按年份分组
+const postsByYear = sortedPosts.reduce((acc, post) => {
+  const year = post.data.pubDate.getFullYear().toString();
+  if (!acc[year]) acc[year] = [];
+  acc[year].push(post);
+  return acc;
+}, {} as Record<string, typeof sortedPosts>);
+
+const years = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
+---
+<BaseLayout title="文章归档 | Kael's Cyber Nexus">
+  <div class="flex flex-col lg:flex-row gap-8 items-start">
+    
+    <Sidebar totalPosts={sortedPosts.length} />
+
+    <main class="w-full lg:flex-1 flex flex-col gap-6 min-w-0 order-1 lg:order-2">
+      
+      <div class="cyber-card p-6 md:p-8">
+        <div class="flex items-center gap-2 text-xs font-mono text-[var(--accent)] mb-2">
+          <i class="fa-solid fa-timeline"></i>
+          <span>TIMELINE ARCHIVE</span>
+        </div>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-[var(--text-hero)] mb-2">
+          文章年历归档
+        </h1>
+        <p class="text-xs md:text-sm text-[var(--text-muted)] mb-8">
+          目前共收录 <strong class="text-[var(--accent)]">{sortedPosts.length}</strong> 篇深度文章与技术笔记，记录持续进阶的足迹。
+        </p>
+
+        <!-- 年份树时间轴 -->
+        <div class="flex flex-col gap-8 relative border-l-2 border-[var(--border-subtle)] ml-4 pl-6">
+          {years.map(year => (
+            <div class="flex flex-col gap-3">
+              <!-- 年份节点徽章 -->
+              <div class="relative flex items-center gap-2 text-lg font-extrabold text-[var(--text-hero)] -ml-[33px]">
+                <div class="w-4 h-4 rounded-full bg-[var(--accent)] shadow-[0_0_10px_var(--accent-glow)] flex-shrink-0"></div>
+                <span>{year} 年</span>
+                <span class="text-xs font-mono text-[var(--text-dim)]">({postsByYear[year].length} 篇)</span>
+              </div>
+
+              <!-- 当年文章条目 -->
+              <div class="flex flex-col gap-2 mt-1">
+                {postsByYear[year].map(post => {
+                  const monthDay = post.data.pubDate.toISOString().slice(5, 10);
+                  return (
+                    <a 
+                      href={`/posts/${post.slug}`} 
+                      class="flex items-center justify-between p-3 rounded-xl bg-[var(--bg-glass)] hover:bg-[var(--accent-soft)] border border-transparent hover:border-[var(--accent)] transition-all no-underline group"
+                    >
+                      <span class="text-xs md:text-sm font-semibold text-[var(--text-main)] group-hover:text-[var(--accent)] transition-colors truncate pr-4">
+                        {post.data.title}
+                      </span>
+                      <span class="font-mono text-xs text-[var(--text-dim)] flex-shrink-0">
+                        {monthDay}
+                      </span>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+    </main>
+  </div>
+</BaseLayout>

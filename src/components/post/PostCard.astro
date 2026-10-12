@@ -1,0 +1,78 @@
+---
+// PostCard.astro: 文章卡片组件
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  post: CollectionEntry<'posts'>;
+}
+
+const { post } = Astro.props;
+const { title, description, pubDate, category, tags, views, coverImage, extraMeta } = post.data;
+
+// 格式化日期为 YYYY-MM-DD
+const dateStr = pubDate.toISOString().split('T')[0];
+---
+<article class="cyber-card flex flex-col md:flex-row overflow-hidden group cursor-pointer">
+  <!-- 封面缩略图 -->
+  {coverImage && (
+    <div class="relative w-full md:w-64 h-48 md:h-auto overflow-hidden flex-shrink-0 bg-[var(--bg-surface-elevated)]">
+      <img 
+        src={coverImage} 
+        alt={title} 
+        class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        loading="lazy"
+      />
+      <div class="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-[var(--bg-card)] via-transparent to-transparent opacity-60"></div>
+    </div>
+  )}
+
+  <!-- 卡片内容体 -->
+  <div class="p-5 md:p-6 flex flex-col justify-between flex-grow">
+    <div>
+      <!-- 元数据药丸栏 -->
+      <div class="flex flex-wrap items-center gap-2 mb-2 text-xs">
+        <span class="px-2.5 py-0.5 rounded-md font-bold bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--border-subtle)]">
+          {category}
+        </span>
+        <span class="text-[var(--text-dim)] flex items-center gap-1 font-mono">
+          <i class="fa-regular fa-calendar text-[10px]"></i>
+          {dateStr}
+        </span>
+        <span class="text-[var(--text-dim)] flex items-center gap-1 font-mono">
+          <i class="fa-solid fa-eye text-[10px]"></i>
+          {views}
+        </span>
+        {extraMeta?.difficulty && (
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--bg-surface-elevated)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
+            难度: {extraMeta.difficulty}
+          </span>
+        )}
+      </div>
+
+      <!-- 标题 -->
+      <h3 class="text-base md:text-lg font-bold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors leading-snug mb-2">
+        <a href={`/posts/${post.slug}`} class="no-underline text-inherit">
+          {title}
+        </a>
+      </h3>
+
+      <!-- 摘要 -->
+      <p class="text-xs md:text-sm text-[var(--text-muted)] line-clamp-2 leading-relaxed mb-4">
+        {description}
+      </p>
+    </div>
+
+    <!-- 底部标签与阅读箭头 -->
+    <div class="flex items-center justify-between pt-3 border-t border-[var(--border-subtle)] text-xs">
+      <div class="flex flex-wrap gap-1.5">
+        {tags.slice(0, 3).map(tag => (
+          <span class="text-[11px] text-[var(--text-dim)] font-medium">#{tag}</span>
+        ))}
+      </div>
+      <a href={`/posts/${post.slug}`} class="flex items-center gap-1 font-bold text-[var(--accent)] no-underline group-hover:translate-x-1 transition-transform">
+        <span>阅读全文</span>
+        <i class="fa-solid fa-arrow-right text-[10px]"></i>
+      </a>
+    </div>
+  </div>
+</article>

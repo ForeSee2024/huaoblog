@@ -1,0 +1,98 @@
+---
+// posts/index.astro: 全部技术博文列表 (统一五大知识板块与移动端优先)
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Sidebar from '../../components/layout/Sidebar.astro';
+import PostCard from '../../components/post/PostCard.astro';
+import { getPublishedPosts } from '../../utils/posts';
+
+const sortedPosts = await getPublishedPosts();
+
+const categories = [
+  '全部',
+  '软件工程与系统',
+  'AI 与前沿科研',
+  '极客安全与攻防',
+  '计算机体系沉淀',
+  '生活随笔与杂项'
+];
+---
+<BaseLayout title="技术博文 | Kael's Cyber Nexus">
+  <div class="flex flex-col lg:flex-row gap-8 items-start">
+    
+    <Sidebar totalPosts={sortedPosts.length} />
+
+    <main class="w-full lg:flex-1 flex flex-col gap-6 min-w-0 order-1 lg:order-2">
+      
+      <!-- 页面头部标题与分类过滤器 -->
+      <div class="cyber-card p-6">
+        <div class="flex items-center gap-2 text-xs font-mono text-[var(--accent)] mb-2">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>KNOWLEDGE MATRIX</span>
+        </div>
+        <h1 class="text-2xl font-extrabold text-[var(--text-hero)] mb-4">
+          技术博文专栏
+        </h1>
+
+        <!-- 分类过滤药丸按钮 -->
+        <div class="flex flex-wrap gap-2 text-xs" id="category-filter-bar">
+          {categories.map((cat, idx) => (
+            <button 
+              class:list={[
+                "px-3 py-1.5 rounded-full font-bold border transition-colors cursor-pointer",
+                idx === 0 
+                  ? "bg-[var(--accent)] text-[var(--accent-contrast)] border-[var(--accent)]" 
+                  : "bg-[var(--bg-glass)] text-[var(--text-muted)] border-[var(--border-subtle)] hover:border-[var(--accent)] hover:text-[var(--text-hero)]"
+              ]}
+              data-category={cat}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <!-- 文章列表 -->
+      <div class="flex flex-col gap-4" id="posts-container">
+        {sortedPosts.map(post => (
+          <div class="post-item-wrap" data-category={post.data.category}>
+            <PostCard post={post} />
+          </div>
+        ))}
+      </div>
+
+    </main>
+  </div>
+</BaseLayout>
+
+<script>
+  const filterBtns = document.querySelectorAll('#category-filter-bar button');
+  const postItems = document.querySelectorAll('.post-item-wrap');
+
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      filterBtns.forEach(b => {
+        b.className = "px-3 py-1.5 rounded-full font-bold border transition-colors cursor-pointer bg-[var(--bg-glass)] text-[var(--text-muted)] border-[var(--border-subtle)] hover:border-[var(--accent)] hover:text-[var(--text-hero)]";
+      });
+      btn.className = "px-3 py-1.5 rounded-full font-bold border transition-colors cursor-pointer bg-[var(--accent)] text-[var(--accent-contrast)] border-[var(--accent)]";
+
+      const selectedCat = (btn as HTMLElement).dataset.category;
+      postItems.forEach(item => {
+        const itemCat = (item as HTMLElement).dataset.category;
+        if (selectedCat === '全部' || selectedCat === itemCat) {
+          (item as HTMLElement).style.display = 'block';
+        } else {
+          (item as HTMLElement).style.display = 'none';
+        }
+      });
+    });
+  });
+
+  const params = new URLSearchParams(window.location.search);
+  const targetCat = params.get('cat');
+  if (targetCat) {
+    const targetBtn = Array.from(filterBtns).find(b => (b as HTMLElement).dataset.category === targetCat);
+    if (targetBtn) {
+      (targetBtn as HTMLButtonElement).click();
+    }
+  }
+</script>

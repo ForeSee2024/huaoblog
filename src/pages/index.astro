@@ -1,0 +1,79 @@
+---
+// index.astro: 博客主页 (移动端优先文章直现，过滤草稿与未来文章)
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Sidebar from '../components/layout/Sidebar.astro';
+import PostCard from '../components/post/PostCard.astro';
+import { getPublishedPosts } from '../utils/posts';
+
+const sortedPosts = await getPublishedPosts();
+---
+<BaseLayout>
+  <div class="flex flex-col lg:flex-row gap-8 items-start">
+    
+    <!-- 左侧常驻侧边栏 (移动端后置显示) -->
+    <Sidebar totalPosts={sortedPosts.length} />
+
+    <!-- 右侧主体内容流 (移动端 order-1 优先第一屏呈现) -->
+    <main class="w-full lg:flex-1 flex flex-col gap-6 min-w-0 order-1 lg:order-2">
+      
+      <!-- 主页 Hero 引言卡 -->
+      <div class="cyber-card p-6 md:p-8">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[10px] font-mono text-[var(--accent)] mb-4">
+          <span class="pulse-dot"></span>
+          <span>SYSTEM ONLINE • 3D WAVE ENGINE ACTIVE</span>
+        </div>
+
+        <h1 class="text-2xl md:text-4xl font-extrabold text-[var(--text-hero)] leading-tight tracking-tight mb-3">
+          用工程构建秩序，<br />
+          用探索与思考拓展数字边界。
+        </h1>
+
+        <p class="text-xs md:text-sm text-[var(--text-muted)] leading-relaxed max-w-2xl mb-6">
+          这里是 Kael 的个人技术博客与数字知识花园。涵盖现代全栈工程、AI 前沿科研探索、网络安全与实战攻防、底层体系沉淀，以及热爱生活的极客杂笔。
+        </p>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <a href="/posts" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] text-xs font-bold no-underline shadow-[0_0_20px_var(--accent-glow)] hover:opacity-90 transition-opacity">
+            <i class="fa-solid fa-book-open"></i>
+            <span>浏览技术博文</span>
+          </a>
+          <a href="/about" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-main)] hover:text-[var(--accent)] text-xs font-bold no-underline hover:border-[var(--accent)] transition-all">
+            <i class="fa-solid fa-user-astronaut"></i>
+            <span>关于博主</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- 全站播报通告条 -->
+      <div class="cyber-card p-3.5 flex items-center gap-3 text-xs">
+        <i class="fa-solid fa-bullhorn text-[var(--accent)] text-sm flex-shrink-0"></i>
+        <span class="font-bold text-[var(--text-hero)] flex-shrink-0">全站升级播报：</span>
+        <span class="text-[var(--text-muted)] truncate flex-grow">
+          基于 Astro 5 Content Layer、Tailwind 与 Three.js 拓扑引擎的高性能技术空间正式上线！
+        </span>
+        <span class="hidden sm:inline font-mono text-[10px] text-[var(--text-dim)] flex-shrink-0">2026</span>
+      </div>
+
+      <!-- 最新发布文章流标题 -->
+      <div class="flex items-center justify-between mt-2">
+        <div class="flex items-center gap-2 text-sm font-extrabold text-[var(--text-hero)]">
+          <i class="fa-solid fa-fire text-[#ef4444]"></i>
+          <span>精选置顶与最新发布</span>
+        </div>
+        <a href="/posts" class="text-xs font-semibold text-[var(--accent)] no-underline hover:underline flex items-center gap-1">
+          <span>查看全部博文</span>
+          <i class="fa-solid fa-chevron-right text-[10px]"></i>
+        </a>
+      </div>
+
+      <!-- 文章卡片列表 -->
+      <div class="flex flex-col gap-4">
+        {sortedPosts.map(post => (
+          <PostCard post={post} />
+        ))}
+      </div>
+
+    </main>
+
+  </div>
+</BaseLayout>

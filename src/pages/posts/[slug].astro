@@ -1,0 +1,19 @@
+---
+// [slug].astro: 动态文章路由 (仅对已发布文章生成静态页面)
+import { getPublishedPosts } from '../../utils/posts';
+import PostLayout from '../../layouts/PostLayout.astro';
+
+export async function getStaticPaths() {
+  const posts = await getPublishedPosts();
+  return posts.map(post => ({
+    params: { slug: post.slug },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content, headings } = await post.render();
+---
+<PostLayout post={post} headings={headings}>
+  <Content />
+</PostLayout>

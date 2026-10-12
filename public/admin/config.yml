@@ -1,0 +1,35 @@
+# Decap CMS 生产级配置蓝图
+# 认证模式说明：
+# 采用标准的 GitHub OAuth 流程。由于静态页面无法自行解密 GitHub Client Secret，
+# 认证通过部署在 Cloudflare Worker 的轻量 OAuth 网关中转（base_url: https://your-oauth-worker.workers.dev）
+backend:
+  name: github
+  repo: your-username/blogWeb # 替换为博主的 GitHub 实际仓库名
+  branch: main
+  base_url: https://auth.kael-nexus.dev # 或轻量 Cloudflare OAuth Worker 地址
+  auth_endpoint: auth
+
+# 媒体图片统一管理管线
+# 图片落盘于 public/images/posts，浏览器直读路径为 /images/posts
+media_folder: "public/images/posts"
+public_folder: "/images/posts"
+
+collections:
+  - name: "posts"
+    label: "技术博文与文章"
+    folder: "src/content/posts"
+    create: true
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    extension: "md"
+    format: "frontmatter"
+    fields:
+      - { label: "文章标题", name: "title", widget: "string", required: true }
+      - { label: "文章摘要", name: "description", widget: "text", required: true }
+      - { label: "发布时间", name: "pubDate", widget: "datetime", format: "YYYY-MM-DD", dateFormat: "YYYY-MM-DD", timeFormat: false, required: true }
+      - { label: "所属分类", name: "category", widget: "select", options: ["软件工程与系统", "AI 与前沿科研", "极客安全与攻防", "计算机体系沉淀", "生活随笔与杂项"], required: true }
+      - { label: "标签列表", name: "tags", widget: "list", required: false }
+      - { label: "所属系列", name: "series", widget: "string", required: false }
+      - { label: "精选置顶", name: "featured", widget: "boolean", default: false }
+      - { label: "设为草稿", name: "draft", widget: "boolean", default: false }
+      - { label: "封面图片", name: "coverImage", widget: "image", required: false }
+      - { label: "正文内容", name: "body", widget: "markdown" }
