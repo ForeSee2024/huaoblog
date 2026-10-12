@@ -17,15 +17,16 @@ export function isPreviewEnvironment(): boolean {
 /**
  * 获取符合发布状态的文章列表
  * 
- * 核心准则 (单一发布状态与即时生效)：
- * 1. 发布状态唯一性：
- *    - 线上可见性完全由是否合并入生产分支 (main) 决定；
- *    - 在 main 分支正式构建中，仅过滤显式标有 draft === true 的本地测试草稿；
- *    - 若处于预览分支 (如 Cloudflare Pages 分支预览或本地开发)，放行所有草稿。
- * 2. 彻底废除未来日期隐藏限制 (零例外即时发布)：
- *    - 既然第一版已取消每日定时重建，pubDate 仅作为文章卡片展示与倒序排列的时间戳；
- *    - 彻底移除对未来日期的过滤拦截，作者无论选择当天还是未来日期，一旦在后台点击 Publish 合并入 main，
- *      文章 100% 即刻在线可见，彻底消除“显示已发布却找不到文章”的逻辑陷阱。
+ * 发布语义规范 (杜绝静默隐藏)：
+ * 1. 网页后台日常写作：
+ *    - 后台已移除表单草稿开关，完全由工作流状态 (Editorial Workflow) 控制；
+ *    - 一旦文章在后台点击 Publish 合并入 main 分支，即代表博主确认上线。
+ * 2. 本地 Git / Obsidian 写作兼容与显式告警：
+ *    - 若文章显式包含 draft: true，在预览环境正常渲染以供自查；
+ *    - 在生产环境构建 (main 分支) 时，若检测到 draft: true，系统将输出显式控制台提示，
+ *      明确告知文章已按其声明排除，杜绝“合并成功却静默消失”引发的排查困惑。
+ * 3. 未来日期无例外放行：
+ *    - 彻底移除对未来日期的过滤拦截，pubDate 仅作为展示与排序元数据，避免定时时差误伤。
  */
 export async function getPublishedPosts(options?: { forceIncludeDrafts?: boolean }): Promise<CollectionEntry<'posts'>[]> {
   const posts = await getCollection('posts');
@@ -33,8 +34,15 @@ export async function getPublishedPosts(options?: { forceIncludeDrafts?: boolean
 
   return posts
     .filter(post => {
-      // 仅在正式环境过滤明确声明 draft === true 的文章
-      if (!allowDrafts && post.data.draft) return false;
+      if (post.data.draft) {
+        if (!allowDrafts) {
+          // 显式告警：告知该文章因本地 draft: true 被跳过，杜绝静默隐藏
+          console.warn(
+            `\x1b[33m[CONTENT NOTICE]\x1b[0m 文章 "${post.data.title}" (${post.id}) 包含 draft: true。在生产环境已按其声明排除。若需发布，请将 draft 修改为 false 或删除该字段。`
+          );
+          return false;
+        }
+      }
       return true;
     })
     .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
