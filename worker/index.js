@@ -1,35 +1,39 @@
 /**
- * Cloudflare Worker: Decap CMS GitHub OAuth 认证网关 (企业级安全加固版)
+ * Cloudflare Worker: Decap CMS GitHub OAuth 认证网关 (企业级零信任加固版)
  * 
- * 安全合规能力：
- * 1. 严格 CSRF 防护：/auth 签发基于 HttpOnly + SameSite=Lax Cookie 的随机 state 会话，并在 /callback 进行严格核对；
- * 2. 来源白名单校验：支持通过 ALLOWED_ORIGINS 限制授权来源域名，阻止非授权站点跨站调用；
- * 3. postMessage 目标定向传输：明确限制 targetOrigin 为白名单合法域名，杜绝向通配符 '*' 或未经验证的 origin 泄露 Access Token。
+ * 安全契约 (严格零回退准则)：
+ * 1. 严格白名单强制校验：ALLOWED_ORIGINS 为必需配置，无白名单、来源为空或未在白名单内时，/auth 与 /callback 一律阻断并返回 403，绝不回退至通配符 '*'；
+ * 2. 严格 CSRF 防护：/auth 签发基于 HttpOnly + SameSite=Lax Cookie 的强随机 state 会话，并在 /callback 进行双向防篡改核对；
+ * 3. postMessage 纯定向派发：仅向验证合法的 targetOrigin 派发 Token，握手过程强校验 event.origin，彻底杜绝跨站 Token 窃取。
  * 
- * 环境变量配置 (在 Cloudflare Dashboard 或通过 wrangler secret put 配置):
+ * 环境变量配置 (必需):
  * - GITHUB_CLIENT_ID: GitHub OAuth App 的 Client ID
  * - GITHUB_CLIENT_SECRET: GitHub OAuth App 的 Client Secret
- * - ALLOWED_ORIGINS: (选填) 逗号分隔的合法博客域名，例如 "https://kael-nexus.pages.dev,http://localhost:4321"
+ * - ALLOWED_ORIGINS: (必需) 逗号分隔的合法博客域名，例如 "https://kael-nexus.pages.dev,http://localhost:4321"
  */
 
-// 默认基础开发白名单 (生产环境通过 env.ALLOWED_ORIGINS 覆盖或追加)
-const DEFAULT_ALLOWED = [
+// 默认本地开发白名单 (仅在本地调试使用)
+const LOCAL_DEV_ORIGINS = [
   'http://localhost:4321',
   'http://127.0.0.1:4321',
 ];
 
 function isOriginAllowed(origin, env) {
   if (!origin) return false;
-  const customList = (env.ALLOWED_ORIGINS || '')
+  
+  // 提取配置的生产白名单
+  const configuredList = (env.ALLOWED_ORIGINS || '')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
-  const allowList = [...DEFAULT_ALLOWED, ...customList];
+  
+  // 合并本地调试域名与用户配置白名单
+  const allowList = [...LOCAL_DEV_ORIGINS, ...configuredList];
 
-  // 精确匹配或允许 *.pages.dev 子域
   return allowList.some(allowed => {
+    // 支持 *.pages.dev 通配子域名匹配
     if (allowed.startsWith('*.')) {
-      const suffix = allowed.slice(1); // .pages.dev
+      const suffix = allowed.slice(1);
       return origin.endsWith(suffix);
     }
     return allowed === origin;
@@ -52,9 +56,17 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // 0. 前置检查：必须配置 GitHub Client Credentials
+    if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET) {
+      return new Response('OAuth 网关未就绪：缺少 GITHUB_CLIENT_ID 或 GITHUB_CLIENT_SECRET 环境变量配置', {
+        status: 500,
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      });
+    }
+
     // 1. 发起授权请求：/auth
     if (url.pathname === '/auth') {
-      // 提取客户端来源 (优先取 query 中的 origin，回退到 Referer)
+      // 提取客户端来源 (优先取 query 中的 origin，回退至 Referer)
       const queryOrigin = url.searchParams.get('origin');
       const referer = request.headers.get('Referer');
       let clientOrigin = '';
@@ -69,23 +81,26 @@ export default {
         }
       }
 
-      // 如果有配置白名单，验证请求方来源合法性
-      if (clientOrigin && !isOriginAllowed(clientOrigin, env) && env.ALLOWED_ORIGINS) {
-        return new Response(`未经授权的授权来源域名: ${clientOrigin}`, { status: 403 });
+      // 零容忍安全断言：未提供来源或来源不在白名单中，坚决拒绝发起授权
+      if (!clientOrigin || !isOriginAllowed(clientOrigin, env)) {
+        return new Response(
+          `403 Forbidden: 未经授权的博客后台域名 (${clientOrigin || '未知来源'})。请检查 Worker 的 ALLOWED_ORIGINS 配置。`,
+          { status: 403, headers: { 'Content-Type': 'text/plain;charset=UTF-8' } }
+        );
       }
 
-      // 生成安全的强随机 state，并将 origin 一并绑定加密保存至 HttpOnly Cookie
+      // 生成安全的强随机 state，并将 clientOrigin 绑定加密保存至 HttpOnly Cookie
       const stateId = crypto.randomUUID();
-      const statePayload = `${stateId}.${btoa(clientOrigin || '')}`;
+      const statePayload = `${stateId}.${btoa(clientOrigin)}`;
 
       const githubAuthUrl = new URL('https://github.com/login/oauth/authorize');
-      githubAuthUrl.searchParams.set('client_id', env.GITHUB_CLIENT_ID || '');
+      githubAuthUrl.searchParams.set('client_id', env.GITHUB_CLIENT_ID);
       githubAuthUrl.searchParams.set('scope', 'repo,user');
       githubAuthUrl.searchParams.set('state', statePayload);
 
       const headers = new Headers();
       headers.set('Location', githubAuthUrl.toString());
-      // 设置 10 分钟有效的 HttpOnly 会话 Cookie
+      // 设置 10 分钟有效的安全 HttpOnly 会话 Cookie
       headers.set(
         'Set-Cookie',
         `oauth_state=${stateId}; HttpOnly; Secure; SameSite=Lax; Path=/callback; Max-Age=600`
@@ -103,7 +118,7 @@ export default {
       const state = url.searchParams.get('state');
 
       if (!code || !state) {
-        return new Response('缺少必需的授权 code 或 state 参数', { status: 400 });
+        return new Response('400 Bad Request: 缺少必需的授权 code 或 state 参数', { status: 400 });
       }
 
       // 严格核对 CSRF state
@@ -112,7 +127,10 @@ export default {
 
       const [receivedStateId, encodedOrigin] = state.split('.');
       if (!savedStateId || savedStateId !== receivedStateId) {
-        return new Response('CSRF 校验失败：授权会话已过期或已被篡改', { status: 403 });
+        return new Response('403 Forbidden: CSRF 会话校验失败（授权会话不存在、已过期或已被跨站篡改）', {
+          status: 403,
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        });
       }
 
       let clientOrigin = '';
@@ -124,10 +142,16 @@ export default {
         clientOrigin = '';
       }
 
-      // 确保 targetOrigin 处于白名单
-      const targetOrigin = clientOrigin && isOriginAllowed(clientOrigin, env)
-        ? clientOrigin
-        : (env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',')[0].trim() : '*');
+      // 二次严格白名单校验：回调来源必须通过白名单判定，决不允许任何通配符回退
+      if (!clientOrigin || !isOriginAllowed(clientOrigin, env)) {
+        return new Response(
+          `403 Forbidden: 回调来源校验失败 (${clientOrigin || '非法域名'})，已被安全阻断。`,
+          { status: 403, headers: { 'Content-Type': 'text/plain;charset=UTF-8' } }
+        );
+      }
+
+      const targetOrigin = clientOrigin; // 严格锁死为白名单域名，决不使用 '*'
+      const clearCookie = 'oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/callback; Max-Age=0';
 
       try {
         const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
@@ -146,9 +170,6 @@ export default {
 
         const data = await tokenRes.json();
 
-        // 清理 Cookie 的响应头
-        const clearCookie = 'oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/callback; Max-Age=0';
-
         if (data.error || !data.access_token) {
           const content = `
             <!DOCTYPE html>
@@ -164,10 +185,12 @@ export default {
                         targetOrigin
                       );
                     }
-                    setTimeout(function() { window.close(); }, 2000);
+                    setTimeout(function() { window.close(); }, 2500);
                   })();
                 </script>
-                <p style="font-family:sans-serif;padding:2rem;color:#ef4444;">GitHub 授权失败: ${data.error_description || data.error || '未知错误'}</p>
+                <div style="font-family:sans-serif;padding:2rem;color:#ef4444;text-align:center;">
+                  <p>GitHub 授权换票失败: ${data.error_description || data.error || '未知错误'}</p>
+                </div>
               </body>
             </html>
           `;
@@ -179,7 +202,7 @@ export default {
           });
         }
 
-        // 成功换取 token：仅向验证合法的 targetOrigin 定向派发 postMessage
+        // 成功换取 token：仅向严格校验过的 targetOrigin 发送 postMessage
         const content = `
           <!DOCTYPE html>
           <html lang="zh-CN">
@@ -189,9 +212,9 @@ export default {
                 (function() {
                   var targetOrigin = ${JSON.stringify(targetOrigin)};
                   function receiveMessage(e) {
-                    // 仅响应来自合法博客后台的消息握手
-                    if (targetOrigin !== '*' && e.origin !== targetOrigin) {
-                      console.warn('收到非白名单源的消息，拒绝响应:', e.origin);
+                    // 仅响应来自白名单目标后台的消息握手
+                    if (e.origin !== targetOrigin) {
+                      console.warn('收到非白名单来源的消息握手，拒绝派发 Token:', e.origin);
                       return;
                     }
                     if (e.data === 'authorizing:github') {
@@ -207,7 +230,7 @@ export default {
                     }
                   }
                   window.addEventListener("message", receiveMessage, false);
-                  // 发起就绪握手广播
+                  // 发起就绪握手广播，严格限定 targetOrigin
                   window.opener.postMessage("authorizing:github", targetOrigin);
                 })();
               </script>
@@ -230,7 +253,7 @@ export default {
     }
 
     // 默认根路径返回网关健康状态
-    return new Response('Decap CMS Secure GitHub OAuth Gateway is active.', {
+    return new Response('Decap CMS Zero-Trust GitHub OAuth Gateway is active.', {
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
     });
   },

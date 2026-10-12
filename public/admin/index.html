@@ -7,12 +7,18 @@
   <!-- 引入 FontAwesome 图标库与 KaTeX 数学公式样式 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <!-- 引入 KaTeX JS 解析器与自动公式渲染扩展 -->
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
   <!-- 锁定经过生产验证的 Decap CMS 具体稳定版本 (v3.3.3) -->
   <script src="https://unpkg.com/decap-cms@3.3.3/dist/decap-cms.js"></script>
 </head>
 <body>
   <script>
-    // 注入后台预览面板专有样式，确保编辑器右侧预览与正式前台博文排版一致
+    // 注入后台预览面板专有样式与 KaTeX 样式表
+    CMS.registerPreviewStyle("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
+    CMS.registerPreviewStyle("https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css");
+    
     const customPreviewStyles = `
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -82,11 +88,64 @@
         margin-right: 0.5rem;
         font-weight: 700;
       }
+      .katex-display {
+        margin: 1.5rem 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 0.5rem 0;
+      }
     `;
     CMS.registerPreviewStyle(customPreviewStyles, { raw: true });
 
-    // 注册文章组件实时预览模板
+    // 注册支持 LaTeX 公式自动渲染的实时预览模板
     const PostPreview = createClass({
+      componentDidMount: function() {
+        this.renderFormulas();
+      },
+      componentDidUpdate: function() {
+        this.renderFormulas();
+      },
+      renderFormulas: function() {
+        try {
+          const node = ReactDOM.findDOMNode(this);
+          if (!node) return;
+          const doc = node.ownerDocument;
+          const win = doc.defaultView;
+
+          // 若 iframe 未注入 auto-render，动态注入
+          if (!win.renderMathInElement) {
+            if (!doc.getElementById('katex-engine-js')) {
+              const s1 = doc.createElement('script');
+              s1.id = 'katex-engine-js';
+              s1.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js';
+              s1.onload = () => {
+                const s2 = doc.createElement('script');
+                s2.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js';
+                s2.onload = () => {
+                  this.execMathRender(node, win);
+                };
+                doc.head.appendChild(s2);
+              };
+              doc.head.appendChild(s1);
+            }
+          } else {
+            this.execMathRender(node, win);
+          }
+        } catch (err) {
+          console.warn('预览公式渲染捕获异常:', err);
+        }
+      },
+      execMathRender: function(container, win) {
+        if (win && win.renderMathInElement) {
+          win.renderMathInElement(container, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '$', right: '$', display: false }
+            ],
+            throwOnError: false
+          });
+        }
+      },
       render: function() {
         const entry = this.props.entry;
         const title = entry.getIn(['data', 'title']) || '无标题文章';
@@ -95,7 +154,7 @@
         const pubDate = entry.getIn(['data', 'pubDate']) || '';
         const body = this.props.widgetFor('body');
 
-        return h('div', {},
+        return h('div', { className: 'article-preview-root' },
           h('div', { className: 'meta-box' },
             h('span', { className: 'tag-pill' }, category),
             h('span', { style: { color: '#64748b', fontSize: '0.85rem' } }, pubDate ? String(pubDate).split('T')[0] : ''),

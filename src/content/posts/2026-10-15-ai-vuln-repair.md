@@ -28,7 +28,19 @@ def extract_code_property_graph(ast_tree, cfg_flow):
     return CPGData(x=node_features, edge_index=edge_index)
 ```
 
-## 0x02 实验评测与基准对比 (演示性实验框架)
+## 0x02 目标优化与损失函数建模
+
+在补丁候选排序中，利用跨熵损失联合代码属性特征：
+
+设 $P(V_{patch} | C_{cpg})$ 为补丁有效性后验概率，目标优化函数表示为：
+
+$$
+\mathcal{L}_{total} = -\sum_{i=1}^{N} y_i \log P(V_i | C_i) + \lambda \|\Theta\|_2^2
+$$
+
+其中 $\lambda$ 为正则化超参数，$\Theta$ 为图神经网络参数矩阵。
+
+## 0x03 实验评测与基准对比 (演示性实验框架)
 
 > [!NOTE] 实验环境说明
 > 本实验属于探索性原型验证 [DEMO 示例数据]：在基准数据集测试中，采用 CPG 图谱引导微调的架构在特定测试样例中补丁生成合格率较基线模型有所提升。具体消融实验设计与复现代码库正在整理中。

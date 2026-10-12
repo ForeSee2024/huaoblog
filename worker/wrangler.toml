@@ -2,7 +2,11 @@ name = "decap-oauth-worker"
 main = "index.js"
 compatibility_date = "2024-01-01"
 
-# 部署指令：
+[vars]
+# 必需配置：允许调用本网关的博客后台域名白名单 (逗号分隔，支持 *.pages.dev)
+ALLOWED_ORIGINS = "https://your-blog.pages.dev,http://localhost:4321"
+
+# 秘钥注入与部署指令：
 # 1. npx wrangler secret put GITHUB_CLIENT_ID
 # 2. npx wrangler secret put GITHUB_CLIENT_SECRET
 # 3. npx wrangler deploy
