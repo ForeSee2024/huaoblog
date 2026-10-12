@@ -15,10 +15,6 @@ backend:
 media_folder: "public/images/posts"
 public_folder: "/images/posts"
 
-# 预览联动配置 (配合 Cloudflare Pages 分支预览)
-# 文章实时预览路径：posts/YYYY-MM-DD-slug
-preview_path: "posts/{{slug}}"
-
 collections:
   - name: "posts"
     label: "技术博文与文章"
@@ -30,16 +26,19 @@ collections:
     format: "frontmatter"
     summary: "{{title}} ({{category}} - {{pubDate}})"
     sortable_fields: ["pubDate", "title", "category"]
+    # 预览路径配置 (修正移入 collection 内部，配合 Cloudflare Pages 分支预览)
+    preview_path: "posts/{{slug}}"
     
-    # 编辑器字段层级：核心字段置顶，进阶与元数据字段归类
+    # 编辑器字段层级：核心三要素置顶，无冗余草稿开关，进阶属性选填
     fields:
-      # 核心三要素：标题、分类、正文 (快速写作第一焦点)
+      # 核心要素 1: 文章标题 (快速写作第一焦点)
       - label: "文章标题"
         name: "title"
         widget: "string"
         required: true
         hint: "简洁有吸引力的技术标题，100字符以内"
 
+      # 核心要素 2: 所属板块
       - label: "所属分类"
         name: "category"
         widget: "select"
@@ -52,6 +51,7 @@ collections:
         required: true
         default: "软件工程与系统"
 
+      # 核心要素 3: 正文内容
       - label: "正文内容"
         name: "body"
         widget: "markdown"
@@ -86,15 +86,15 @@ collections:
         dateFormat: "YYYY-MM-DD"
         timeFormat: false
         required: true
-        hint: "默认取当天日期。文章通过后台 Publish 审核后将在 Cloudflare Pages 构建上线"
+        hint: "默认取当天日期。文章在后台点击 Publish 合并至 main 分支后即刻在线上线"
 
-      # 进阶属性 (选填)
+      # 进阶属性 (选填，不阻断普通写作心流)
       - label: "封面图片"
         name: "coverImage"
         widget: "image"
         required: false
         choose_url: false
-        hint: "选填。上传或选择卡片封面图，留空将采用分类默认极客背景"
+        hint: "选填。上传或选择卡片封面图，留空将采用极客默认背景"
 
       - label: "技术标签"
         name: "tags"
@@ -113,20 +113,7 @@ collections:
         widget: "boolean"
         default: false
         required: false
-        hint: "开启后将在博客主页与列表页顶部高亮置顶展示"
-
-      - label: "标记为草稿"
-        name: "draft"
-        widget: "boolean"
-        default: false
-        required: false
-        hint: "在 Editorial Workflow 中草稿由工作流状态控制；若手动勾选此项，合并后在生产站仍将处于隐藏状态"
-
-      - label: "预估阅读量/初始值"
-        name: "views"
-        widget: "string"
-        required: false
-        hint: "选填。演示展示用或由访问统计组件后续回填"
+        hint: "选填。开启后将在博客主页与列表页顶部高亮置顶展示"
 
       - label: "科研与工程扩展元数据"
         name: "extraMeta"
