@@ -86,7 +86,7 @@ collections:
         dateFormat: "YYYY-MM-DD"
         timeFormat: false
         required: true
-        hint: "默认取当天日期。文章在后台点击 Publish 合并至 main 分支后即刻在线上线"
+        hint: "默认取当天日期。发布后触发自动构建，部署成功后可见 (预计约 1–2 分钟，以实际部署结果为准)"
 
       # 进阶属性 (选填，不阻断普通写作心流)
       - label: "封面图片"
