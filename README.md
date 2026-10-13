@@ -58,6 +58,8 @@ npm run dev
 
 ## Cloudflare Pages 与 GitHub
 
+当前站点已上线到 [aoblog.eu.cc](https://aoblog.eu.cc/)，后台地址为 [aoblog.eu.cc/admin/](https://aoblog.eu.cc/admin/)。本人还需完成 GitHub 自动部署授权及 OAuth 密钥填写，步骤见 [上线操作清单](docs/上线操作清单.md)，完整配置与域名迁移说明见 [部署配置](docs/DEPLOYMENT.md)。
+
 推送到 GitHub 并连接 Pages 项目：
 
 | 设置 | 值 |
