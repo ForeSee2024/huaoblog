@@ -8,7 +8,7 @@ Cloudflare account：`fc3766c02d25569ab3a3eb4d0cd6ae79`；当前域名 Zone：`7
 
 - GitHub 两次 CI 失败的原因是测试使用 macOS 专用 `/private/tmp`；已改为 Node 系统临时目录，60 项测试、类型检查和生产构建通过。
 - 当前域名仍属于旧 Pages 项目 `webblog`，源仓库是 `ForeSee2024/webBlog`，不是新仓库。旧站先保留，待新站构建成功后再转移域名。
-- 新 Pages 项目准备命名为 `huaoblog`，GitHub 集成创建被 Cloudflare 的 `8000011` Git 安装内部异常阻断，需要重新连接 Cloudflare Workers and Pages GitHub App。
+- 新 Pages 项目 `huaoblog` 已创建，默认域名 `huaoblog.pages.dev`，构建命令及四项公开环境变量已配置。GitHub 集成仍被 Cloudflare 的 `8000011` Git 安装内部异常阻断，需要重新连接 Cloudflare Workers and Pages GitHub App。该项目尚无生产部署。
 - Worker `huaoblog-oauth` 已部署，域名 `https://huaoblog-oauth.huaoqaq.workers.dev` 与博客域名独立。后台密钥还需配置。
 
 ## 新 Pages 项目
@@ -27,7 +27,7 @@ Cloudflare account：`fc3766c02d25569ab3a3eb4d0cd6ae79`；当前域名 Zone：`7
 | `CMS_REPO` | `ForeSee2024/huaoblog` |
 | `CMS_AUTH_URL` | `https://huaoblog-oauth.huaoqaq.workers.dev` |
 
-新项目生成的 `pages.dev` 地址须以 Cloudflare 实际返回为准。构建成功且页面验证通过后，将 `aoblog.eu.cc` 和 `www.aoblog.eu.cc` 的自定义域名绑定迁移到新项目，并更新两个 CNAME 到新项目的实际 `pages.dev` 地址。仅改 DNS 不等于完成 Pages 自定义域名绑定。
+新项目实际默认域名为 `huaoblog.pages.dev`，已在 Worker 的精确来源白名单中。构建成功且页面验证通过后，将 `aoblog.eu.cc` 和 `www.aoblog.eu.cc` 的自定义域名绑定迁移到新项目，并更新两个 CNAME 到 `huaoblog.pages.dev`。仅改 DNS 不等于完成 Pages 自定义域名绑定。
 
 ## GitHub OAuth App
 
