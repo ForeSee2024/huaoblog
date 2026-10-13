@@ -6,7 +6,6 @@ category: "计算机体系沉淀"
 tags: ["Linux内核", "eBPF", "虚拟内存", "系统底层"]
 series: "现代系统工程演进"
 draft: false
-views: "1,450"
 coverImage: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80"
 extraMeta:
   difficulty: "进阶"

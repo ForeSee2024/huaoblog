@@ -1,6 +1,10 @@
+> **2026-10-13 后台重设计说明**：本文件保留最初 Decap 方案作为历史设计基线。当前实现已按用户新要求替换为独立管理后台与 Milkdown 编辑器，并加入可保存的前台配置。静态 Astro + GitHub PR + Cloudflare Pages / OAuth Worker 架构保持；当前运行方式与验收范围以 [README](../README.md) 和 [后台设计说明](./ADMIN_CONSOLE.md) 为准。
+
 # 个人博客系统全栈工程化方案与生产级蓝图 (Production Blueprint)
 
-> **项目名称**：Kael's Cyber Nexus（现代极客数字空间与知识花园）  
+> **实施同步说明（2026-10-13）**：下文保留已审核的 v3.5 设计基线。当前可运行实现与部署步骤以根目录 [README](../README.md) 和 [Worker 配置说明](../worker/README.md) 为准：Astro 7.3.8、Tailwind 4.3.3、KaTeX 0.19.0，内容集合迁移到 `src/content.config.ts`；后台入口为 `src/pages/admin/index.astro`，配置从 `src/config/cms.ts` 生成，不再维护 `public/admin/` 中的静态文件。前后台共享设计令牌与文章排版；预览每次从 Markdown 源文重新渲染，生命周期只同步主题。独立公式使用保留转义符的专用组件，复杂行内公式使用 Markdown 模式。正式署名为 Huao／胡敖，视觉品牌为 HuaOvO。GitHub OAuth、分支保护与 Cloudflare 真实部署仍需账号绑定后验收。
+
+> **项目名称**：HuaOvO · 胡敖的技术笔记（现代极客数字空间与知识花园）
 > **文档版本**：v3.5 (生产草稿硬门禁阻断、精确发布语义与部署状态诚实收口版)  
 > **文档状态**：设计修订稿，待发布链路验收 (Design Revision - Pending Live Pipeline Verification)  
 > **核心定位**：以 **Decap CMS 网页后台**为首选写作入口，以 **Cloudflare Pages** 为全球静态托管与分支预览平台，以 **Cloudflare Worker** 为零信任精确白名单 OAuth 认证网关，Git/Obsidian 作为备用渠道。
@@ -141,7 +145,7 @@ backend:
   name: github
   repo: your-username/blogWeb
   branch: main
-  base_url: https://auth.kael-nexus.dev
+  base_url: https://your-oauth-worker.workers.dev
   auth_endpoint: auth
 
 media_folder: "public/images/posts"

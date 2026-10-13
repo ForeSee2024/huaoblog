@@ -4,6 +4,9 @@ dist/
 
 # Dependency directories
 node_modules/
+public/vendor/
+.wrangler/
+test-results/
 
 # Logs
 npm-debug.log*
@@ -15,6 +18,8 @@ pnpm-debug.log*
 .env
 .env.production
 .env.local
+.env.*
+!.env.example
 
 # macOS system files
 .DS_Store

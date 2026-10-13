@@ -1,105 +1,42 @@
 ---
-// friends.astro: 伙伴友链页面
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Sidebar from '../components/layout/Sidebar.astro';
-
-const friendsList = [
-  {
-    name: "Alex_Sec",
-    desc: "二进制安全与漏洞挖掘探索者，活跃于各类国际顶级赛事。",
-    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=160&auto=format&fit=crop&q=80",
-    url: "https://example.com",
-    tag: "Binary Security"
-  },
-  {
-    name: "Pixel_Craft",
-    desc: "专注于 WebGL、Three.js 与交互动画的创意前端工程师。",
-    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=160&auto=format&fit=crop&q=80",
-    url: "https://example.com",
-    tag: "Creative Web"
-  },
-  {
-    name: "Quantum_AI",
-    desc: "人工智能研究生，深耕多模态大模型与图神经网络前沿实践。",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=160&auto=format&fit=crop&q=80",
-    url: "https://example.com",
-    tag: "AI Research"
-  },
-  {
-    name: "Linux_Geek",
-    desc: "内核底层机制与 eBPF 系统性能优化狂热爱好者。",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&auto=format&fit=crop&q=80",
-    url: "https://example.com",
-    tag: "Kernel & Systems"
-  }
-];
+import { safeExternalHref, safeImageSrc, settings, site } from '../config/site';
+const home = Astro.site?.href;
+const friends = settings.friends.flatMap(friend => {
+  const url = safeExternalHref(friend.url);
+  return url ? [{ ...friend, url, avatar: friend.avatar ? safeImageSrc(friend.avatar) : undefined }] : [];
+});
 ---
-<BaseLayout title="伙伴友链 | Kael's Cyber Nexus">
+<BaseLayout title={`友链 | ${site.name}`}>
   <div class="flex flex-col lg:flex-row gap-8 items-start">
-    
     <Sidebar />
-
     <main class="w-full lg:flex-1 flex flex-col gap-6 min-w-0 order-1 lg:order-2">
-      
-      <!-- 友链头部 -->
-      <div class="cyber-card p-6 md:p-8">
-        <div class="flex items-center gap-2 text-xs font-mono text-[var(--accent)] mb-2">
-          <i class="fa-solid fa-network-wired"></i>
-          <span>WEBRING & CONNECTIONS</span>
+      <header class="cyber-card p-6 md:p-8">
+        <p class="text-xs font-mono text-[var(--accent)] mb-3">CONNECTIONS / FRIENDS</p>
+        <h1 class="text-3xl font-extrabold text-[var(--text-hero)] mb-3">伙伴与友链</h1>
+        <p class="text-sm text-[var(--text-muted)] leading-loose">这里将收录朋友们的博客与值得长期阅读的独立网站。</p>
+      </header>
+      {friends.length > 0 ? <section class="cyber-card p-6 md:p-8" aria-label="友链列表">
+        <div class="flex flex-col divide-y divide-[var(--border-subtle)]">
+          {friends.map(friend => <a href={friend.url} target="_blank" rel="noopener noreferrer" class="flex items-start gap-4 py-5 first:pt-0 last:pb-0 no-underline group">
+            {friend.avatar ? <img src={friend.avatar} alt="" loading="lazy" class="w-12 h-12 object-cover rounded-xl flex-shrink-0" /> : <span class="w-12 h-12 rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-link" aria-hidden="true"></i></span>}
+            <span class="min-w-0 flex-1">
+              <span class="block text-base font-bold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors">{friend.name}</span>
+              <span class="block text-sm text-[var(--text-muted)] leading-relaxed whitespace-pre-line mt-1">{friend.description}</span>
+            </span>
+            <i class="fa-solid fa-arrow-up-right-from-square text-xs text-[var(--text-dim)] mt-1" aria-hidden="true"></i>
+          </a>)}
         </div>
-        <h1 class="text-2xl md:text-3xl font-extrabold text-[var(--text-hero)] mb-2">
-          伙伴友链网络
-        </h1>
-        <p class="text-xs md:text-sm text-[var(--text-muted)]">
-          志同道合的数字探索者。连接思想的孤岛，构建彼此共鸣的赛博联邦。
-        </p>
-      </div>
-
-      <!-- 友链卡片网格 -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {friendsList.map(friend => (
-          <a 
-            href={friend.url} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            class="cyber-card p-5 flex items-start gap-4 no-underline group hover:-translate-y-1"
-          >
-            <img 
-              src={friend.avatar} 
-              alt={friend.name} 
-              class="w-14 h-14 rounded-2xl object-cover border border-[var(--border-subtle)] flex-shrink-0"
-              loading="lazy"
-            />
-            <div class="flex-grow min-w-0">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-sm font-bold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors truncate">
-                  {friend.name}
-                </span>
-                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[var(--accent-soft)] text-[var(--accent)]">
-                  {friend.tag}
-                </span>
-              </div>
-              <p class="text-xs text-[var(--text-muted)] line-clamp-2 leading-relaxed">
-                {friend.desc}
-              </p>
-            </div>
-          </a>
-        ))}
-      </div>
-
-      <!-- 本站配置信息卡片 -->
-      <div class="cyber-card p-6">
-        <div class="flex items-center gap-2 text-sm font-bold text-[var(--text-hero)] mb-3 pb-2 border-b border-[var(--border-subtle)]">
-          <i class="fa-solid fa-code-compare text-[var(--accent)]"></i>
-          <span>本站配置规范</span>
-        </div>
-        <pre class="p-4 rounded-xl bg-[var(--code-bg)] border border-[var(--border-card)] text-xs font-mono text-[var(--text-main)] overflow-x-auto leading-relaxed"><code>名称：Kael's Cyber Nexus
-标语：用工程构建秩序，以好奇探索未知
-主页：https://kael-nexus.dev
-头像：https://kael-nexus.dev/avatar.jpg
-分类：全栈工程 / AI科研 / 极客安全 / 底层体系</code></pre>
-      </div>
-
+      </section> : <section class="cyber-card p-8 md:p-10">
+        <h2 class="text-lg font-bold text-[var(--text-hero)] mb-3">友链正在整理</h2>
+        <p class="text-sm text-[var(--text-muted)] leading-loose">目前还没有添加正式友链。你可以先浏览我的文章，或看看最近的归档。</p>
+        <a href="/archive" class="inline-block mt-5 text-sm text-[var(--accent)]">查看文章归档 →</a>
+      </section>}
+      <section class="cyber-card p-6 md:p-8">
+        <h2 class="text-lg font-bold text-[var(--text-hero)] mb-4">本站信息</h2>
+        <dl class="grid grid-cols-[4rem_1fr] gap-x-4 gap-y-3 text-sm"><dt class="text-[var(--text-muted)]">名称</dt><dd>{site.brand}</dd><dt class="text-[var(--text-muted)]">作者</dt><dd>{site.author}</dd><dt class="text-[var(--text-muted)]">简介</dt><dd>{site.description}</dd>{home && <><dt class="text-[var(--text-muted)]">主页</dt><dd class="break-all"><a href={home} class="text-[var(--accent)]">{home}</a></dd></>}</dl>
+      </section>
     </main>
   </div>
 </BaseLayout>

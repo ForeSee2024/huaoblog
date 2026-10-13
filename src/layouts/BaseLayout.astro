@@ -6,6 +6,8 @@ import HeaderNav from '../components/layout/HeaderNav.astro';
 import SearchModal from '../components/common/SearchModal.astro';
 import Toast from '../components/common/Toast.astro';
 import '../styles/global.css';
+import 'katex/dist/katex.min.css';
+import { safeExternalHref, settings, site } from '../config/site';
 
 interface Props {
   title?: string;
@@ -13,19 +15,29 @@ interface Props {
 }
 
 const {
-  title = "Kael's Cyber Nexus | 全栈开发 • 学术科研 • 极客安全 • 数字空间",
-  description = "融合 Lumine 交互、Kira 双栏格局与 Sakurairo 极客动效的现代个人技术空间。"
+  title = site.name,
+  description = site.description
 } = Astro.props;
 
 const currentPath = Astro.url.pathname;
+const canonical = Astro.site ? new URL(currentPath, Astro.site) : undefined;
+const renderThree = settings.appearance.backgroundEffect;
+const icpHref = safeExternalHref(settings.footer.icpUrl);
 ---
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark" data-accent="cyberblue">
+<html lang="zh-CN" data-theme={settings.appearance.theme === 'light' ? 'light' : 'dark'} data-accent={settings.appearance.accent}>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{title}</title>
   <meta name="description" content={description} />
+  {canonical && <link rel="canonical" href={canonical} />}
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  {canonical && <meta property="og:url" content={canonical} />}
+  <meta property="og:site_name" content={site.name} />
+  <meta property="og:type" content={currentPath.startsWith('/posts/') ? 'article' : 'website'} />
 
   <!-- 免闪烁系统自适应深浅主题与强调色探测 -->
   <ThemeScript />
@@ -33,15 +45,14 @@ const currentPath = Astro.url.pathname;
   <!-- 现代字体体系与专业矢量图标库 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600;700;900&family=Cinzel:wght@700&display=swap" rel="stylesheet">
+  <link href={site.fonts} rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
 </head>
 <body class="selection:bg-[var(--accent)] selection:text-[var(--accent-contrast)]">
   
   <!-- 辅助工程网格层与 Three.js 3D 拓扑波浪画布 -->
   <div class="bg-grid-layer"></div>
-  <ThreeWaveBg />
+  {renderThree && <ThreeWaveBg />}
 
   <!-- 顶部悬浮胶囊导航 -->
   <div data-pagefind-ignore>
@@ -59,8 +70,9 @@ const currentPath = Astro.url.pathname;
 
   <!-- 极客页脚 -->
   <footer data-pagefind-ignore class="relative z-10 text-center py-8 border-t border-[var(--border-subtle)] text-xs text-[var(--text-dim)]">
-    <p class="mb-1.5 font-medium">Project Lumine-Kira-Sakura Fusion • Built with Astro 5 & Three.js 3D Acceleration</p>
-    <p>© 2024 - 2026 Kael_Dev. Modern Web Standards • 萌ICP备20260001号</p>
+    <p class="mb-1.5 font-medium">{site.name}{settings.footer.text && <> · {settings.footer.text}</>}</p>
+    <p>© {new Date().getFullYear()} {site.author} · <a href="/admin/" class="hover:text-[var(--accent)]">管理后台</a></p>
+    {settings.footer.icp && <p class="mt-2">{icpHref ? <a href={icpHref} target="_blank" rel="noopener noreferrer" class="hover:text-[var(--accent)]">{settings.footer.icp}</a> : settings.footer.icp}</p>}
   </footer>
 
 </body>

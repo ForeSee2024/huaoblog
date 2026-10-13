@@ -7,7 +7,6 @@ tags: ["大模型", "代码审计", "科研", "AI安全"]
 series: "智能软件工程前沿"
 featured: true
 draft: false
-views: "1,890"
 coverImage: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&auto=format&fit=crop&q=80"
 extraMeta:
   difficulty: "硬核"

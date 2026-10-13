@@ -7,7 +7,6 @@ tags: ["Rust", "Tokio", "微服务", "高性能"]
 series: "现代系统工程演进"
 featured: true
 draft: false
-views: "2,420"
 coverImage: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80"
 extraMeta:
   difficulty: "进阶"

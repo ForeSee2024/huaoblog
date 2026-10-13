@@ -1,0 +1,67 @@
+{
+  "identity": {
+    "name": "HuaOvO · 胡敖的技术笔记",
+    "brand": "HuaOvO",
+    "author": "Huao · 胡敖",
+    "description": "记录软件工程、AI 科研、安全实践与计算机系统，也记录探索过程中的思考。",
+    "avatar": "/favicon.svg",
+    "tagline": "Fullstack · AI · Security",
+    "bio": "用工程构建秩序，以好奇探索未知。",
+    "socialLinks": []
+  },
+  "home": {
+    "eyebrow": "ENGINEERING NOTES",
+    "title": "用工程构建秩序，\n用探索与思考拓展数字边界。",
+    "intro": "这里是胡敖（Huao）的个人技术博客与数字知识花园。记录全栈工程、AI 科研、安全实践、计算机系统，以及生活中的探索与思考。",
+    "primaryLabel": "浏览技术博文",
+    "secondaryLabel": "关于博主",
+    "announcementEnabled": true,
+    "announcementTitle": "全站升级播报",
+    "announcement": "工程实践、科研阅读与系统探索，持续整理成可复用的知识。",
+    "feedTitle": "精选置顶与最新发布",
+    "postsPerPage": 6
+  },
+  "navigation": [
+    {
+      "label": "首页",
+      "href": "/",
+      "enabled": true
+    },
+    {
+      "label": "博文",
+      "href": "/posts",
+      "enabled": true
+    },
+    {
+      "label": "归档",
+      "href": "/archive",
+      "enabled": true
+    },
+    {
+      "label": "友链",
+      "href": "/friends",
+      "enabled": true
+    },
+    {
+      "label": "关于",
+      "href": "/about",
+      "enabled": true
+    }
+  ],
+  "appearance": {
+    "theme": "system",
+    "accent": "cyberblue",
+    "backgroundEffect": true
+  },
+  "about": {
+    "title": "你好，我是胡敖。",
+    "subtitle": "Huao，也可以叫我 HuaOvO。",
+    "body": "这里是我的技术笔记与数字知识花园。我希望把实践中遇到的问题、阅读时留下的思考，以及探索过程中的发现，整理成能够再次查阅的记录。\n\n一篇笔记不一定是最后的答案。随着新的实践和理解，我会继续补充、修订，让这里成为一个持续生长的知识空间。"
+  },
+  "friends": [],
+  "footer": {
+    "text": "保持记录，也保持好奇。",
+    "icp": "",
+    "icpUrl": "https://beian.miit.gov.cn/"
+  }
+}

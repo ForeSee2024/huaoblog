@@ -1,0 +1,51 @@
+.article-prose {
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.article-prose > :first-child { margin-top: 0; }
+.article-prose > :last-child { margin-bottom: 0; }
+.article-prose :is(h1, h2, h3, h4, h5, h6) { color: var(--text-hero); font-weight: 750; line-height: 1.4; margin: 2rem 0 1rem; scroll-margin-top: 6rem; text-wrap: balance; }
+.article-prose h1 { font-size: 1.8rem; }
+.article-prose h2 { font-size: 1.4rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: .6rem; }
+.article-prose h3 { font-size: 1.18rem; }
+.article-prose h4 { font-size: 1.05rem; }
+.article-prose :is(p, ul, ol, blockquote, table, figure, pre) { margin: 1.25rem 0; }
+.article-prose :is(ul, ol) { padding-left: 1.6rem; }
+.article-prose ul { list-style: disc; }
+.article-prose ol { list-style: decimal; }
+.article-prose li { margin: .4rem 0; }
+.article-prose li > p { margin: .5rem 0; }
+.article-prose a { color: var(--accent); text-decoration: underline; text-underline-offset: .2em; }
+.article-prose strong { color: var(--text-hero); font-weight: 700; }
+.article-prose blockquote { border-left: 3px solid var(--accent); padding: .1rem 1rem; color: var(--text-muted); background: var(--bg-glass); border-radius: 0 .5rem .5rem 0; }
+.article-prose img { display: block; max-width: 100%; height: auto; border-radius: .75rem; margin: 1.5rem auto; }
+.article-prose code { font-family: var(--font-mono); font-size: .88em; }
+.article-prose :not(pre) > code { padding: .15rem .35rem; background: var(--accent-soft); color: var(--accent); border-radius: .3rem; }
+.article-prose pre { max-width: 100%; overflow: auto; border: 1px solid var(--border-card); border-radius: .75rem; padding: 1.1rem; background: var(--code-bg) !important; color: #e2e8f0; }
+.article-prose pre code { display: block; white-space: pre; line-height: 1.7; font-size: .875rem; overflow-wrap: normal; }
+.article-prose table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: .9rem; }
+.article-prose :is(th, td) { border: 1px solid var(--border-card); padding: .65rem .85rem; text-align: left; }
+.article-prose th { color: var(--text-hero); background: var(--bg-surface-elevated); font-weight: 650; }
+.article-prose hr { border: 0; border-top: 1px solid var(--border-card); margin: 2rem 0; }
+.article-prose .katex-display { overflow-x: auto; overflow-y: hidden; padding: .5rem 0; margin: 1.5rem 0; }
+.article-prose .katex { font-size: 1.08em; }
+.article-prose .hljs-keyword, .article-prose .hljs-selector-tag { color: #c4b5fd; }
+.article-prose .hljs-string, .article-prose .hljs-attr, .article-prose .hljs-template-string { color: #a5d6ff; }
+.article-prose .hljs-number, .article-prose .hljs-literal, .article-prose .hljs-built_in { color: #79c0ff; }
+.article-prose .hljs-comment { color: #94a3b8; }
+.article-prose .hljs-title, .article-prose .hljs-function { color: #d2a8ff; }
+.post-intro { background: var(--bg-card-solid); border: 1px solid var(--border-card); border-radius: 1.25rem; overflow: hidden; margin-bottom: 1.5rem; }
+.post-intro-content { padding: clamp(1.5rem, 4vw, 2.2rem); }
+.post-cover { display: block; width: 100%; max-height: 22rem; object-fit: cover; }
+.post-meta { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; font-size: .75rem; color: var(--text-muted); margin-bottom: 1rem; }
+.post-category { color: var(--accent); background: var(--accent-soft); border-radius: .4rem; padding: .3rem .65rem; text-decoration: none; font-weight: 650; }
+.post-heading { color: var(--text-hero); font-size: clamp(1.7rem, 4vw, 2.5rem); font-weight: 800; letter-spacing: -.04em; line-height: 1.35; margin: 0 0 1rem; overflow-wrap: anywhere; text-wrap: balance; }
+.post-summary { color: var(--text-muted); font-size: .94rem; line-height: 1.8; padding-left: 1rem; border-left: 3px solid var(--accent); margin: 0; }
+.post-body-surface { background: var(--bg-card-solid); border: 1px solid var(--border-card); border-radius: 1.25rem; padding: clamp(1.5rem, 4vw, 2.5rem); }
+.post-tags { display: flex; flex-wrap: wrap; gap: .6rem; color: var(--text-muted); font-size: .8rem; }
+.post-tags a { color: var(--accent); text-decoration: none; }
+@media (max-width: 480px) { .article-prose { font-size: .96rem; } }

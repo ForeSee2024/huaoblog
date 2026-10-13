@@ -2,6 +2,7 @@
 // [slug].astro: 动态文章路由 (仅对已发布文章生成静态页面)
 import { getPublishedPosts } from '../../utils/posts';
 import PostLayout from '../../layouts/PostLayout.astro';
+import { render } from 'astro:content';
 
 export async function getStaticPaths() {
   const posts = await getPublishedPosts();
@@ -12,7 +13,7 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props;
-const { Content, headings } = await post.render();
+const { Content, headings } = await render(post);
 ---
 <PostLayout post={post} headings={headings}>
   <Content />

@@ -1,11 +1,11 @@
 name = "decap-oauth-worker"
 main = "index.js"
-compatibility_date = "2024-01-01"
+compatibility_date = "2026-10-12"
 
 [vars]
 # 生产必需配置：允许调用本网关的精确博客后台域名 (逗号分隔，不支持通配符)
-# 示例：生产域名与本地开发域名（按需添加）
-ALLOWED_ORIGINS = "https://your-blog.pages.dev,http://localhost:4321"
+# 示例值必须替换。日常本地写作使用文件代理，无需开放正式 OAuth。
+ALLOWED_ORIGINS = "https://your-blog.pages.dev"
 
 # 秘钥注入与部署指令：
 # 1. npx wrangler secret put GITHUB_CLIENT_ID

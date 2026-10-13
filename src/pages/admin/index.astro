@@ -1,0 +1,50 @@
+---
+import ThemeScript from '../../components/common/ThemeScript.astro';
+import { createAdminConfiguration } from '../../config/admin';
+import { site, settings as siteSettings, categories } from '../../config/site';
+import '../../styles/tokens.css';
+import '../../styles/prose.css';
+import '../../styles/console.css';
+import 'katex/dist/katex.min.css';
+const connection = createAdminConfiguration({ ...import.meta.env, ...process.env }, import.meta.env.DEV);
+const groups = [
+  { label: '工作区', items: [{ id: 'overview', label: '内容总览', icon: 'overview' }, { id: 'posts', label: '文章管理', icon: 'posts' }, { id: 'taxonomy', label: '分类与标签', icon: 'tags' }, { id: 'media', label: '媒体资源', icon: 'image' }] },
+  { label: '站点管理', items: [{ id: 'settings/general', label: '站点设置', icon: 'settings' }, { id: 'settings/home', label: '首页与导航', icon: 'home' }, { id: 'settings/appearance', label: '外观主题', icon: 'palette' }, { id: 'settings/about', label: '关于与友链', icon: 'globe' }] },
+  { label: '发布', items: [{ id: 'connection', label: '发布与连接', icon: 'cloud' }] },
+];
+---
+<!doctype html>
+<html lang="zh-CN" data-theme="dark" data-accent="cyberblue">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>管理后台 · {site.brand}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href={site.fonts} />
+    <ThemeScript />
+  </head>
+  <body class="console" data-pagefind-ignore data-connection={JSON.stringify(connection)} data-settings={JSON.stringify(siteSettings)} data-categories={JSON.stringify(categories)}>
+    <a href="#console-main" class="skip-link">跳到工作区</a>
+    <div id="nav-scrim" class="nav-scrim" hidden></div>
+    <aside class="console-nav" id="console-nav" aria-label="管理导航">
+      <a class="console-brand" href="#/overview"><img src="/favicon.svg" width="34" height="34" alt="" /><span>{site.brand}<small>CONTENT STUDIO</small></span></a>
+      <div class="workspace-label"><span class="status-dot"></span><span id="workspace-mode">{connection.local ? '本地工作区' : '管理工作区'}</span></div>
+      <nav>{groups.map(group => <div class="nav-group"><p>{group.label}</p>{group.items.map(item => <a href={`#/${item.id}`} data-route={item.id}><span data-icon={item.icon}></span><span>{item.label}</span>{item.id === 'posts' && <span class="nav-count" id="nav-post-count">—</span>}</a>)}</div>)}</nav>
+      <div class="console-profile"><span class="profile-avatar">H</span><div><strong>{site.author}</strong><small>站点管理员</small></div><button type="button" id="nav-close" class="icon-button mobile-only" aria-label="关闭导航"><span data-icon="close"></span></button></div>
+    </aside>
+    <div class="console-body">
+      <header class="console-topbar">
+        <div class="topbar-location"><button type="button" class="icon-button mobile-only" id="nav-open" aria-controls="console-nav" aria-expanded="false" aria-label="打开导航"><span data-icon="menu"></span></button><span class="desktop-only">管理后台</span><span class="breadcrumb-divider desktop-only">/</span><strong id="workspace-title">内容总览</strong></div>
+        <div class="topbar-actions"><span class="connection-chip" id="connection-chip"><span class="status-dot"></span>{connection.local ? '本地编辑' : '等待连接'}</span><button type="button" class="icon-button" id="console-theme" aria-label="切换明暗主题"><span data-icon="theme"></span></button><a class="button quiet visit-link" href="/" target="_blank" rel="noopener noreferrer">查看博客<span data-icon="external"></span></a></div>
+      </header>
+      <main id="console-main" class="console-main" tabindex="-1"><div class="loading-state"><span class="loading-spinner"></span><h1>正在连接工作区</h1><p>读取文章与站点配置…</p></div></main>
+      <div class="console-footer"><span>{site.brand} / CONTENT STUDIO</span><span id="console-footer-state">Git 驱动的内容管理</span></div>
+    </div>
+    <div id="console-toast" class="console-toast" role="status" aria-live="polite" hidden></div>
+    <dialog id="console-dialog" class="console-dialog"></dialog>
+    <script>import '../../admin/console.js';</script>
+  </body>
+</html>

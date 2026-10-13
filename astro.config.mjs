@@ -1,20 +1,20 @@
 import { defineConfig } from 'astro/config';
-import tailwind from '@astrojs/tailwind';
+import tailwindcss from '@tailwindcss/vite';
+import { unified } from '@astrojs/markdown-remark';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import remarkGfm from 'remark-gfm';
 
 export default defineConfig({
-  site: 'https://kael-nexus.dev',
-  integrations: [
-    tailwind({
-      applyBaseStyles: false,
-    }),
-  ],
+  site: process.env.SITE_URL || process.env.CF_PAGES_URL || undefined,
+  devToolbar: { enabled: false },
+  compressHTML: true,
   markdown: {
-    remarkPlugins: [remarkMath],
-    rehypePlugins: [rehypeKatex],
+    processor: unified({ remarkPlugins: [remarkGfm, remarkMath], rehypePlugins: [rehypeKatex] }),
   },
   vite: {
+    server: { strictPort: true },
+    plugins: [tailwindcss()],
     ssr: {
       noExternal: ['three'],
     },

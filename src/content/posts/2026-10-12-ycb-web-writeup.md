@@ -6,7 +6,6 @@ category: "极客安全与攻防"
 tags: ["CTF", "Shiro", "内存马", "Java安全"]
 featured: true
 draft: false
-views: "3,180"
 coverImage: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80"
 extraMeta:
   targetEvent: "2026 羊城杯"

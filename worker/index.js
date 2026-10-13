@@ -1,263 +1,96 @@
-/**
- * Cloudflare Worker: Decap CMS GitHub OAuth 认证网关 (完整会话绑定与常数时间比对版)
- * 
- * 安全合规能力：
- * 1. 严格全量 state 会话绑定：/auth 生成的 stateId 与 clientOrigin 完整写入 HttpOnly Cookie，并在 /callback 使用 Web Crypto 常数时间比对 (timingSafeEqual)，防范 CSRF 与时序侧信道攻击；
- * 2. 来源严格信任自 Cookie：目标 origin 统一从经过防篡改核验的 Cookie state 中解析，决不盲从 URL 参数；
- * 3. 严格精确白名单：ALLOWED_ORIGINS 为必需配置，禁止通配符 *.pages.dev，无默认本地后门；
- * 4. postMessage 纯定向传输：仅向白名单内的目标域名定向派发 Token，杜绝跨站 Token 窃取。
- * 
- * 环境变量配置 (必需):
- * - GITHUB_CLIENT_ID: GitHub OAuth App 的 Client ID
- * - GITHUB_CLIENT_SECRET: GitHub OAuth App 的 Client Secret
- * - ALLOWED_ORIGINS: (必需) 逗号分隔的精确博客后台域名，例如 "https://kael-nexus.pages.dev,http://localhost:4321"
- */
+const cookieName = 'oauth_session_state';
+const cookieOptions = 'HttpOnly; Secure; SameSite=Lax; Path=/callback';
+const clearCookie = `${cookieName}=; ${cookieOptions}; Max-Age=0`;
 
 function isOriginAllowed(origin, env) {
-  if (!origin || !env.ALLOWED_ORIGINS) return false;
-  
-  const allowList = env.ALLOWED_ORIGINS
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
-
-  return allowList.includes(origin);
+  return Boolean(origin && env.ALLOWED_ORIGINS?.split(',').map(value => value.trim()).filter(Boolean).includes(origin));
 }
 
-function parseCookies(cookieHeader) {
-  const cookies = {};
-  if (!cookieHeader) return cookies;
-  cookieHeader.split(';').forEach(cookie => {
-    const parts = cookie.split('=');
-    const name = parts[0].trim();
-    const value = parts.slice(1).join('=').trim();
-    if (name) cookies[name] = decodeURIComponent(value);
-  });
-  return cookies;
+function readCookie(header) {
+  const value = (header || '').split(';').map(part => part.trim()).find(part => part.startsWith(`${cookieName}=`));
+  try { return value ? decodeURIComponent(value.slice(cookieName.length + 1)) : ''; } catch { return ''; }
 }
 
-/**
- * 使用 Web Crypto API 的 timingSafeEqual 进行常数时间字符串比对
- * 避免因短路比对引起的时序侧信道攻击
- */
-async function timingSafeEqualStr(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string') return false;
-  const enc = new TextEncoder();
-  const aBuf = enc.encode(a);
-  const bBuf = enc.encode(b);
-  if (aBuf.byteLength !== bBuf.byteLength) return false;
-  return crypto.subtle.timingSafeEqual(aBuf, bBuf);
+function equalState(a, b) {
+  const encoder = new TextEncoder();
+  const left = encoder.encode(a);
+  const right = encoder.encode(b);
+  return left.byteLength === right.byteLength && crypto.subtle.timingSafeEqual(left, right);
+}
+
+// Safe inside an HTML script element, including untrusted upstream error text.
+function scriptJson(value) {
+  return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, character => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`);
+}
+
+function authorizationPage(origin, data, error = '') {
+  const nonce = crypto.randomUUID().replaceAll('-', '');
+  const protocolMessage = `authorization:github:${error ? 'error' : 'success'}:${JSON.stringify(data)}`;
+  const payload = scriptJson({ origin, message: protocolMessage, error });
+  return new Response(`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>返回写作后台</title></head>
+    <body><p id="auth-status">正在返回写作后台…</p><script nonce="${nonce}">
+      (function() {
+        const payload = ${payload};
+        if (payload.error) document.getElementById('auth-status').textContent = '授权失败：' + payload.error;
+        if (!window.opener) { document.getElementById('auth-status').textContent = '请从写作后台重新打开登录窗口。'; return; }
+        function receiveMessage(event) {
+          if (event.origin !== payload.origin || event.source !== window.opener || event.data !== 'authorizing:github') return;
+          window.opener.postMessage(payload.message, payload.origin);
+          window.removeEventListener('message', receiveMessage);
+          window.close();
+        }
+        window.addEventListener('message', receiveMessage);
+        window.opener.postMessage('authorizing:github', payload.origin);
+      })();
+    </script></body></html>`, { headers: {
+      'Content-Type': 'text/html; charset=utf-8', 'Set-Cookie': clearCookie, 'Cache-Control': 'no-store',
+      'Content-Security-Policy': `default-src 'none'; script-src 'nonce-${nonce}'; base-uri 'none'; frame-ancestors 'none'`,
+      'Referrer-Policy': 'no-referrer',
+    } });
 }
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET' } });
+    if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET || !env.ALLOWED_ORIGINS?.trim()) return new Response('OAuth service is not configured.', { status: 500 });
 
-    // 0. 前置严格检查：必需环境变量
-    if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET) {
-      return new Response('500 Internal Error: 缺少 GITHUB_CLIENT_ID 或 GITHUB_CLIENT_SECRET 环境变量配置', {
-        status: 500,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      });
-    }
-
-    if (!env.ALLOWED_ORIGINS || !env.ALLOWED_ORIGINS.trim()) {
-      return new Response('500 Internal Error: 必需配置 ALLOWED_ORIGINS 环境变量以确保来源白名单安全', {
-        status: 500,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      });
-    }
-
-    // 1. 发起授权请求：/auth
     if (url.pathname === '/auth') {
-      const queryOrigin = url.searchParams.get('origin');
-      const referer = request.headers.get('Referer');
-      let clientOrigin = '';
-
-      if (queryOrigin) {
-        clientOrigin = queryOrigin;
-      } else if (referer) {
-        try {
-          clientOrigin = new URL(referer).origin;
-        } catch {
-          clientOrigin = '';
-        }
-      }
-
-      // 严格白名单前置断言
-      if (!clientOrigin || !isOriginAllowed(clientOrigin, env)) {
-        return new Response(
-          `403 Forbidden: 未经授权的博客后台域名 (${clientOrigin || '未知来源'})。必须显式配置在 Worker 的 ALLOWED_ORIGINS 白名单中。`,
-          { status: 403, headers: { 'Content-Type': 'text/plain;charset=UTF-8' } }
-        );
-      }
-
-      // 生成安全的强随机 state，并将 clientOrigin 完整绑定保存至 HttpOnly 会话 Cookie
-      const stateId = crypto.randomUUID();
-      const fullState = `${stateId}.${btoa(clientOrigin)}`;
-
-      const githubAuthUrl = new URL('https://github.com/login/oauth/authorize');
-      githubAuthUrl.searchParams.set('client_id', env.GITHUB_CLIENT_ID);
-      githubAuthUrl.searchParams.set('scope', 'repo,user');
-      githubAuthUrl.searchParams.set('state', fullState);
-
-      const headers = new Headers();
-      headers.set('Location', githubAuthUrl.toString());
-      // 将完整 fullState (包含 stateId 与 clientOrigin) 完整写入 HttpOnly Cookie
-      headers.set(
-        'Set-Cookie',
-        `oauth_session_state=${encodeURIComponent(fullState)}; HttpOnly; Secure; SameSite=Lax; Path=/callback; Max-Age=600`
-      );
-
-      return new Response(null, {
-        status: 302,
-        headers,
-      });
+      let origin = url.searchParams.get('origin') || '';
+      if (!origin) { try { origin = new URL(request.headers.get('Referer')).origin; } catch { /* deny unknown origins */ } }
+      if (!isOriginAllowed(origin, env)) return new Response('Unauthorized origin.', { status: 403 });
+      const fullState = `${crypto.randomUUID()}.${btoa(origin)}`;
+      const authorization = new URL('https://github.com/login/oauth/authorize');
+      authorization.searchParams.set('client_id', env.GITHUB_CLIENT_ID);
+      authorization.searchParams.set('scope', 'repo');
+      authorization.searchParams.set('state', fullState);
+      authorization.searchParams.set('redirect_uri', new URL('/callback', url.origin).href);
+      return new Response(null, { status: 302, headers: {
+        Location: authorization.href, 'Set-Cookie': `${cookieName}=${encodeURIComponent(fullState)}; ${cookieOptions}; Max-Age=600`,
+        'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
+      } });
     }
 
-    // 2. GitHub 授权回调：/callback
     if (url.pathname === '/callback') {
+      const received = url.searchParams.get('state') || '';
+      const saved = readCookie(request.headers.get('Cookie'));
+      if (!saved || !received || !equalState(saved, received)) return new Response('OAuth session validation failed. Please sign in again.', { status: 403 });
+      let origin;
+      try { origin = atob(saved.slice(saved.indexOf('.') + 1)); } catch { return new Response('Invalid OAuth session.', { status: 403 }); }
+      if (!isOriginAllowed(origin, env)) return new Response('Unauthorized session origin.', { status: 403 });
+      if (url.searchParams.has('error')) return authorizationPage(origin, { error: 'access_denied' }, 'GitHub 授权已取消，请回到后台重新登录。');
       const code = url.searchParams.get('code');
-      const receivedState = url.searchParams.get('state');
-
-      if (!code || !receivedState) {
-        return new Response('400 Bad Request: 缺少必需的授权 code 或 state 参数', { status: 400 });
-      }
-
-      // 从安全 Cookie 读取完整的保存状态
-      const cookies = parseCookies(request.headers.get('Cookie'));
-      const savedFullState = cookies.oauth_session_state;
-
-      // 使用常数时间安全比对核验完整 state
-      const isStateValid = await timingSafeEqualStr(savedFullState || '', receivedState);
-      if (!isStateValid) {
-        return new Response('403 Forbidden: CSRF 会话核验失败（state 不匹配、已过期或已被跨站篡改）', {
-          status: 403,
-          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-        });
-      }
-
-      // 关键安全点：目标来源从 Cookie 保存的经过常数时间校验通过的状态中解析，决不盲信 URL
-      let verifiedOrigin = '';
+      if (!code) return new Response('Missing authorization code.', { status: 400 });
       try {
-        const parts = savedFullState.split('.');
-        if (parts.length >= 2) {
-          verifiedOrigin = atob(parts.slice(1).join('.'));
-        }
-      } catch {
-        verifiedOrigin = '';
-      }
-
-      // 二次严格白名单复核
-      if (!verifiedOrigin || !isOriginAllowed(verifiedOrigin, env)) {
-        return new Response(
-          `403 Forbidden: 会话中保存的来源域名 (${verifiedOrigin || '非法内容'}) 未通过白名单校验。`,
-          { status: 403, headers: { 'Content-Type': 'text/plain;charset=UTF-8' } }
-        );
-      }
-
-      const targetOrigin = verifiedOrigin; // 严格锁死为防篡改校验通过的白名单域名
-      const clearCookie = 'oauth_session_state=; HttpOnly; Secure; SameSite=Lax; Path=/callback; Max-Age=0';
-
-      try {
-        const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': 'Decap-CMS-Secure-OAuth-Gateway',
-          },
-          body: JSON.stringify({
-            client_id: env.GITHUB_CLIENT_ID,
-            client_secret: env.GITHUB_CLIENT_SECRET,
-            code: code,
-          }),
+        const response = await fetch('https://github.com/login/oauth/access_token', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'HuaOvO-Decap-OAuth' },
+          body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET, code, redirect_uri: new URL('/callback', url.origin).href }),
         });
-
-        const data = await tokenRes.json();
-
-        if (data.error || !data.access_token) {
-          const content = `
-            <!DOCTYPE html>
-            <html lang="zh-CN">
-              <head><meta charset="utf-8"><title>授权失败</title></head>
-              <body>
-                <script>
-                  (function() {
-                    var targetOrigin = ${JSON.stringify(targetOrigin)};
-                    if (window.opener) {
-                      window.opener.postMessage(
-                        'authorization:github:error:${JSON.stringify(data)}',
-                        targetOrigin
-                      );
-                    }
-                    setTimeout(function() { window.close(); }, 2500);
-                  })();
-                </script>
-                <div style="font-family:sans-serif;padding:2rem;color:#ef4444;text-align:center;">
-                  <p>GitHub 授权换票失败: ${data.error_description || data.error || '未知错误'}</p>
-                </div>
-              </body>
-            </html>
-          `;
-          return new Response(content, {
-            headers: {
-              'Content-Type': 'text/html;charset=UTF-8',
-              'Set-Cookie': clearCookie,
-            },
-          });
-        }
-
-        // 成功换取 token：仅向严格校验过的 targetOrigin 发送 postMessage
-        const content = `
-          <!DOCTYPE html>
-          <html lang="zh-CN">
-            <head><meta charset="utf-8"><title>授权成功，正在返回...</title></head>
-            <body>
-              <script>
-                (function() {
-                  var targetOrigin = ${JSON.stringify(targetOrigin)};
-                  function receiveMessage(e) {
-                    if (e.origin !== targetOrigin) {
-                      console.warn('收到非白名单来源的消息握手，拒绝派发 Token:', e.origin);
-                      return;
-                    }
-                    if (e.data === 'authorizing:github') {
-                      window.opener.postMessage(
-                        'authorization:github:success:${JSON.stringify({
-                          token: data.access_token,
-                          provider: 'github',
-                        })}',
-                        targetOrigin
-                      );
-                      window.removeEventListener("message", receiveMessage, false);
-                      window.close();
-                    }
-                  }
-                  window.addEventListener("message", receiveMessage, false);
-                  window.opener.postMessage("authorizing:github", targetOrigin);
-                })();
-              </script>
-              <div style="font-family:sans-serif;padding:2rem;color:#10b981;text-align:center;">
-                <p>GitHub 授权成功！正在关闭窗口返回后台...</p>
-              </div>
-            </body>
-          </html>
-        `;
-
-        return new Response(content, {
-          headers: {
-            'Content-Type': 'text/html;charset=UTF-8',
-            'Set-Cookie': clearCookie,
-          },
-        });
-      } catch (err) {
-        return new Response(`换取 Access Token 异常: ${err.message}`, { status: 500 });
-      }
+        const data = await response.json();
+        if (!response.ok || typeof data.access_token !== 'string' || !data.access_token) return authorizationPage(origin, { error: data.error || 'token_exchange_failed' }, String(data.error_description || '授权凭据已过期，请重新登录。'));
+        return authorizationPage(origin, { token: data.access_token, provider: 'github' });
+      } catch { return authorizationPage(origin, { error: 'token_exchange_failed' }, '登录服务暂时不可用，请稍后重试。'); }
     }
-
-    return new Response('Decap CMS Secure GitHub OAuth Gateway is active.', {
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-    });
+    return new Response('Decap OAuth gateway is active.', { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
   },
 };

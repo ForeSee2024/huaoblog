@@ -1,137 +1,39 @@
 ---
-// PostLayout.astro: 文章详情专有布局
 import BaseLayout from './BaseLayout.astro';
 import TableOfContents from '../components/post/TableOfContents.astro';
 import type { CollectionEntry } from 'astro:content';
-
-interface Props {
-  post: CollectionEntry<'posts'>;
-  headings: { depth: number; slug: string; text: string }[];
-}
-
+import { formatDate } from '../utils/posts';
+interface Props { post: CollectionEntry<'posts'>; headings: { depth: number; slug: string; text: string }[]; }
 const { post, headings } = Astro.props;
-const { title, description, pubDate, category, tags, views, coverImage, extraMeta } = post.data;
-const dateStr = pubDate.toISOString().split('T')[0];
+const { title, description, pubDate, category, tags, views, coverImage, series, extraMeta } = post.data;
 ---
-<BaseLayout title={`${title} | Kael's Cyber Nexus`} description={description}>
+<BaseLayout title={`${title} | HuaOvO · 胡敖的技术笔记`} description={description}>
   <div class="flex flex-col xl:flex-row gap-8 items-start">
-    
-    <!-- 文章主体区域 -->
     <main class="w-full xl:flex-1 min-w-0">
-      
-      <!-- 文章 Hero Banner 封面区 -->
-      <div class="cyber-card mb-8 overflow-hidden">
-        {coverImage && (
-          <div class="relative h-64 md:h-80 w-full overflow-hidden bg-[var(--bg-surface-elevated)]">
-            <img src={coverImage} alt={title} class="w-full h-full object-cover" />
-            <div class="absolute inset-0 bg-gradient-to-t from-[var(--bg-card)] via-[var(--bg-card)]/40 to-transparent"></div>
+      <header class="post-intro">
+        {coverImage && <img src={coverImage} alt="" class="post-cover" />}
+        <div class="post-intro-content">
+          <div class="post-meta">
+            <a href={`/posts?cat=${encodeURIComponent(category)}`} class="post-category">{category}</a>
+            <time datetime={formatDate(pubDate)} class="font-mono">{formatDate(pubDate)}</time>
+            {views && <span>{views} 次阅读</span>}
+            {extraMeta?.targetEvent && <span>{extraMeta.targetEvent}</span>}
           </div>
-        )}
-
-        <div class="p-6 md:p-8">
-          <!-- 元数据药丸栏 -->
-          <div class="flex flex-wrap items-center gap-2 mb-4 text-xs font-semibold">
-            <a href={`/posts?cat=${encodeURIComponent(category)}`} class="px-3 py-1 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--border-subtle)] no-underline">
-              {category}
-            </a>
-            <span class="text-[var(--text-dim)] flex items-center gap-1 font-mono">
-              <i class="fa-regular fa-calendar-check text-[10px]"></i>
-              {dateStr}
-            </span>
-            {views && (
-              <span class="text-[var(--text-dim)] flex items-center gap-1 font-mono">
-                <i class="fa-solid fa-eye text-[10px]"></i>
-                {views}
-              </span>
-            )}
-            {extraMeta?.targetEvent && (
-              <span class="px-2.5 py-0.5 rounded-full bg-[var(--bg-surface-elevated)] text-[var(--text-main)] border border-[var(--border-subtle)]">
-                <i class="fa-solid fa-trophy text-[10px] text-[var(--accent)] mr-1"></i>
-                {extraMeta.targetEvent}
-              </span>
-            )}
-          </div>
-
-          <!-- 主标题 -->
-          <h1 class="text-2xl md:text-4xl font-extrabold text-[var(--text-hero)] leading-tight tracking-tight mb-4">
-            {title}
-          </h1>
-
-          <!-- 导言引用卡 -->
-          <p class="p-4 rounded-xl bg-[var(--bg-glass)] border-l-4 border-[var(--accent)] text-xs md:text-sm text-[var(--text-muted)] leading-relaxed italic">
-            {description}
-          </p>
+          <h1 class="post-heading" data-pagefind-meta="title">{title}</h1>
+          <p class="post-summary">{description}</p>
         </div>
-      </div>
-
-      <!-- 文章正文渲染器 (采用实色底阻隔背景波浪干扰，保障纯净阅读体验) -->
-      <article class="cyber-card p-6 md:p-10 prose prose-invert max-w-none text-sm md:text-base leading-relaxed text-[var(--text-main)] !bg-[var(--bg-card-solid)] !shadow-xl" data-pagefind-body>
-        <slot />
-      </article>
-
-      <!-- 文章底部互动标签与导航 -->
-      <div class="cyber-card p-6 mt-8 flex flex-wrap items-center justify-between gap-4">
-        <div class="flex flex-wrap gap-2 text-xs">
-          <span class="text-[var(--text-dim)] font-bold">标签：</span>
-          {tags.map(t => (
-            <a href={`/posts?tag=${encodeURIComponent(t)}`} class="px-2.5 py-1 rounded-md bg-[var(--bg-glass)] text-[var(--text-muted)] hover:text-[var(--accent)] no-underline">
-              #{t}
-            </a>
-          ))}
+      </header>
+      <article class="article-prose post-body-surface" data-pagefind-body><slot /></article>
+      <footer class="cyber-card p-6 mt-6 flex flex-col gap-4">
+        <div class="post-tags">{tags.map(tag => <a href={`/posts?tag=${encodeURIComponent(tag)}`}>#{tag}</a>)}</div>
+        {series && <a href={`/posts?series=${encodeURIComponent(series)}`} class="text-sm text-[var(--accent)]">连载系列：{series}</a>}
+        <div class="flex flex-wrap gap-4 text-sm">
+          {extraMeta?.repoUrl && <a href={extraMeta.repoUrl} target="_blank" rel="noopener noreferrer" class="text-[var(--accent)]">配套代码仓库</a>}
+          {extraMeta?.paperDoi && <span class="text-[var(--text-muted)]">DOI：{extraMeta.paperDoi}</span>}
+          <a href="/posts" class="text-[var(--accent)] ml-auto">返回文章列表</a>
         </div>
-        <a href="/posts" class="flex items-center gap-1.5 text-xs font-bold text-[var(--accent)] no-underline hover:underline">
-          <i class="fa-solid fa-arrow-left text-[10px]"></i>
-          <span>返回技术博文列表</span>
-        </a>
-      </div>
-
+      </footer>
     </main>
-
-    <!-- 右侧粘性 TOC 目录 -->
     <TableOfContents headings={headings} />
-
   </div>
 </BaseLayout>
-
-<style is:global>
-  /* Markdown 正文内部排版样式微调 */
-  .prose h2 {
-    color: var(--text-hero);
-    font-size: 1.35rem;
-    font-weight: 800;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border-subtle);
-  }
-  .prose h3 {
-    color: var(--text-hero);
-    font-size: 1.15rem;
-    font-weight: 700;
-    margin-top: 1.5rem;
-    margin-bottom: 0.75rem;
-  }
-  .prose p {
-    margin-bottom: 1.25rem;
-    line-height: 1.8;
-  }
-  .prose pre {
-    background: var(--code-bg) !important;
-    border: 1px solid var(--border-card);
-    border-radius: 12px;
-    padding: 1rem;
-    margin: 1.25rem 0;
-    overflow-x: auto;
-    font-family: var(--font-mono);
-  }
-  .prose code {
-    font-family: var(--font-mono);
-    font-size: 0.85em;
-  }
-  .prose blockquote {
-    border-left: 3px solid var(--accent);
-    padding-left: 1rem;
-    margin: 1.25rem 0;
-    color: var(--text-muted);
-  }
-</style>

@@ -1,18 +1,18 @@
 ---
 // PostCard.astro: 文章卡片组件
-import type { CollectionEntry } from 'astro:content';
+import type { BlogPost } from '../../utils/posts';
 
 interface Props {
-  post: CollectionEntry<'posts'>;
+  post: BlogPost;
 }
 
 const { post } = Astro.props;
-const { title, description, pubDate, category, tags, views, coverImage, extraMeta } = post.data;
+const { title, description, pubDate, category, tags, views, coverImage, extraMeta, featured } = post.data;
 
 // 格式化日期为 YYYY-MM-DD
 const dateStr = pubDate.toISOString().split('T')[0];
 ---
-<article class="cyber-card flex flex-col md:flex-row overflow-hidden group cursor-pointer">
+<article class="cyber-card flex flex-col md:flex-row overflow-hidden group">
   <!-- 封面缩略图 -->
   {coverImage && (
     <div class="relative w-full md:w-64 h-48 md:h-auto overflow-hidden flex-shrink-0 bg-[var(--bg-surface-elevated)]">
@@ -31,6 +31,7 @@ const dateStr = pubDate.toISOString().split('T')[0];
     <div>
       <!-- 元数据药丸栏 -->
       <div class="flex flex-wrap items-center gap-2 mb-2 text-xs">
+        {featured && <span class="text-[var(--accent)] font-semibold"><i class="fa-solid fa-thumbtack mr-1" aria-hidden="true"></i>精选置顶</span>}
         <span class="px-2.5 py-0.5 rounded-md font-bold bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--border-subtle)]">
           {category}
         </span>

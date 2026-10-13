@@ -1,22 +1,46 @@
 {
-  "name": "kael-cyber-nexus",
+  "name": "huaovo-blog",
   "type": "module",
   "version": "1.0.0",
   "scripts": {
-    "dev": "astro dev --port 4321",
-    "start": "astro dev --port 4321",
+    "dev": "node scripts/dev.mjs",
+    "dev:site": "astro dev --host 127.0.0.1 --port 4321 --ignore-lock",
+    "content:local": "node scripts/content-server.mjs",
+    "start": "npm run dev",
     "build": "astro build && pagefind --site dist",
     "check": "astro check",
-    "preview": "astro preview --port 4321",
+    "test": "node --test tests/*.test.mjs",
+    "preview": "astro preview --host 127.0.0.1 --port 4323 --ignore-lock",
     "astro": "astro"
   },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "overrides": {
+    "katex": "$katex"
+  },
   "dependencies": {
-    "@astrojs/tailwind": "^5.1.5",
-    "astro": "^5.4.2",
-    "rehype-katex": "^7.0.1",
+    "@astrojs/markdown-remark": "7.3.2",
+    "@codemirror/view": "^6.43.14",
+    "@milkdown/crepe": "^7.22.3",
+    "@milkdown/kit": "^7.22.3",
+    "@tailwindcss/vite": "4.3.3",
+    "astro": "7.3.8",
+    "highlight.js": "^11.11.1",
+    "katex": "0.19.0",
+    "lucide": "^1.56.0",
+    "rehype-highlight": "^7.0.2",
+    "rehype-katex": "7.0.1",
+    "rehype-sanitize": "^6.0.0",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
-    "tailwindcss": "^3.4.17",
-    "three": "^0.174.0"
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "tailwindcss": "4.3.3",
+    "three": "^0.174.0",
+    "unified": "^11.0.5",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

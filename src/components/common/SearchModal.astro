@@ -1,177 +1,83 @@
 ---
-// SearchModal.astro: 生产级全文搜索模态框 (接入 Pagefind 深度正文索引与开发环境智能降级)
+import { getPublishedPosts } from '../../utils/posts';
+const fallback = (await getPublishedPosts()).map(post => ({ title: post.data.title, category: post.data.category, tags: post.data.tags, url: `/posts/${post.slug}/`, excerpt: post.data.description }));
 ---
-<div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-start justify-center p-4 pt-20 sm:pt-24 hidden" id="search-modal-backdrop">
-  <div class="cyber-card w-full max-w-xl p-4 bg-[var(--bg-surface)] border border-[var(--border-card)] shadow-2xl" id="search-modal-box">
-    
-    <!-- 搜索输入框 -->
-    <div class="flex items-center gap-3 px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] focus-within:border-[var(--accent)] transition-colors">
-      <i class="fa-solid fa-magnifying-glass text-[var(--accent)] text-sm"></i>
-      <input 
-        type="text" 
-        id="search-input" 
-        class="w-full bg-transparent border-none outline-none text-xs sm:text-sm text-[var(--text-hero)] placeholder-[var(--text-dim)]" 
-        placeholder="键入关键词，全文检索正文内容、技术术语或代码..." 
-        autocomplete="off"
-      />
-      <kbd class="px-2 py-0.5 text-[10px] font-mono rounded bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[var(--text-dim)] cursor-pointer" id="search-esc-btn">ESC</kbd>
-    </div>
-
-    <!-- 索引状态提示栏 -->
-    <div class="flex items-center justify-between px-1 mt-2 text-[10px] font-mono text-[var(--text-dim)]" id="search-status-bar">
-      <span>PAGEFIND ENGINE ACTIVE</span>
-      <span>PRESS ESC TO CLOSE</span>
-    </div>
-
-    <!-- 结果列表 -->
-    <div class="mt-3 max-h-80 overflow-y-auto divide-y divide-[var(--border-subtle)]" id="search-results-list">
-      <div class="py-8 text-center text-xs text-[var(--text-dim)]">输入关键词开始检索全部文章与正文代码...</div>
-    </div>
-  </div>
-</div>
-
+<dialog id="site-search" aria-labelledby="search-title" class="cyber-card">
+  <header class="search-heading"><h2 id="search-title">搜索文章</h2><button type="button" id="search-close" aria-label="关闭搜索">关闭 <kbd>Esc</kbd></button></header>
+  <label class="sr-only" for="search-input">搜索关键词</label>
+  <input type="search" id="search-input" placeholder="搜索正文、标题或技术术语…" autocomplete="off" autofocus />
+  <p id="search-state" role="status">输入关键词，开始查找文章。</p>
+  <div id="search-results-list"></div>
+</dialog>
+<script type="application/json" id="article-search-data" set:html={JSON.stringify(fallback).replace(/</g, '\\u003c')} />
 <script>
-  let pagefindInstance: any = null;
-  let isPagefindLoaded = false;
-
-  // 尝试动态引入 Pagefind 生产级索引 (运行时按需加载，规避 Vite 构建期模块未生成错误)
-  async function loadPagefind() {
-    if (isPagefindLoaded) return;
-    try {
-      const pagefindUrl = '/pagefind/pagefind.js';
-      const dynamicImport = new Function('url', 'return import(url)');
-      pagefindInstance = await dynamicImport(pagefindUrl);
-      if (pagefindInstance && pagefindInstance.init) {
-        await pagefindInstance.init();
-      }
-      isPagefindLoaded = true;
-    } catch (e) {
-      // 本地开发环境未执行 pagefind 命令时的安全回退
-      isPagefindLoaded = false;
-    }
-  }
-
-  // 开发环境备用数据 (开发阶段未跑 build 时的 fallback)
-  const FALLBACK_ITEMS = [
-    { title: '基于 Rust 构建下一代高性能微服务网关架构实战', cat: '软件工程与系统', url: '/posts/2026-10-18-rust-gateway', excerpt: '探讨异步运行时 Tokio、零拷贝流式转发以及基于 SIMD 加速的 HTTP 路由匹配算法。' },
-    { title: '多模态大语言模型在软件安全漏洞自动挖掘与修复中的实践探索', cat: 'AI 与前沿科研', url: '/posts/2026-10-15-ai-vuln-repair', excerpt: '系统性梳理基于上下文学习与代码属性图（CPG）引导的智能漏洞修复实验设计。' },
-    { title: '2026 羊城杯网络安全初赛 Web 攻防思路与全复盘总结', cat: '极客安全与攻防', url: '/posts/2026-10-12-ycb-web-writeup', excerpt: '涵盖 Shiro 鉴权绕过链条、Fastjson 原生利用以及 Spring Boot 内存马注入。' },
-    { title: '深入理解现代操作系统：从虚拟内存映射到 eBPF 内核实时观测', cat: '计算机体系沉淀', url: '/posts/2026-09-24-os-ebpf-tracing', excerpt: '从页表遍历、缺页异常处理切入，详解如何利用 eBPF 无侵入探测内核态延迟瓶颈。' },
-    { title: 'Three.js 拓扑曲面与自定义 GLSL 顶点着色器流体实战', cat: '软件工程与系统', url: '/posts/2026-09-08-threejs-shader', excerpt: '探究 GLSL 顶点着色器与柏林噪声在三维地形生成中的数学原理。' },
-    { title: '从 0 到 1 打造极客风格数字知识花园与双屏工作流折腾记', cat: '生活随笔与杂项', url: '/posts/2026-08-20-desk-productivity', excerpt: '分享两年来基于 Markdown、GitOps 自动化以及 macOS 多屏终端打造沉浸式极客开发环境。' }
-  ];
-
-  const modal = document.getElementById('search-modal-backdrop');
+  interface SearchItem { url: string; excerpt: string; meta?: { title?: string }; title?: string; category?: string; tags?: string[]; }
+  interface Pagefind { init?: () => Promise<void>; search: (query: string) => Promise<{ results: { data: () => Promise<SearchItem> }[] }>; }
+  const dialog = document.getElementById('site-search') as HTMLDialogElement;
   const input = document.getElementById('search-input') as HTMLInputElement;
-  const list = document.getElementById('search-results-list');
-  const btnOpen = document.getElementById('btn-open-search');
-  const btnEsc = document.getElementById('search-esc-btn');
-
-  async function openSearch() {
-    modal?.classList.remove('hidden');
-    input?.focus();
-    await loadPagefind();
+  const list = document.getElementById('search-results-list')!;
+  const status = document.getElementById('search-state')!;
+  const fallback: SearchItem[] = JSON.parse(document.getElementById('article-search-data')?.textContent || '[]');
+  let enginePromise: Promise<Pagefind | null> | undefined;
+  let timer: ReturnType<typeof setTimeout>;
+  let revision = 0;
+  let previousFocus: HTMLElement | null;
+  function loadEngine() {
+    return enginePromise ??= (async () => {
+      if (import.meta.env.DEV) return null;
+      try { const url = '/pagefind/pagefind.js'; const engine = await import(/* @vite-ignore */ url) as Pagefind; await engine.init?.(); return engine; } catch { return null; }
+    })();
   }
-
-  function closeSearch() {
-    modal?.classList.add('hidden');
-    if (input) input.value = '';
+  function renderResults(items: SearchItem[]) {
+    list.replaceChildren();
+    for (const item of items) {
+      const url = new URL(item.url, location.origin);
+      if (url.origin !== location.origin || !['http:', 'https:'].includes(url.protocol)) continue;
+      const link = document.createElement('a'); link.href = url.href; link.className = 'search-result';
+      const title = document.createElement('strong'); title.textContent = item.meta?.title || item.title || '文章';
+      const excerpt = document.createElement('p'); excerpt.textContent = new DOMParser().parseFromString(item.excerpt || '', 'text/html').body.textContent;
+      link.append(title, excerpt); list.append(link);
+    }
   }
-
-  btnOpen?.addEventListener('click', openSearch);
-  btnEsc?.addEventListener('click', closeSearch);
-
-  modal?.addEventListener('click', (e) => {
-    if (e.target === modal) closeSearch();
+  async function search() {
+    const current = ++revision;
+    const query = input.value.trim();
+    if (!query) { list.replaceChildren(); status.textContent = '输入关键词，开始查找文章。'; return; }
+    status.textContent = '正在查找…';
+    const engine = await loadEngine();
+    let items: SearchItem[];
+    let fullText = Boolean(engine);
+    try {
+      if (engine) { const result = await engine.search(query); items = await Promise.all(result.results.slice(0, 8).map(item => item.data())); }
+      else throw new Error('metadata search');
+    } catch {
+      fullText = false; const keyword = query.toLowerCase();
+      items = fallback.filter(item => [item.title, item.category, item.excerpt, ...(item.tags || [])].join(' ').toLowerCase().includes(keyword)).slice(0, 8);
+    }
+    if (current !== revision || !dialog.open) return;
+    renderResults(items); status.textContent = items.length ? `找到 ${items.length} 篇文章 · ${fullText ? '全文检索' : '标题、标签与摘要检索'}` : '暂时没有找到相关内容，试试其他关键词。';
+  }
+  function openSearch() { previousFocus = document.activeElement as HTMLElement; dialog.showModal(); input.focus(); void loadEngine(); }
+  document.getElementById('btn-open-search')?.addEventListener('click', openSearch);
+  document.getElementById('search-close')?.addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => { revision++; clearTimeout(timer); input.value = ''; list.replaceChildren(); status.textContent = '输入关键词，开始查找文章。'; previousFocus?.focus(); });
+  dialog.addEventListener('click', event => { if (event.target === dialog) { const box = dialog.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) dialog.close(); } });
+  window.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && dialog.open) { event.preventDefault(); dialog.close(); return; }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); dialog.open ? dialog.close() : openSearch(); }
   });
-
-  window.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      modal?.classList.contains('hidden') ? openSearch() : closeSearch();
-    }
-    if (e.key === 'Escape' && !modal?.classList.contains('hidden')) {
-      closeSearch();
-    }
-  });
-
-  input?.addEventListener('input', async (e) => {
-    const val = (e.target as HTMLInputElement).value.trim();
-    if (!list) return;
-
-    if (!val) {
-      list.innerHTML = `<div class="py-8 text-center text-xs text-[var(--text-dim)]">输入关键词开始检索全部文章与正文代码...</div>`;
-      return;
-    }
-
-    // 优先使用 Pagefind 全文搜索引擎
-    if (isPagefindLoaded && pagefindInstance) {
-      try {
-        const searchRes = await pagefindInstance.search(val);
-        if (searchRes.results.length === 0) {
-          list.innerHTML = `<div class="py-8 text-center text-xs text-[var(--text-dim)]">未检索到与「${val}」相关的正文内容</div>`;
-          return;
-        }
-
-        const topResults = searchRes.results.slice(0, 8);
-        const dataPromises = topResults.map((r: any) => r.data());
-        const items = await Promise.all(dataPromises);
-
-        list.innerHTML = items.map((item: any) => `
-          <a href="${item.url}" class="block p-3 rounded-xl hover:bg-[var(--bg-glass)] transition-colors no-underline group">
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-xs font-bold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors truncate">
-                ${item.meta.title || '博文详情'}
-              </span>
-              <i class="fa-solid fa-arrow-right text-[10px] text-[var(--text-dim)] group-hover:text-[var(--accent)] transition-colors"></i>
-            </div>
-            <div class="text-[11px] text-[var(--text-muted)] line-clamp-2 leading-relaxed pagefind-excerpt">
-              ${item.excerpt}
-            </div>
-          </a>
-        `).join('');
-        return;
-      } catch (err) {
-        console.warn('Pagefind 检索异常，使用本地快速匹配备用方案', err);
-      }
-    }
-
-    // 本地开发环境回退匹配
-    const kw = val.toLowerCase();
-    const filtered = FALLBACK_ITEMS.filter(item => 
-      item.title.toLowerCase().includes(kw) || 
-      item.cat.toLowerCase().includes(kw) || 
-      item.excerpt.toLowerCase().includes(kw)
-    );
-
-    if (filtered.length === 0) {
-      list.innerHTML = `<div class="py-8 text-center text-xs text-[var(--text-dim)]">未找到匹配的技术文章</div>`;
-      return;
-    }
-
-    list.innerHTML = filtered.map(item => `
-      <a href="${item.url}" class="block p-3 rounded-xl hover:bg-[var(--bg-glass)] transition-colors no-underline group">
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-xs font-bold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors truncate">
-            ${item.title}
-          </span>
-          <span class="text-[10px] font-mono text-[var(--accent)]">${item.cat}</span>
-        </div>
-        <div class="text-[11px] text-[var(--text-muted)] line-clamp-2 leading-relaxed">
-          ${item.excerpt}
-        </div>
-      </a>
-    `).join('');
-  });
+  input.addEventListener('input', () => { revision++; clearTimeout(timer); timer = setTimeout(search, 160); });
 </script>
-
-<style is:global>
-  /* Pagefind 命中文本高亮样式 */
-  .pagefind-excerpt mark {
-    background-color: var(--accent-soft);
-    color: var(--accent);
-    padding: 1px 4px;
-    border-radius: 4px;
-    font-weight: 700;
-  }
+<style>
+  dialog { width: min(600px, calc(100vw - 2rem)); max-height: min(600px, calc(100svh - 4rem)); overflow: auto; padding: 1.3rem; margin: 12vh auto auto; background: var(--bg-surface); color: var(--text-main); }
+  dialog::backdrop { background: rgb(0 0 0 / .6); backdrop-filter: blur(5px); }
+  .search-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+  .search-heading h2 { font-size: 1rem; font-weight: 700; }
+  .search-heading button { min-height: 40px; color: var(--text-muted); font-size: .8rem; }
+  input { width: 100%; padding: .85rem 1rem; background: var(--bg-input); border: 1px solid var(--border-card); border-radius: .75rem; color: var(--text-main); font-size: 1rem; }
+  #search-state { margin: 1rem 0 .5rem; font-size: .78rem; color: var(--text-muted); }
+  :global(.search-result) { display: block; padding: 1rem .5rem; border-bottom: 1px solid var(--border-subtle); color: var(--text-main); text-decoration: none; }
+  :global(.search-result:hover) { background: var(--bg-glass); }
+  :global(.search-result strong) { font-size: .9rem; color: var(--text-hero); }
+  :global(.search-result p) { margin-top: .35rem; font-size: .8rem; color: var(--text-muted); line-height: 1.6; }
 </style>

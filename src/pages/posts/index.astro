@@ -1,98 +1,73 @@
 ---
-// posts/index.astro: 全部技术博文列表 (统一五大知识板块与移动端优先)
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Sidebar from '../../components/layout/Sidebar.astro';
 import PostCard from '../../components/post/PostCard.astro';
 import { getPublishedPosts } from '../../utils/posts';
-
-const sortedPosts = await getPublishedPosts();
-
-const categories = [
-  '全部',
-  '软件工程与系统',
-  'AI 与前沿科研',
-  '极客安全与攻防',
-  '计算机体系沉淀',
-  '生活随笔与杂项'
-];
+import { sortFeedPosts } from '../../utils/post-filters';
+import { categories } from '../../config/site';
+const posts = sortFeedPosts(await getPublishedPosts());
 ---
-<BaseLayout title="技术博文 | Kael's Cyber Nexus">
+<BaseLayout title="技术博文 | HuaOvO · 胡敖的技术笔记">
   <div class="flex flex-col lg:flex-row gap-8 items-start">
-    
-    <Sidebar totalPosts={sortedPosts.length} />
-
+    <Sidebar />
     <main class="w-full lg:flex-1 flex flex-col gap-6 min-w-0 order-1 lg:order-2">
-      
-      <!-- 页面头部标题与分类过滤器 -->
-      <div class="cyber-card p-6">
-        <div class="flex items-center gap-2 text-xs font-mono text-[var(--accent)] mb-2">
-          <i class="fa-solid fa-layer-group"></i>
-          <span>KNOWLEDGE MATRIX</span>
+      <header class="cyber-card p-6">
+        <p class="text-xs font-mono text-[var(--accent)] mb-2">KNOWLEDGE / NOTES</p>
+        <h1 class="text-2xl font-extrabold text-[var(--text-hero)] mb-4">技术博文专栏</h1>
+        <div class="flex flex-wrap gap-2 text-xs" id="category-filter-bar" aria-label="按分类筛选文章">
+          {['全部', ...categories].map((name, index) => <button type="button" data-category={index === 0 ? '' : name} aria-pressed={index === 0 ? 'true' : 'false'} class="post-filter">{name}</button>)}
         </div>
-        <h1 class="text-2xl font-extrabold text-[var(--text-hero)] mb-4">
-          技术博文专栏
-        </h1>
-
-        <!-- 分类过滤药丸按钮 -->
-        <div class="flex flex-wrap gap-2 text-xs" id="category-filter-bar">
-          {categories.map((cat, idx) => (
-            <button 
-              class:list={[
-                "px-3 py-1.5 rounded-full font-bold border transition-colors cursor-pointer",
-                idx === 0 
-                  ? "bg-[var(--accent)] text-[var(--accent-contrast)] border-[var(--accent)]" 
-                  : "bg-[var(--bg-glass)] text-[var(--text-muted)] border-[var(--border-subtle)] hover:border-[var(--accent)] hover:text-[var(--text-hero)]"
-              ]}
-              data-category={cat}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <!-- 文章列表 -->
+        <div id="active-filters" class="flex flex-wrap gap-2 mt-4 text-xs"></div>
+        <p id="filter-results-count" class="mt-4 text-xs text-[var(--text-muted)]" role="status">共 {posts.length} 篇文章</p>
+      </header>
       <div class="flex flex-col gap-4" id="posts-container">
-        {sortedPosts.map(post => (
-          <div class="post-item-wrap" data-category={post.data.category}>
-            <PostCard post={post} />
-          </div>
-        ))}
+        {posts.map(post => <div class="post-item-wrap" data-category={post.data.category} data-tags={JSON.stringify(post.data.tags)} data-series={post.data.series || ''}><PostCard post={post} /></div>)}
       </div>
-
+      <div id="posts-empty" class="cyber-card p-10 text-center" hidden>
+        <p class="text-[var(--text-hero)] mb-2">暂时没有符合条件的文章</p>
+        <button type="button" id="clear-post-filters" class="text-sm text-[var(--accent)] underline">清除筛选，查看全部文章</button>
+      </div>
     </main>
   </div>
 </BaseLayout>
-
 <script>
-  const filterBtns = document.querySelectorAll('#category-filter-bar button');
-  const postItems = document.querySelectorAll('.post-item-wrap');
-
-  filterBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      filterBtns.forEach(b => {
-        b.className = "px-3 py-1.5 rounded-full font-bold border transition-colors cursor-pointer bg-[var(--bg-glass)] text-[var(--text-muted)] border-[var(--border-subtle)] hover:border-[var(--accent)] hover:text-[var(--text-hero)]";
-      });
-      btn.className = "px-3 py-1.5 rounded-full font-bold border transition-colors cursor-pointer bg-[var(--accent)] text-[var(--accent-contrast)] border-[var(--accent)]";
-
-      const selectedCat = (btn as HTMLElement).dataset.category;
-      postItems.forEach(item => {
-        const itemCat = (item as HTMLElement).dataset.category;
-        if (selectedCat === '全部' || selectedCat === itemCat) {
-          (item as HTMLElement).style.display = 'block';
-        } else {
-          (item as HTMLElement).style.display = 'none';
-        }
-      });
-    });
-  });
-
-  const params = new URLSearchParams(window.location.search);
-  const targetCat = params.get('cat');
-  if (targetCat) {
-    const targetBtn = Array.from(filterBtns).find(b => (b as HTMLElement).dataset.category === targetCat);
-    if (targetBtn) {
-      (targetBtn as HTMLButtonElement).click();
+  import { matchesPostFilters } from '../../utils/post-filters';
+  const buttons = [...document.querySelectorAll<HTMLButtonElement>('#category-filter-bar button')];
+  const items = [...document.querySelectorAll<HTMLElement>('.post-item-wrap')];
+  const active = document.getElementById('active-filters');
+  function applyFilters() {
+    const params = new URLSearchParams(location.search);
+    for (const button of buttons) button.setAttribute('aria-pressed', String((params.get('cat') || '') === button.dataset.category));
+    let count = 0;
+    for (const item of items) {
+      const matches = matchesPostFilters({ category: item.dataset.category || '', tags: JSON.parse(item.dataset.tags || '[]'), series: item.dataset.series }, params);
+      item.hidden = !matches;
+      if (matches) count++;
+    }
+    document.getElementById('filter-results-count')!.textContent = `共 ${count} 篇文章`;
+    document.getElementById('posts-empty')!.hidden = count !== 0;
+    active?.replaceChildren();
+    for (const [key, label] of [['tag', '标签'], ['series', '系列']]) {
+      const value = params.get(key);
+      if (!value || !active) continue;
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'post-filter'; button.textContent = `${label}：${value} · 清除`;
+      button.addEventListener('click', () => updateFilter(key, '')); active.append(button);
     }
   }
+  function updateFilter(key: string, value: string) {
+    const url = new URL(location.href);
+    value ? url.searchParams.set(key, value) : url.searchParams.delete(key);
+    history.pushState(null, '', url); applyFilters();
+  }
+  buttons.forEach(button => button.addEventListener('click', () => updateFilter('cat', button.dataset.category || '')));
+  document.getElementById('clear-post-filters')?.addEventListener('click', () => {
+    const url = new URL(location.href); ['cat', 'tag', 'series'].forEach(key => url.searchParams.delete(key)); history.pushState(null, '', url); applyFilters();
+  });
+  window.addEventListener('popstate', applyFilters); applyFilters();
 </script>
+<style>
+  .post-filter { min-height: 40px; border: 1px solid var(--border-card); border-radius: 99px; padding: .4rem .85rem; background: var(--bg-glass); color: var(--text-muted); font-weight: 600; cursor: pointer; transition: color 160ms, background 160ms; }
+  .post-filter[aria-pressed="true"] { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+  .post-filter:hover { border-color: var(--accent); }
+</style>

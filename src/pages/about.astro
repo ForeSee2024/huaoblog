@@ -1,160 +1,25 @@
 ---
-// about.astro: 关于本人页面
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Sidebar from '../components/layout/Sidebar.astro';
-
-const pillars = [
-  {
-    title: "全栈与系统工程",
-    desc: "深耕现代 Web 标准、Rust 高性能服务端与分布式架构，追求确定性与零成本抽象。",
-    icon: "fa-solid fa-code"
-  },
-  {
-    title: "AI 与前沿科研",
-    desc: "关注多模态大语言模型、自动化代码漏洞挖掘与机器学习前沿，将学术思考落地为工程工具。",
-    icon: "fa-solid fa-brain"
-  },
-  {
-    title: "网络安全与攻防",
-    desc: "活跃于国内外 CTF 赛事与实战攻防演练，沉淀 Web 漏洞挖掘、白盒代码审计与二进制分析。",
-    icon: "fa-solid fa-shield-halved"
-  },
-  {
-    title: "知识花园与体系沉淀",
-    desc: "拒绝碎片化浅尝辄止，系统梳理计算机操作系统、网络底层机制，定期输出严谨技术长文。",
-    icon: "fa-solid fa-book-bookmark"
-  }
-];
-
-const timeline = [
-  { date: "2026.09 - PRESENT", title: "安全实验室全栈研究员", desc: "聚焦大模型辅助代码漏洞审计与自动化程序修复系统研发。" },
-  { date: "2025.10 - 2026.05", title: "国内知名 CTF 战队核心成员", desc: "主攻 Web 攻防方向，斩获多项区域及国家级赛事一二等奖。" },
-  { date: "2024.03 - 2025.08", title: "分布式高并发代理网关开发", desc: "主导基于 Rust 的高性能边缘网关重构，吞吐量提升 400%。" },
-  { date: "2023.09 - 2024.02", title: "极客数字空间筑基", desc: "搭建个人知识库与技术博客，开启全网持续性技术输出。" }
-];
-
-const techStack = [
-  { name: "Linux / Arch", icon: "fa-brands fa-linux" },
-  { name: "Rust", icon: "fa-brands fa-rust" },
-  { name: "Python", icon: "fa-brands fa-python" },
-  { name: "TypeScript", icon: "fa-brands fa-js" },
-  { name: "Docker", icon: "fa-brands fa-docker" },
-  { name: "Git", icon: "fa-brands fa-git-alt" },
-  { name: "Node.js", icon: "fa-brands fa-node-js" },
-  { name: "React / Astro", icon: "fa-brands fa-react" }
-];
-
-const hardware = [
-  { name: "Apple MacBook Pro 16\"", spec: "Apple M3 Max / 64GB 统一内存 / 1TB SSD", icon: "fa-solid fa-laptop" },
-  { name: "Dell UltraSharp 32\" 4K", spec: "4K IPS Black / Type-C 90W 反向供电", icon: "fa-solid fa-desktop" },
-  { name: "HHKB Professional HYBRID", spec: "Type-S 静电容量轴 / 经典 Unix 布局", icon: "fa-solid fa-keyboard" },
-  { name: "Sony WH-1000XM5", spec: "主动降噪头戴式耳机 / 深度沉浸心流", icon: "fa-solid fa-headphones" }
-];
+import { categories, settings, site } from '../config/site';
+import { renderMarkdownPreview } from '../lib/markdown-preview.js';
+const body = renderMarkdownPreview(settings.about.body);
 ---
-<BaseLayout title="关于本人 | Kael's Cyber Nexus">
+<BaseLayout title={`关于 ${site.author} | ${site.name}`}>
   <div class="flex flex-col lg:flex-row gap-8 items-start">
-    
     <Sidebar />
-
     <main class="w-full lg:flex-1 flex flex-col gap-6 min-w-0 order-1 lg:order-2">
-      
-      <!-- 头部 Banner -->
-      <div class="cyber-card p-6 md:p-8">
-        <div class="flex items-center gap-2 text-xs font-mono text-[var(--accent)] mb-2">
-          <i class="fa-solid fa-user-astronaut"></i>
-          <span>ABOUT ARCHITECT</span>
-        </div>
-        <h1 class="text-2xl md:text-3xl font-extrabold text-[var(--text-hero)] mb-2">
-          关于本人 | 全栈工程师 • 科研探索者 • 极客安全
-        </h1>
-        <p class="text-xs md:text-sm text-[var(--text-muted)]">
-          用工程构建秩序，以好奇探索未知 • Bridging Systems, AI & Security
-        </p>
-      </div>
-
-      <!-- 四大核心理念支柱网格 -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {pillars.map(pillar => (
-          <div class="cyber-card p-5 flex items-start gap-4">
-            <div class="w-11 h-11 rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] flex items-center justify-center text-lg flex-shrink-0 border border-[var(--border-subtle)]">
-              <i class={pillar.icon}></i>
-            </div>
-            <div>
-              <div class="text-sm font-bold text-[var(--text-hero)] mb-1">{pillar.title}</div>
-              <p class="text-xs text-[var(--text-muted)] leading-relaxed">{pillar.desc}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <!-- 个人背景与语言能力 -->
-      <div class="cyber-card p-6">
-        <div class="flex items-center gap-2 text-sm font-bold text-[var(--text-hero)] mb-3 pb-2 border-b border-[var(--border-subtle)]">
-          <i class="fa-solid fa-id-card-clip text-[var(--accent)]"></i>
-          <span>个人背景与定位 (Profile)</span>
-        </div>
-        <p class="text-xs md:text-sm text-[var(--text-main)] leading-relaxed mb-3">
-          我是 <strong>Kael</strong>，一名热爱计算机科学与现代数字建造的软件工程师与研究员。目前致力于高性能系统开发、代码安全审计与人工智能技术在实际生产中的工程化落地。
-        </p>
-        <p class="text-xs text-[var(--text-muted)] flex items-center gap-2">
-          <i class="fa-solid fa-globe text-[var(--accent)]"></i>
-          <span>语言能力：<strong>简体中文 (母语)</strong>、<strong>English (Professional)</strong>、<strong>日本語 (N3)</strong></span>
-        </p>
-      </div>
-
-      <!-- 历程时间轴 -->
-      <div class="cyber-card p-6">
-        <div class="flex items-center gap-2 text-sm font-bold text-[var(--text-hero)] mb-6 pb-2 border-b border-[var(--border-subtle)]">
-          <i class="fa-solid fa-timeline text-[var(--accent)]"></i>
-          <span>历程与竞赛履历 (Milestones)</span>
-        </div>
-        <div class="flex flex-col gap-6 relative border-l-2 border-[var(--border-subtle)] ml-3 pl-6">
-          {timeline.map(item => (
-            <div class="relative flex flex-col gap-1">
-              <div class="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent-glow)]"></div>
-              <span class="font-mono text-[10px] font-bold text-[var(--accent)]">{item.date}</span>
-              <span class="text-xs md:text-sm font-bold text-[var(--text-hero)]">{item.title}</span>
-              <p class="text-xs text-[var(--text-muted)] leading-relaxed">{item.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <!-- 技术栈官方图标网格 -->
-      <div class="cyber-card p-6">
-        <div class="flex items-center gap-2 text-sm font-bold text-[var(--text-hero)] mb-4 pb-2 border-b border-[var(--border-subtle)]">
-          <i class="fa-solid fa-microchip text-[var(--accent)]"></i>
-          <span>技术栈与工具箱 (Stack & Tools)</span>
-        </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {techStack.map(tech => (
-            <div class="p-3 rounded-xl bg-[var(--bg-glass)] border border-[var(--border-subtle)] flex items-center gap-3">
-              <i class:list={[tech.icon, "text-lg text-[var(--accent)]"]}></i>
-              <span class="text-xs font-semibold text-[var(--text-main)] truncate">{tech.name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <!-- 硬件生产力矩阵 -->
-      <div class="cyber-card p-6">
-        <div class="flex items-center gap-2 text-sm font-bold text-[var(--text-hero)] mb-4 pb-2 border-b border-[var(--border-subtle)]">
-          <i class="fa-solid fa-screwdriver-wrench text-[var(--accent)]"></i>
-          <span>极客装备与工作流 (Hardware Specs)</span>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {hardware.map(item => (
-            <div class="p-4 rounded-xl bg-[var(--bg-glass)] border border-[var(--border-subtle)] flex items-start gap-3">
-              <i class:list={[item.icon, "text-base text-[var(--accent)] mt-0.5"]}></i>
-              <div>
-                <div class="text-xs font-bold text-[var(--text-hero)]">{item.name}</div>
-                <div class="text-[11px] text-[var(--text-dim)] mt-0.5">{item.spec}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
+      <section class="cyber-card p-6 md:p-10">
+        <p class="font-mono text-xs text-[var(--accent)] mb-4">ABOUT / {site.brand}</p>
+        <h1 class="text-3xl md:text-5xl font-extrabold text-[var(--text-hero)] mb-3">{settings.about.title}</h1>
+        {settings.about.subtitle && <p class="text-lg text-[var(--text-muted)] mb-6">{settings.about.subtitle}</p>}
+        <div class="article-prose" set:html={body}></div>
+      </section>
+      <section class="cyber-card p-6 md:p-8">
+        <h2 class="text-xl font-bold text-[var(--text-hero)] mb-4">我在这里记录什么</h2>
+        <p class="text-sm text-[var(--text-muted)] leading-loose mb-5">文章按一个主要主题归类，交叉内容用标签联系起来，连续的探索放进同一个系列。</p>
+        <div class="flex flex-col divide-y divide-[var(--border-subtle)]">{categories.map((category, index) => <a href={`/posts?cat=${encodeURIComponent(category)}`} class="flex items-center gap-4 py-4 no-underline group"><span class="font-mono text-xs text-[var(--accent)]">0{index + 1}</span><span class="text-sm text-[var(--text-main)] group-hover:text-[var(--accent)]">{category}</span></a>)}</div>
+      </section>
     </main>
   </div>
 </BaseLayout>

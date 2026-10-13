@@ -5,7 +5,6 @@ pubDate: 2026-02-08
 category: "软件工程与系统"
 tags: ["Three.js", "WebGL", "GLSL", "前端"]
 draft: false
-views: "1,120"
 coverImage: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&auto=format&fit=crop&q=80"
 extraMeta:
   difficulty: "进阶"

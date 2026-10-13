@@ -1,150 +1,18 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@import './tokens.css';
+@import './prose.css';
 
-/* ==========================================================================
-   全局设计系统令牌 (默认极客黑 + 科技蓝，彻底强化浅色与深色表现)
-   ========================================================================== */
-:root {
-  --font-sans: 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Fira Code', monospace;
-  --font-serif: 'Cinzel', 'Noto Sans SC', serif;
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --transition-smooth: all 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-/* [DARK MODE] 深色模式 - 极客冷峻黑、电光青蓝霓虹、次表面微晶质感 */
-html[data-theme="dark"] {
-  --bg-base: #06080e;
-  --bg-surface: #0c101a;
-  --bg-surface-elevated: #121826;
-  --bg-card: rgba(12, 16, 26, 0.78);
-  --bg-card-solid: #0e1320;
-  --bg-glass: rgba(255, 255, 255, 0.04);
-  --bg-input: rgba(8, 11, 18, 0.85);
-  
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-card: rgba(255, 255, 255, 0.1);
-  --border-top-highlight: rgba(56, 189, 248, 0.4);
-  
-  --text-hero: #ffffff;
-  --text-main: #e2e8f0;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
-  
-  --shadow-ambient: 0 24px 50px -12px rgba(0, 0, 0, 0.8);
-  --shadow-card: 0 16px 36px -8px rgba(0, 0, 0, 0.6), 0 0 1px 1px rgba(255, 255, 255, 0.08);
-  --shadow-glow: 0 0 32px var(--accent-glow);
-  
-  --code-bg: #090c14;
-  --code-header: rgba(255, 255, 255, 0.04);
-  --grid-line: rgba(56, 189, 248, 0.04);
-  --three-bg-opacity: 0.85;
-}
-
-/* [LIGHT MODE] 浅色模式 - 鲜明立体的 3D 拓扑网格、纯白镜面高光与清透蓝阶 */
-html[data-theme="light"] {
-  --bg-base: #f0f4fa;
-  --bg-surface: #ffffff;
-  --bg-surface-elevated: #ffffff;
-  --bg-card: rgba(255, 255, 255, 0.85);
-  --bg-card-solid: #ffffff;
-  --bg-glass: rgba(14, 165, 233, 0.04);
-  --bg-input: rgba(241, 245, 249, 0.9);
-  
-  /* Linear 顶尖工艺：1px 细边框 + 顶部白光镜面反光 */
-  --border-subtle: rgba(15, 23, 42, 0.08);
-  --border-card: rgba(15, 23, 42, 0.1);
-  --border-top-highlight: rgba(255, 255, 255, 0.95);
-  
-  --text-hero: #070d18;
-  --text-main: #1e293b;
-  --text-muted: #334155;
-  --text-dim: #64748b;
-  
-  /* 浅色多重漫反射阴影，使卡片轻盈浮于动态网格之上 */
-  --shadow-ambient: 0 20px 45px -12px rgba(14, 165, 233, 0.12);
-  --shadow-card: 
-    0 1px 0 0 rgba(255, 255, 255, 0.9) inset,
-    0 12px 32px -6px rgba(15, 23, 42, 0.08), 
-    0 2px 4px -1px rgba(15, 23, 42, 0.04);
-  --shadow-glow: 0 8px 24px var(--accent-glow);
-  
-  --code-bg: #0d121c;
-  --code-header: #141b29;
-  --grid-line: rgba(2, 132, 199, 0.06);
-  --three-bg-opacity: 0.95;
-}
-
-/* 主题强调色系统：默认 Cyber Blue (黑 + 蓝) */
-html[data-accent="cyberblue"] {
-  --accent: #0284c7;
-  --accent-soft: rgba(2, 132, 199, 0.14);
-  --accent-glow: rgba(14, 165, 233, 0.4);
-  --accent-contrast: #ffffff;
-  --three-color: 0x0284c7;
-}
-html[data-theme="dark"][data-accent="cyberblue"] {
-  --accent: #38bdf8;
-  --accent-soft: rgba(56, 189, 248, 0.16);
-  --accent-glow: rgba(56, 189, 248, 0.5);
-  --accent-contrast: #03121c;
-  --three-color: 0x38bdf8;
-}
-
-/* 备用配色选项 */
-html[data-accent="neoncyan"] {
-  --accent: #059669;
-  --accent-soft: rgba(5, 150, 105, 0.14);
-  --accent-glow: rgba(16, 185, 129, 0.4);
-  --accent-contrast: #ffffff;
-  --three-color: 0x059669;
-}
-html[data-theme="dark"][data-accent="neoncyan"] {
-  --accent: #34d399;
-  --accent-soft: rgba(52, 211, 153, 0.16);
-  --accent-glow: rgba(52, 211, 153, 0.5);
-  --accent-contrast: #021a12;
-  --three-color: 0x34d399;
-}
-
-html[data-accent="violet"] {
-  --accent: #6366f1;
-  --accent-soft: rgba(99, 102, 241, 0.14);
-  --accent-glow: rgba(99, 102, 241, 0.4);
-  --accent-contrast: #ffffff;
-  --three-color: 0x6366f1;
-}
-html[data-theme="dark"][data-accent="violet"] {
-  --accent: #818cf8;
-  --accent-soft: rgba(129, 140, 248, 0.16);
-  --accent-glow: rgba(129, 140, 248, 0.5);
-  --accent-contrast: #0b0d1e;
-  --three-color: 0x818cf8;
-}
-
-html[data-accent="lumine"] {
-  --accent: #d97706;
-  --accent-soft: rgba(217, 119, 6, 0.14);
-  --accent-glow: rgba(245, 158, 11, 0.4);
-  --accent-contrast: #ffffff;
-  --three-color: 0xd97706;
-}
-html[data-theme="dark"][data-accent="lumine"] {
-  --accent: #fbbf24;
-  --accent-soft: rgba(251, 191, 36, 0.16);
-  --accent-glow: rgba(251, 191, 36, 0.5);
-  --accent-contrast: #1f1402;
-  --three-color: 0xfbbf24;
-}
+@config '../../tailwind.config.mjs';
 
 /* ==========================================================================
    全局基础重置与排版
    ========================================================================== */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 }
 
 body {
@@ -235,4 +103,13 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
+}
+
+:where(a, button, input, textarea, select):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

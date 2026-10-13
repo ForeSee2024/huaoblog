@@ -5,7 +5,6 @@ pubDate: 2026-01-20
 category: "生活随笔与杂项"
 tags: ["工作流", "Obsidian", "生产力", "随笔"]
 draft: false
-views: "2,050"
 coverImage: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80"
 extraMeta:
   difficulty: "入门"

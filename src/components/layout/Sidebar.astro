@@ -1,6 +1,7 @@
 ---
-// Sidebar.astro: Kira 风格常驻侧边栏 (个人名片、五大标准分类、标签云)
+// 常驻侧边栏：个人名片、分类、标签与系列。
 import { getPublishedPosts } from '../../utils/posts';
+import { safeExternalHref, safeImageSrc, site } from '../../config/site';
 
 const allPosts = await getPublishedPosts();
 const totalPosts = allPosts.length;
@@ -28,6 +29,23 @@ allPosts.forEach(post => {
 const tags = Array.from(tagSet);
 const totalTagsCount = tags.length;
 const totalCatsCount = Object.keys(catCountMap).length;
+const seriesNames = Array.from(new Set(allPosts.map(post => post.data.series).filter((name): name is string => Boolean(name))));
+const socialIcons: Record<string, string> = {
+  github: 'fa-brands fa-github', 'fa-brands fa-github': 'fa-brands fa-github',
+  gitlab: 'fa-brands fa-gitlab', 'fa-brands fa-gitlab': 'fa-brands fa-gitlab',
+  twitter: 'fa-brands fa-x-twitter', 'x-twitter': 'fa-brands fa-x-twitter', 'fa-brands fa-x-twitter': 'fa-brands fa-x-twitter',
+  bilibili: 'fa-brands fa-bilibili', 'fa-brands fa-bilibili': 'fa-brands fa-bilibili',
+  weibo: 'fa-brands fa-weibo', 'fa-brands fa-weibo': 'fa-brands fa-weibo',
+  discord: 'fa-brands fa-discord', 'fa-brands fa-discord': 'fa-brands fa-discord',
+  linkedin: 'fa-brands fa-linkedin', 'fa-brands fa-linkedin': 'fa-brands fa-linkedin',
+  rss: 'fa-solid fa-rss', 'fa-solid fa-rss': 'fa-solid fa-rss',
+  email: 'fa-solid fa-envelope', envelope: 'fa-solid fa-envelope', 'fa-solid fa-envelope': 'fa-solid fa-envelope',
+  link: 'fa-solid fa-link', 'fa-solid fa-link': 'fa-solid fa-link',
+};
+const socialLinks = site.socialLinks.flatMap(link => {
+  const url = safeExternalHref(link.url);
+  return url ? [{ ...link, url, icon: socialIcons[link.icon || ''] || socialIcons.link }] : [];
+});
 ---
 <aside class="w-full lg:w-72 flex flex-col gap-5 flex-shrink-0 order-2 lg:order-1">
   
@@ -37,24 +55,22 @@ const totalCatsCount = Object.keys(catCountMap).length;
     <div class="relative w-24 h-24 mx-auto mb-4">
       <div class="absolute inset-0 rounded-full border-2 border-dashed border-[var(--accent)] animate-[spin_24s_linear_infinite]"></div>
       <img 
-        src="https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&auto=format&fit=crop&q=80" 
-        alt="Kael Avatar" 
+        src={safeImageSrc(site.avatar) || '/favicon.svg'}
+        alt={`${site.author} 的头像`}
         class="w-full h-full object-cover rounded-full p-1"
         loading="lazy"
       />
     </div>
 
-    <h2 class="text-xl font-extrabold text-[var(--text-hero)] tracking-tight mb-1">Kael_Dev</h2>
+    <h2 class="text-xl font-extrabold text-[var(--text-hero)] tracking-tight mb-1">{site.brand}</h2>
+    <p class="text-xs text-[var(--text-muted)] mb-3">{site.author}</p>
     
-    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] text-xs font-bold mb-3 border border-[var(--border-subtle)]">
-      <i class="fa-solid fa-layer-group text-[10px]"></i>
-      <span>Fullstack • AI • Security</span>
-    </div>
+    {site.tagline && <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] text-xs font-bold mb-3 border border-[var(--border-subtle)]">
+      <i class="fa-solid fa-layer-group text-[10px]" aria-hidden="true"></i>
+      <span>{site.tagline}</span>
+    </div>}
 
-    <p class="text-xs text-[var(--text-muted)] leading-relaxed mb-5">
-      用工程构建秩序，以好奇探索未知<br/>
-      <span class="text-[var(--text-dim)]">全栈开发 • 学术科研 • 攻防实战</span>
-    </p>
+    {site.bio && <p class="text-xs text-[var(--text-muted)] leading-relaxed whitespace-pre-line mb-5">{site.bio}</p>}
 
     <!-- 动态统计行 -->
     <div class="grid grid-cols-3 py-3 border-y border-[var(--border-subtle)] mb-5">
@@ -73,20 +89,11 @@ const totalCatsCount = Object.keys(catCountMap).length;
     </div>
 
     <!-- 社交连接 -->
-    <div class="flex items-center justify-center gap-2">
-      <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="w-8 h-8 rounded-full flex items-center justify-center bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors" title="GitHub">
-        <i class="fa-brands fa-github text-sm"></i>
-      </a>
-      <a href="https://bilibili.com" target="_blank" rel="noopener noreferrer" class="w-8 h-8 rounded-full flex items-center justify-center bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors" title="Bilibili">
-        <i class="fa-brands fa-bilibili text-sm"></i>
-      </a>
-      <a href="https://t.me" target="_blank" rel="noopener noreferrer" class="w-8 h-8 rounded-full flex items-center justify-center bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors" title="Telegram">
-        <i class="fa-brands fa-telegram text-sm"></i>
-      </a>
-      <a href="mailto:kael@nexus.sec" class="w-8 h-8 rounded-full flex items-center justify-center bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors" title="Email">
-        <i class="fa-solid fa-envelope text-sm"></i>
-      </a>
-    </div>
+    {socialLinks.length > 0 && <div class="flex flex-wrap items-center justify-center gap-2">
+      {socialLinks.map(link => <a href={link.url} target="_blank" rel="noopener noreferrer" class="w-8 h-8 rounded-full flex items-center justify-center bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors" title={link.label} aria-label={link.label}>
+        <i class={`${link.icon} text-sm`} aria-hidden="true"></i>
+      </a>)}
+    </div>}
   </div>
 
   <!-- 五大标准知识体系分类卡片 (真实聚合统计) -->
@@ -123,4 +130,10 @@ const totalCatsCount = Object.keys(catCountMap).length;
     </div>
   </div>
 
+  {seriesNames.length > 0 && <div class="cyber-card p-5">
+    <h2 class="text-sm font-extrabold text-[var(--text-hero)] mb-3">连载系列</h2>
+    <div class="flex flex-col gap-2">
+      {seriesNames.map(name => <a href={`/posts?series=${encodeURIComponent(name)}`} class="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] no-underline">{name}</a>)}
+    </div>
+  </div>}
 </aside>

@@ -1,24 +1,30 @@
 ---
 // ThemeScript.astro: 零闪烁系统级主题自适应探测与响应脚本
+import { settings } from '../../config/site';
+const { theme: defaultTheme, accent: defaultAccent } = settings.appearance;
 ---
-<script is:inline>
+<script is:inline define:vars={{ defaultTheme, defaultAccent }}>
   (function() {
-    // 1. 初始化主题模式 (优先读取本地偏好，否则自动跟随系统偏好)
-    const savedTheme = localStorage.getItem('blog-theme');
-    let targetTheme = savedTheme;
-    if (!targetTheme) {
-      targetTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+    function savedValue(key) {
+      try { return localStorage.getItem(key); } catch { return null; }
     }
+    const explicitTheme = () => {
+      const saved = savedValue('blog-theme');
+      return saved === 'light' || saved === 'dark' ? saved : null;
+    };
+    const systemPreference = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+    const configuredTheme = defaultTheme === 'system' ? (systemPreference?.matches ? 'dark' : 'light') : defaultTheme;
+    const targetTheme = explicitTheme() || configuredTheme;
     document.documentElement.setAttribute('data-theme', targetTheme);
 
-    // 2. 初始化强调色 (默认 cyberblue 科技蓝)
-    const savedAccent = localStorage.getItem('blog-accent') || 'cyberblue';
-    document.documentElement.setAttribute('data-accent', savedAccent);
+    const savedAccent = savedValue('blog-accent');
+    const targetAccent = ['cyberblue', 'neoncyan', 'violet', 'lumine'].includes(savedAccent) ? savedAccent : defaultAccent;
+    document.documentElement.setAttribute('data-accent', targetAccent);
 
-    // 3. 监听系统级模式变更 (当用户未手动强制指定时实时无缝同步)
-    if (window.matchMedia) {
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        if (!localStorage.getItem('blog-theme')) {
+    // 仅在站点跟随系统、且访客未保存明暗偏好时同步系统变化。
+    if (defaultTheme === 'system' && systemPreference) {
+      systemPreference.addEventListener('change', (e) => {
+        if (!explicitTheme()) {
           const sysTheme = e.matches ? 'dark' : 'light';
           document.documentElement.setAttribute('data-theme', sysTheme);
           window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: sysTheme } }));

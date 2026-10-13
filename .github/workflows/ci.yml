@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js Runtime
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install Project Dependencies
@@ -27,6 +27,9 @@ jobs:
 
       - name: Run Astro Type & Template Check
         run: npm run check
+
+      - name: Verify Content, Preview and OAuth Behavior
+        run: npm test
 
       - name: Run Production Static Build & Pagefind Indexing
         run: npm run build
