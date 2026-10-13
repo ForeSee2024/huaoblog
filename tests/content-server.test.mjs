@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, rm, symlink } from 'node:fs/promises';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
 import test from 'node:test';
 import { stringifyPost } from '../src/admin/content-model.js';
 const { createContentServer } = await import('../scripts/content-server.mjs').catch(() => ({}));
@@ -9,7 +10,7 @@ const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwM
 const post = () => ({ slug: 'new-post', status: 'draft', data: { title: '新文章', description: '这是摘要。', pubDate: '2026-10-13', category: '软件工程与系统', tags: [] }, body: '## 正文\n\n测试内容。' });
 async function fixture(t) {
   assert.equal(typeof createContentServer, 'function', 'local content server is not implemented');
-  const root = await mkdtemp('/private/tmp/huaovo-content-');
+  const root = await mkdtemp(path.join(tmpdir(), 'huaovo-content-'));
   await mkdir(path.join(root, 'src/data'), { recursive: true });
   await writeFile(path.join(root, 'src/data/site.json'), JSON.stringify(canonical));
   const server = await createContentServer({ root });
@@ -81,7 +82,7 @@ test('local mutations deny missing or foreign origins, traversal and excessive b
 
 test('local storage refuses symlink escapes', async t => {
   const { root, request } = await fixture(t);
-  const outside = await mkdtemp('/private/tmp/huaovo-outside-');
+  const outside = await mkdtemp(path.join(tmpdir(), 'huaovo-outside-'));
   t.after(() => rm(outside, { recursive: true, force: true }));
   await mkdir(path.join(root, 'src/content'), { recursive: true });
   await symlink(outside, path.join(root, 'src/content/drafts'));

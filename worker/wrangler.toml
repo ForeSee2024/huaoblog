@@ -1,11 +1,12 @@
-name = "decap-oauth-worker"
+name = "huaoblog-oauth"
+account_id = "fc3766c02d25569ab3a3eb4d0cd6ae79"
 main = "index.js"
 compatibility_date = "2026-10-12"
 
 [vars]
 # 生产必需配置：允许调用本网关的精确博客后台域名 (逗号分隔，不支持通配符)
-# 示例值必须替换。日常本地写作使用文件代理，无需开放正式 OAuth。
-ALLOWED_ORIGINS = "https://your-blog.pages.dev"
+# 博客更换域名时更新此白名单；Worker 地址和 OAuth Callback 保持稳定。
+ALLOWED_ORIGINS = "https://aoblog.eu.cc,https://www.aoblog.eu.cc"
 
 # 秘钥注入与部署指令：
 # 1. npx wrangler secret put GITHUB_CLIENT_ID
