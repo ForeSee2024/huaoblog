@@ -1,0 +1,12 @@
+---
+import ProfileIcon from './ProfileIcon.astro';
+interface Props { name: string; icon: string; description?: string; }
+const { name, icon, description } = Astro.props;
+const brands = ['typescript', 'python', 'astro', 'cloudflare', 'zotero', 'obsidian', 'macos', 'windows', 'linux'];
+---
+<li class="about-badge" title={description || name}>
+  <span class:list={['about-badge-icon', { 'about-badge-zotero': icon === 'zotero' }]} aria-hidden="true">
+    {brands.includes(icon) ? <img src={`/images/profile-icons/${icon}.svg`} alt="" width="56" height="56" loading="lazy" /> : <ProfileIcon name={icon as 'code'} />}
+  </span>
+  <span>{name}</span>
+</li>

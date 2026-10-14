@@ -1059,6 +1059,8 @@ main.addEventListener("click", async (event) => {
         "remove-friend",
         "add-about-tool",
         "remove-about-tool",
+        "add-about-system",
+        "remove-about-system",
         "move-nav",
       ].includes(action)
     ) {
@@ -1083,6 +1085,11 @@ main.addEventListener("click", async (event) => {
       if (action === "add-about-tool" && editingSettings.about.tools.length < 12)
         editingSettings.about.tools.push({ name: "", description: "", icon: "code" });
       if (action === "remove-about-tool") editingSettings.about.tools.splice(index, 1);
+      if (action === "add-about-system" && editingSettings.about.operatingSystems.length < 3) {
+        const key = ["macos", "windows", "linux"].find(key => !editingSettings.about.operatingSystems.includes(key));
+        if (key) editingSettings.about.operatingSystems.push(key);
+      }
+      if (action === "remove-about-system") editingSettings.about.operatingSystems.splice(index, 1);
       if (action === "move-nav") {
         const next = index + Number(target.dataset.direction);
         if (next >= 0 && next < editingSettings.navigation.length)
