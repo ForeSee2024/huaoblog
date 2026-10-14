@@ -3,7 +3,7 @@ title: "Scorify 开发整理：从乐谱小程序走向网页端"
 description: "整理乐谱项目从小程序扩展到网页端时，需要先弄清楚的数据、接口、资源与页面体验。"
 pubDate: "2026-10-14"
 category: "软件工程与系统"
-tags: ["Scorify","乐谱","Web","接口设计"]
+tags: ["Web 开发"]
 series: "软件项目记录"
 featured: true
 draft: false

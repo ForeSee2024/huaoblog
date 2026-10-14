@@ -3,7 +3,7 @@ title: "HuaOvO 上线记：给项目与学习留一个入口"
 description: "从技术方案审核、写作后台设计到 GitHub 与 Cloudflare 部署，记录这个个人博客的第一版。"
 pubDate: "2026-10-14"
 category: "软件工程与系统"
-tags: ["个人博客","Astro","Cloudflare","内容管理"]
+tags: ["Web 开发"]
 series: "HuaOvO 建站记录"
 featured: true
 draft: false

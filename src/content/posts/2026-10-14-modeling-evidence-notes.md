@@ -3,7 +3,7 @@ title: "数学建模整理：让结论跟着证据走"
 description: "整理数学建模材料时，关注问题、方法、实际结果和支撑文件之间的对应关系。"
 pubDate: "2026-10-14"
 category: "AI 与前沿科研"
-tags: ["数学建模","方法说明","实验验证","论文写作"]
+tags: ["数学建模"]
 series: "建模与写作记录"
 featured: false
 draft: false

@@ -3,7 +3,7 @@ title: "多模态目标检测备赛：先看数据，再改方案"
 description: "整理城市场景多模态目标检测项目的备赛思路，关注数据核查、基线、验证与提交文件。"
 pubDate: "2026-10-14"
 category: "AI 与前沿科研"
-tags: ["目标检测","多模态","竞赛","实验记录"]
+tags: ["计算机视觉"]
 series: "算法实践记录"
 featured: false
 draft: false
