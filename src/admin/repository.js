@@ -1,5 +1,6 @@
 import { ContentError, MAX_IMAGE_BYTES, MAX_POST_BYTES, findMediaReferences, inspectMediaBytes, normalizePercentEncoding, parsePost, stringifyPost, validateMediaName, validatePost, validateSlug } from './content-model.js';
 import { serializeSettings, validateSettings } from './settings-model.js';
+import { mediaSelection, postKey, postSelection } from './bulk-model.js';
 
 const API = 'https://api.github.com';
 const MAX_ENTRIES = 10000;
@@ -39,8 +40,10 @@ function metadata(pr) {
   const match = (pr.body || '').match(/<!-- huaovo-admin:(\{[^\n]*\}) -->/);
   try {
     const value = match && JSON.parse(match[1]);
-    if (!value || !['post', 'post-delete', 'draft-delete', 'settings', 'media'].includes(value.kind)) return null;
+    if (!value || !['post', 'post-delete', 'draft-delete', 'post-delete-batch', 'media-delete-batch', 'settings', 'media'].includes(value.kind)) return null;
     if (['post', 'post-delete', 'draft-delete'].includes(value.kind)) validateSlug(value.slug);
+    if (value.kind === 'post-delete-batch') return { kind: value.kind, items: postSelection(value.items).map(({ slug, status }) => ({ slug, status })) };
+    if (value.kind === 'media-delete-batch') return { kind: value.kind, names: mediaSelection(value.names?.map(name => ({ name, path: mediaPath(name) }))).map(item => item.name) };
     return { kind: value.kind, ...(value.slug ? { slug: value.slug } : {}) };
   } catch { return null; }
 }
@@ -59,6 +62,9 @@ function postRevision(main, workspace, slug) {
   return published || pending || draft ? `p:${published?.sha || '-'};d:${draft?.sha || (pending?.sha !== published?.sha ? pending?.sha : '') || '-'}` : undefined;
 }
 function checkRevision(expected, actual) { if ((expected || undefined) !== actual) conflict(); }
+function deletesPost(meta, post) {
+  return meta?.kind === 'post-delete-batch' ? meta.items.some(item => postKey(item) === postKey(post)) : meta?.slug === post.slug && meta.kind === (post.status === 'draft' ? 'draft-delete' : 'post-delete');
+}
 
 async function imageFile(file, deps) {
   if (!file || typeof file.arrayBuffer !== 'function' || typeof file.name !== 'string' || file.size > MAX_IMAGE_BYTES) throw new ContentError('请选择不超过 10 MB 的图片文件。', 413);
@@ -92,10 +98,12 @@ function localRepository(deps) {
     load: () => request('/api/content'),
     savePost: (post, options = {}) => request('/api/posts', 'POST', { post: validatePost(post, options), publish: options.publish === true }),
     deletePost: post => request(`/api/posts/${validateSlug(post.slug)}`, 'DELETE', { post }),
+    deletePosts: posts => request('/api/posts/delete', 'POST', { posts: postSelection(posts) }),
     saveSettings: settings => request('/api/settings', 'PUT', { settings: validateSettings(settings) }),
     async uploadMedia(file) { const image = await imageFile(file, deps); return request('/api/media', 'POST', { name: image.name, content: encode64(image.bytes), mime: image.mime }); },
     async getMediaPreview(media) { if (media.path !== mediaPath(media.name)) throw new ContentError('图片路径不安全。'); return { media: { ...media, url: publicPath(media.path), publicUrl: publicPath(media.path), previewPending: false } }; },
     deleteMedia: media => request(`/api/media/${validateMediaName(media.name)}`, 'DELETE', { media }),
+    deleteMediaBatch: media => request('/api/media/delete', 'POST', { media: mediaSelection(media) }),
     async publishRelease() { throw new ContentError('本地文章在点击发布时写入项目文件，无需合并远程发布。'); },
     async login() { return (await request('/api/content')).connection; },
     logout() {},
@@ -114,9 +122,19 @@ export function createRepository(config, deps = {}) {
   try { token = session?.getItem(tokenKey) || ''; } catch { token = ''; }
   const branch = config.branch || 'main';
   const base = `/repos/${String(config.repo || '').split('/').map(encodeURIComponent).join('/')}`;
-  const blobs = new Map(), previews = new Map();
-  let mutationQueue = Promise.resolve(), loginPromise, cancelLogin, lastState;
+  const blobs = new Map(), previews = new Map(), snapshots = new Map(), fileLists = new Map();
+  let mutationQueue = Promise.resolve(), loginPromise, cancelLogin, lastState, loading;
   const mutate = work => { const result = mutationQueue.then(work); mutationQueue = result.catch(() => {}); return result; };
+  const progress = message => deps.onProgress?.(message);
+  function cached(cache, key, read) {
+    if (cache.has(key)) return cache.get(key);
+    const value = Promise.resolve().then(read);
+    cache.set(key, value);
+    while (cache.size > 32) cache.delete(cache.keys().next().value);
+    value.catch(() => { if (cache.get(key) === value) cache.delete(key); });
+    return value;
+  }
+  const filesFor = (pr, mainHead) => cached(fileLists, `${pr.number}:${pr.head.sha}:${pr.base?.sha || mainHead}`, () => pages(`/pulls/${pr.number}/files`));
 
   function configured() {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}\/[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}$/.test(config.repo || '') || !/^[a-zA-Z0-9][a-zA-Z0-9/_-]{0,199}$/.test(branch) || branch.includes('//') || branch.endsWith('/')) throw new ContentError('GitHub 仓库或主分支尚未正确配置。', 503, 'configuration');
@@ -183,8 +201,11 @@ export function createRepository(config, deps = {}) {
   }
   async function snapshot(ref, knownHead) {
     const head = knownHead || (await api(`/git/ref/heads/${refPath(ref)}`)).object.sha;
-    const commit = await api(`/git/commits/${head}`);
-    return { branch: ref, head, treeSha: commit.tree.sha, entries: await treeEntries(commit.tree.sha) };
+    const value = await cached(snapshots, head, async () => {
+      const commit = await api(`/git/commits/${head}`);
+      return { head, treeSha: commit.tree.sha, entries: await treeEntries(commit.tree.sha) };
+    });
+    return { ...value, branch: ref, entries: new Map(value.entries) };
   }
   async function bytes(entry, max = MAX_POST_BYTES + 65536) {
     if (!entry || entry.size > max) throw new ContentError('仓库文件不存在或体积超过后台读取限制。', 413);
@@ -223,32 +244,51 @@ export function createRepository(config, deps = {}) {
     return url;
   }
   const ownPr = pr => pr.head?.ref?.startsWith('huaovo/') && pr.head?.repo?.full_name?.toLowerCase() === config.repo.toLowerCase() && pr.base?.ref === branch;
-  async function loadState() {
+  function loadState() {
+    if (loading) return loading;
+    const pending = readState();
+    loading = pending;
+    pending.finally(() => { if (loading === pending) loading = undefined; }).catch(() => {});
+    return pending;
+  }
+  async function readState() {
     requireAuth();
-    const [info, main, pulls] = await Promise.all([api(''), snapshot(branch), pages(`/pulls?state=open&base=${encodeURIComponent(branch)}`)]);
-    const own = pulls.filter(ownPr);
-    if (own.length > 100) throw new ContentError('待处理发布过多，请先在 GitHub 中整理 PR。', 413);
-    const workspaces = await mapLimit(own, 4, async pr => {
-      const [content, files] = await Promise.all([snapshot(pr.head.ref, pr.head.sha), pages(`/pulls/${pr.number}/files`)]);
-      return { ...content, files, pr, meta: metadata(pr) };
-    });
+    progress('正在核对仓库与内容版本…');
+    const [info, main, workspaces] = await Promise.all([
+      api(''), snapshot(branch),
+      pages(`/pulls?state=open&base=${encodeURIComponent(branch)}`).then(pulls => {
+        const own = pulls.filter(ownPr);
+        if (own.length > 100) throw new ContentError('待处理发布过多，请先在 GitHub 中整理 PR。', 413);
+        return mapLimit(own, 4, async pr => {
+          const [content, files] = await Promise.all([snapshot(pr.head.ref, pr.head.sha), filesFor(pr, lastState?.main.head)]);
+          return { ...content, files, pr, meta: metadata(pr) };
+        });
+      }),
+    ]);
+    return assembleState(info, main, workspaces);
+  }
+  async function assembleState(info, main, workspaces) {
+    progress('正在整理文章与站点配置…');
     const posts = [], allPosts = [], allSettings = [], mediaSources = new Map(), articleSizes = new Map();
     main.legacyDraftSlugs = new Set();
     let textTotal = 0;
     const readArticle = async (entry, draft) => { const source = await text(entry), size = new TextEncoder().encode(source).length; textTotal += size; articleSizes.set(entry.sha, size); if (textTotal > MAX_TEXT_TOTAL) throw new ContentError('文章总大小超过后台读取限制。', 413); return parsePost(source, entry.path.split('/').at(-1).replace(/\.mdx?$/, ''), { draft }); };
     const mainArticles = [...main.entries.values()].filter(entry => entry.path.startsWith('src/content/'));
+    const settingsEntry = main.entries.get('src/data/site.json');
+    if (!settingsEntry) throw new ContentError('仓库缺少 src/data/site.json 站点设置。', 404);
+    const pendingText = workspaces.flatMap(workspace => workspace.files.filter(file => file.status !== 'removed').map(file => workspace.entries.get(file.filename)).filter(entry => entry && (entry.path === 'src/data/site.json' && workspace.meta?.kind === 'settings' || entry.path.startsWith('src/content/') && workspace.meta?.kind === 'post')));
+    if ([...mainArticles, ...pendingText.filter(entry => entry.path.startsWith('src/content/'))].reduce((total, entry) => total + (entry.size || 0), 0) > MAX_TEXT_TOTAL) throw new ContentError('文章总大小超过后台读取限制。', 413);
+    await mapLimit([...new Map([...mainArticles, settingsEntry, ...pendingText].map(entry => [entry.sha, entry])).values()], 4, entry => text(entry));
     await mapLimit(mainArticles, 4, async entry => {
       const article = await readArticle(entry, entry.path.includes('/drafts/'));
       if (entry.path.includes('/posts/') && article.status === 'draft') main.legacyDraftSlugs.add(article.slug);
       const workspace = workspaces.find(item => item.meta?.kind === 'post' && item.meta.slug === article.slug);
-      const deletion = workspaces.find(item => item.meta?.kind === 'post-delete' && item.meta.slug === article.slug);
+      const deletion = workspaces.find(item => deletesPost(item.meta, article));
       const value = { ...article, revision: postRevision(main, workspace, article.slug), hasPublishedVersion: article.status === 'published' || Boolean(postEntry(main, article.slug)) && !main.legacyDraftSlugs.has(article.slug), ...(deletion ? { pendingDeletion: true } : {}) };
       const replacedDraft = article.status === 'draft' && workspace?.files.some(file => file.status !== 'removed' && (file.filename === `src/content/drafts/${article.slug}.md` || file.filename === `src/content/drafts/${article.slug}.mdx` || file.filename === `src/content/posts/${article.slug}.md` || file.filename === `src/content/posts/${article.slug}.mdx`));
       if (!replacedDraft) posts.push(value);
       allPosts.push(value);
     });
-    const settingsEntry = main.entries.get('src/data/site.json');
-    if (!settingsEntry) throw new ContentError('仓库缺少 src/data/site.json 站点设置。', 404);
     let settings;
     try { settings = validateSettings(JSON.parse(await text(settingsEntry))); } catch (error) { if (error instanceof ContentError) throw error; throw new ContentError('仓库站点设置无法解析。'); }
     allSettings.push(settings);
@@ -282,20 +322,30 @@ export function createRepository(config, deps = {}) {
       let url = publicUrl;
       if (source.pending) url = previews.get(entry.sha)?.url || '/favicon.svg';
       else { try { url = new URL(publicUrl, config.siteUrl).href; } catch { /* same-site URL remains usable */ } }
-      return { name, path: entry.path, publicUrl, url, size: entry.size, revision: entry.sha, previewPending: source.pending && !previews.has(entry.sha), ...(source.branch ? { branch: source.branch } : {}) };
+      const pendingDeletion = workspaces.some(item => item.files.some(file => file.filename === entry.path && file.status === 'removed'));
+      return { name, path: entry.path, publicUrl, url, size: entry.size, revision: entry.sha, previewPending: source.pending && !previews.has(entry.sha), ...(pendingDeletion ? { pendingDeletion: true } : {}), ...(source.branch ? { branch: source.branch } : {}) };
     });
-    const state = { posts, settings, media, releases: workspaces.map(workspace => release(workspace.pr)), connection: connection(true, info), main, workspaces, allPosts, allSettings, mediaSources, textTotal };
+    const state = { posts, settings, media, releases: workspaces.map(workspace => release(workspace.pr)), connection: connection(true, info), info, main, workspaces, allPosts, allSettings, mediaSources, textTotal };
+    const retained = new Set([main, ...workspaces].flatMap(item => [...item.entries.values()].map(entry => entry.sha)));
+    for (const sha of blobs.keys()) if (!retained.has(sha)) blobs.delete(sha);
     lastState = state; return state;
+  }
+  async function updatedState(state, updates, main = state.main) {
+    const workspaces = new Map(state.workspaces.map(item => [item.branch, item]));
+    for (const workspace of updates) {
+      if (!workspace.pr || workspace.pr.state !== 'open') workspaces.delete(workspace.branch);
+      else workspaces.set(workspace.branch, workspace);
+    }
+    return assembleState(state.info, main, [...workspaces.values()]);
   }
   function visible(state) { const { posts, settings, media, releases, connection } = state; return { posts, settings, media, releases, connection }; }
   function writable(state) { if (!state.connection.writable) throw new ContentError('当前 GitHub 账号没有此仓库的写入权限。', 403, 'permission'); }
   async function workspaceFor(state, kind, slug) {
-    const active = state.workspaces.filter(workspace => workspace.meta?.kind === kind && workspace.meta.slug === slug);
+    const active = kind.endsWith('-batch') ? [] : state.workspaces.filter(workspace => workspace.meta?.kind === kind && workspace.meta.slug === slug);
     if (active.length > 1) throw new ContentError('同一内容存在多个待处理 PR，请先在 GitHub 中处理重复发布。', 409, 'conflict');
-    if (active[0]) return active[0];
-    const suffix = kind === 'post' ? `post-${slug}` : kind === 'post-delete' ? `delete-post-${slug}` : kind === 'draft-delete' ? `delete-draft-${slug}` : kind === 'settings' ? 'site-settings' : 'media';
-    let name = `huaovo/${suffix}`;
-    if (await api(`/git/ref/heads/${refPath(name)}`, { optional: true })) name += `-${(deps.crypto || globalThis.crypto).randomUUID().slice(0, 8)}`;
+    if (active[0]) return { ...active[0], entries: new Map(active[0].entries) };
+    const suffix = kind === 'post' ? `post-${slug}` : kind === 'post-delete' ? `delete-post-${slug}` : kind === 'draft-delete' ? `delete-draft-${slug}` : kind === 'post-delete-batch' ? 'delete-posts' : kind === 'media-delete-batch' ? 'delete-media' : kind === 'settings' ? 'site-settings' : 'media';
+    const name = `huaovo/${suffix}-${(deps.crypto || globalThis.crypto).randomUUID().slice(0, 8)}`;
     await api('/git/refs', { method: 'POST', body: { ref: `refs/heads/${name}`, sha: state.main.head } });
     return { ...state.main, branch: name, meta: { kind, ...(slug ? { slug } : {}) } };
   }
@@ -316,27 +366,40 @@ export function createRepository(config, deps = {}) {
     }
     let head = workspace.head;
     if (effective.length) {
+      progress('正在提交内容变更…');
       const tree = await api('/git/trees', { method: 'POST', body: { base_tree: workspace.treeSha, tree: effective } });
-      const commit = await api('/git/commits', { method: 'POST', body: { message: title, tree: tree.sha, parents: [workspace.head] } });
-      await api(`/git/refs/heads/${refPath(workspace.branch)}`, { method: 'PATCH', body: { sha: commit.sha, force: false } });
+      const [commit, entries] = await Promise.all([
+        api('/git/commits', { method: 'POST', body: { message: title, tree: tree.sha, parents: [workspace.head] } }),
+        treeEntries(tree.sha),
+      ]);
       head = commit.sha;
+      workspace.head = head;
+      workspace.treeSha = tree.sha;
+      workspace.entries = entries;
+      await api(`/git/refs/heads/${refPath(workspace.branch)}`, { method: 'PATCH', body: { sha: commit.sha, force: false } });
+      cached(snapshots, head, () => ({ head, treeSha: tree.sha, entries: new Map(entries) }));
+      for (const change of effective) if (typeof change.content === 'string' && entries.has(change.path)) blobs.set(entries.get(change.path).sha, Promise.resolve(new TextEncoder().encode(change.content)));
     }
     const body = `${ready ? '内容已准备发布。合并前必须通过仓库构建与保护检查。' : '此 PR 保存写作草稿；请在后台准备发布后再合并。'}\n\n<!-- huaovo-admin:${JSON.stringify(workspace.meta)} -->`;
     let pr = workspace.pr;
     if (!pr && !effective.length) return null;
     if (!pr) pr = await api('/pulls', { method: 'POST', body: { title, body, head: workspace.branch, base: branch, draft: !ready } });
     else {
-      pr = await api(`/pulls/${pr.number}`, { method: 'PATCH', body: { title, body } });
+      if (pr.title !== title || pr.body !== body) pr = await api(`/pulls/${pr.number}`, { method: 'PATCH', body: { title, body } });
       if (pr.draft === ready) {
         const operation = ready ? 'markPullRequestReadyForReview' : 'convertPullRequestToDraft';
         await api('', { graphql: true, method: 'POST', body: { query: `mutation($id: ID!) { result: ${operation}(input: {pullRequestId: $id}) { pullRequest { id } } }`, variables: { id: pr.node_id } } });
         pr = { ...pr, draft: !ready };
       }
     }
-    return { ...pr, head: { ...pr.head, sha: head } };
+    workspace.head = head;
+    workspace.pr = { ...pr, head: { ...pr.head, sha: head } };
+    workspace.files = await filesFor(workspace.pr, lastState?.main.head);
+    return workspace.pr;
   }
   async function savePost(input, options = {}) {
     const article = validatePost(input, options), state = await loadState(); writable(state);
+    if (state.posts.some(post => post.slug === article.slug && post.pendingDeletion)) throw new ContentError('这篇内容已有待删除变更，请先处理该发布再编辑。', 409, 'pending_deletion');
     const active = state.workspaces.find(item => item.meta?.kind === 'post' && item.meta.slug === article.slug);
     checkRevision(input.revision, postRevision(state.main, active, article.slug));
     const content = stringifyPost(article);
@@ -349,37 +412,101 @@ export function createRepository(config, deps = {}) {
     if (ready && draft) changes.push({ path: draft.path, sha: null });
     if (!ready && pending?.sha !== published?.sha && pending) changes.push({ path: pending.path, sha: published?.sha || null });
     const pr = await writeChanges(workspace, changes, { title: `${ready ? '发布文章' : '草稿'}：${article.data.title || article.slug}`, ready });
-    const fresh = await loadState();
-    return { post: fresh.posts.find(post => post.slug === article.slug && post.branch === workspace.branch) || fresh.posts.find(post => post.slug === article.slug), ...(pr ? { release: release(pr) } : {}) };
+    const fresh = await updatedState(state, [workspace]);
+    return { state: visible(fresh), post: fresh.posts.find(post => post.slug === article.slug && post.branch === workspace.branch) || fresh.posts.find(post => post.slug === article.slug), ...(pr ? { release: release(pr) } : {}) };
+  }
+  async function confirmedDeletion(state, group) {
+    const attempted = group.workspace;
+    if (!attempted) return;
+    const closed = pr => pr.state === 'closed' && !pr.merged && pr.head.sha === attempted.head;
+    const current = state.workspaces.find(workspace => workspace.branch === attempted.branch);
+    if (group.withdrawal || !current) {
+      if (!attempted.pr || (!group.withdrawal && group.paths.some(path => attempted.entries.has(path)))) return;
+      const pr = await api(`/pulls/${attempted.pr.number}`);
+      if (closed(pr)) return { ...attempted, pr };
+      return;
+    }
+    if (current.head !== attempted.head || JSON.stringify(current.meta) !== JSON.stringify(attempted.meta) || group.paths.some(path => current.entries.has(path))) return;
+    if (group.closeEmpty && !current.files.length) {
+      let pr;
+      try { pr = await api(`/pulls/${current.pr.number}`, { method: 'PATCH', body: { state: 'closed' } }); }
+      catch (error) { pr = await api(`/pulls/${current.pr.number}`); if (!closed(pr)) throw error; }
+      return { ...current, pr };
+    }
+    return current;
+  }
+  async function deletionResult(state, groups) {
+    const deleted = [], failed = [], updates = [], releases = [], failures = [];
+    const completedGroup = (group, workspace) => {
+      updates.push(workspace);
+      if (workspace.pr) releases.push(release(workspace.pr));
+      deleted.push(...group.items);
+    };
+    let completed = 0;
+    await mapLimit(groups, 3, async group => {
+      try {
+        completedGroup(group, await group.work(group));
+      } catch (error) {
+        failures.push({ group, error });
+      }
+      progress(`已处理 ${++completed}/${groups.length} 组变更…`);
+    });
+    let fresh = await updatedState(state, updates), refreshRequired = false;
+    if (failures.length) {
+      const recovered = [];
+      progress('正在确认已提交的删除结果…');
+      try { fresh = await loadState(); } catch { refreshRequired = true; }
+      for (const { group, error } of failures) {
+        let confirmed;
+        if (!refreshRequired) {
+          try { confirmed = await confirmedDeletion(fresh, group); } catch { refreshRequired = true; }
+        }
+        if (confirmed) { completedGroup(group, confirmed); recovered.push(confirmed); }
+        else failed.push(...group.items.map(item => ({ ...item, error: error.message, code: error.code, statusCode: error.status || 503 })));
+      }
+      fresh = await updatedState(fresh, recovered);
+    }
+    return { state: visible(fresh), deleted, failed, releases, release: releases.find(item => item.state === 'review') || releases[0], refreshRequired };
+  }
+  async function deletePosts(input) {
+    const items = postSelection(input), state = await loadState(); writable(state);
+    progress(`正在核对 ${items.length} 篇内容的版本…`);
+    const staged = [], withdrawals = [];
+    for (const item of items) {
+      const current = state.posts.find(post => postKey(post) === postKey(item));
+      if (!current) throw new ContentError(`文章版本 ${item.slug} 不存在，请刷新列表。`, 404);
+      if (current.pendingDeletion) throw new ContentError('内容已有待删除变更，请在发布与连接中处理。', 409, 'pending_deletion');
+      const activeWorkspaces = state.workspaces.filter(workspace => workspace.meta?.kind === 'post' && workspace.meta.slug === item.slug);
+      if (activeWorkspaces.length > 1) throw new ContentError('同一内容存在多个待处理 PR，请先处理重复发布。', 409, 'conflict');
+      const active = activeWorkspaces[0];
+      checkRevision(item.revision, postRevision(state.main, active, item.slug));
+      if (item.status === 'draft' && active) { withdrawals.push({ item, workspace: active }); continue; }
+      const source = postEntry(state.main, item.slug, item.status === 'draft' ? 'drafts' : 'posts') || (item.status === 'draft' && state.main.legacyDraftSlugs.has(item.slug) ? postEntry(state.main, item.slug) : undefined);
+      if (!source) throw new ContentError(`文章版本 ${item.slug} 不存在，请刷新列表。`, 404);
+      staged.push({ item, source });
+    }
+    const groups = withdrawals.map(({ item, workspace }) => ({ items: [item], workspace, withdrawal: true, work: async () => ({ ...workspace, pr: await api(`/pulls/${workspace.pr.number}`, { method: 'PATCH', body: { state: 'closed' } }) }) }));
+    if (staged.length) groups.unshift({ items: staged.map(value => value.item), paths: staged.map(({ source }) => source.path), work: async group => {
+      const workspace = await workspaceFor(state, 'post-delete-batch');
+      group.workspace = workspace;
+      workspace.meta.items = staged.map(({ item }) => ({ slug: item.slug, status: item.status }));
+      await writeChanges(workspace, staged.map(({ source }) => ({ path: source.path, sha: null })), { title: `删除 ${staged.length} 篇内容`, ready: true });
+      return workspace;
+    } });
+    return deletionResult(state, groups);
   }
   async function deletePost(input) {
-    const slug = validateSlug(input.slug);
-    if (!['draft', 'published'].includes(input.status)) throw new ContentError('请选择需要删除的文章版本。');
-    const state = await loadState(); writable(state);
-    const active = state.workspaces.find(item => item.meta?.kind === 'post' && item.meta.slug === slug);
-    checkRevision(input.revision, postRevision(state.main, active, slug));
-    if (input.status === 'draft' && active) {
-      const draft = postEntry(active, slug, 'drafts');
-      const pending = postEntry(active, slug);
-      const published = postEntry(state.main, slug);
-      const changes = [...(draft ? [{ path: draft.path, sha: null }] : []), ...(pending?.sha !== published?.sha && pending ? [{ path: pending.path, sha: published?.sha || null }] : [])];
-      await writeChanges(active, changes, { title: `撤回草稿：${slug}`, ready: false });
-      const closed = await api(`/pulls/${active.pr.number}`, { method: 'PATCH', body: { state: 'closed' } });
-      return { deleted: { slug, status: 'draft' }, release: release(closed) };
-    }
-    const source = postEntry(state.main, slug, input.status === 'draft' ? 'drafts' : 'posts') || (input.status === 'draft' && state.main.legacyDraftSlugs.has(slug) ? postEntry(state.main, slug) : undefined);
-    if (!source) throw new ContentError('文章版本不存在，请刷新列表。', 404);
-    const kind = input.status === 'draft' ? 'draft-delete' : 'post-delete';
-    const workspace = await workspaceFor(state, kind, slug);
-    const pr = await writeChanges(workspace, [{ path: source.path, sha: null }], { title: `删除文章：${input.data?.title || slug}`, ready: true });
-    return { deleted: { slug, status: input.status }, ...(pr ? { release: release(pr) } : {}) };
+    const result = await deletePosts([input]);
+    if (result.failed.length && !result.deleted.length) throw new ContentError(result.failed[0].error, result.failed[0].statusCode, result.failed[0].code);
+    return { ...result, deleted: result.deleted[0] };
   }
   async function saveSettings(input) {
     const settings = validateSettings(input), state = await loadState(); writable(state);
     checkRevision(settings.revision, state.settings.revision);
     const workspace = await workspaceFor(state, 'settings');
     const pr = await writeChanges(workspace, [{ path: 'src/data/site.json', content: serializeSettings(settings) }, ...imageChanges(state, workspace, [], settings)], { title: '更新站点设置', ready: true });
-    return { settings: (await loadState()).settings, ...(pr ? { release: release(pr) } : {}) };
+    const fresh = await updatedState(state, [workspace]);
+    return { state: visible(fresh), settings: fresh.settings, ...(pr ? { release: release(pr) } : {}) };
   }
   async function uploadMedia(file) {
     const image = await imageFile(file, deps), state = await loadState(); writable(state);
@@ -391,8 +518,8 @@ export function createRepository(config, deps = {}) {
       const blob = await api('/git/blobs', { method: 'POST', body: { content: encode64(image.bytes), encoding: 'base64' } });
       rememberPreview(blob.sha, previewUrl, image.size);
       const pr = await writeChanges(workspace, [{ path, sha: blob.sha }], { title: '更新图片资源', ready: true });
-      const media = (await loadState()).media.find(item => item.path === path);
-      return { media, ...(pr ? { release: release(pr) } : {}) };
+      const fresh = await updatedState(state, [workspace]);
+      return { state: visible(fresh), media: fresh.media.find(item => item.path === path), ...(pr ? { release: release(pr) } : {}) };
     } catch (error) { if (previewUrl.startsWith('blob:') && ![...previews.values()].some(entry => entry.url === previewUrl)) URL.revokeObjectURL(previewUrl); throw error; }
   }
   async function getMediaPreview(input) {
@@ -405,29 +532,51 @@ export function createRepository(config, deps = {}) {
     const media = { ...current, url: source.pending ? await preview(source.entry) : current.url, previewPending: false };
     return { media };
   }
-  async function deleteMedia(input) {
-    if (input.path !== mediaPath(input.name)) throw new ContentError('图片存储路径不安全。');
-    const state = await loadState(); writable(state);
-    const current = state.media.find(item => item.path === input.path);
-    if (!current) throw new ContentError('图片不存在，请刷新媒体库。', 404);
-    checkRevision(input.revision, current.revision);
-    const references = [...new Set(state.allSettings.flatMap(settings => findMediaReferences(current.publicUrl, state.allPosts, settings)))];
-    if (references.length) throw new ContentError(`图片仍被${references.join('、')}引用，请先移除引用。`, 409, 'referenced_media');
-    const workspace = await workspaceFor(state, 'media');
-    if (!workspace.entries.has(current.path)) throw new ContentError('此图片属于其他待发布内容，请先处理相应 PR。', 409);
-    const pr = await writeChanges(workspace, [{ path: current.path, sha: null }], { title: '删除图片资源', ready: true });
-    const remaining = [...workspace.entries.values()].some(entry => entry.path !== current.path && entry.sha !== state.main.entries.get(entry.path)?.sha);
-    if (pr && !remaining && !state.main.entries.has(current.path)) {
-      const closed = await api(`/pulls/${pr.number}`, { method: 'PATCH', body: { state: 'closed' } });
-      return { deleted: current, release: release(closed) };
+  async function deleteMediaBatch(input) {
+    const items = mediaSelection(input), state = await loadState(); writable(state);
+    progress(`正在核对 ${items.length} 张图片及引用…`);
+    const published = [], pending = new Map();
+    for (const item of items) {
+      const current = state.media.find(media => media.path === item.path);
+      if (!current) throw new ContentError(`图片 ${item.name} 不存在，请刷新媒体库。`, 404);
+      if (current.pendingDeletion) throw new ContentError('图片已有待删除变更，请在发布与连接中处理。', 409, 'pending_deletion');
+      checkRevision(item.revision, current.revision);
+      const references = [...new Set(state.allSettings.flatMap(settings => findMediaReferences(current.publicUrl, state.allPosts, settings)))];
+      if (references.length) throw new ContentError(`图片 ${item.name} 仍被${references.join('、')}引用，请先移除引用。`, 409, 'referenced_media');
+      if (state.main.entries.has(current.path)) published.push(current);
+      else {
+        const workspace = state.workspaces.find(value => value.branch === current.branch && value.meta?.kind === 'media');
+        if (!workspace) throw new ContentError(`图片 ${item.name} 属于其他待发布内容，请先处理相应 PR。`, 409);
+        if (!pending.has(workspace.branch)) pending.set(workspace.branch, { workspace, items: [] });
+        pending.get(workspace.branch).items.push(current);
+      }
     }
-    return { deleted: current, ...(pr ? { release: release(pr) } : {}) };
+    const groups = [...pending.values()].map(({ workspace: original, items }) => ({ items, paths: items.map(item => item.path), closeEmpty: true, work: async group => {
+      const workspace = { ...original, entries: new Map(original.entries) };
+      group.workspace = workspace;
+      await writeChanges(workspace, items.map(item => ({ path: item.path, sha: null })), { title: '更新图片资源', ready: true });
+      if (!workspace.files.length) workspace.pr = await api(`/pulls/${workspace.pr.number}`, { method: 'PATCH', body: { state: 'closed' } });
+      return workspace;
+    } }));
+    if (published.length) groups.unshift({ items: published, paths: published.map(item => item.path), work: async group => {
+      const workspace = await workspaceFor(state, 'media-delete-batch');
+      group.workspace = workspace;
+      workspace.meta.names = published.map(item => item.name);
+      await writeChanges(workspace, published.map(item => ({ path: item.path, sha: null })), { title: `删除 ${published.length} 张图片`, ready: true });
+      return workspace;
+    } });
+    return deletionResult(state, groups);
+  }
+  async function deleteMedia(input) {
+    const result = await deleteMediaBatch([input]);
+    if (result.failed.length && !result.deleted.length) throw new ContentError(result.failed[0].error, result.failed[0].statusCode, result.failed[0].code);
+    return { ...result, deleted: result.deleted[0] };
   }
 
   async function checkPublication(pr) {
     const meta = metadata(pr);
     if (!ownPr(pr) || !meta) throw new ContentError('此 PR 不属于后台管理的发布，请在 GitHub 中审核。');
-    const [files, workspace] = await Promise.all([pages(`/pulls/${pr.number}/files`), snapshot(pr.head.ref, pr.head.sha)]);
+    const [files, workspace] = await Promise.all([filesFor(pr, lastState?.main.head), snapshot(pr.head.ref, pr.head.sha)]);
     if (!files.length) throw new ContentError('此发布没有可合并的内容。');
     const removedImages = files.filter(file => file.filename.startsWith('public/images/posts/') && file.status === 'removed');
     if (removedImages.length) {
@@ -437,8 +586,19 @@ export function createRepository(config, deps = {}) {
         if (references.length) throw new ContentError(`待删图片仍被${references.join('、')}引用，请先移除引用。`, 409, 'referenced_media');
       }
     }
+    let postDeletionPaths;
+    if (meta.kind === 'post-delete-batch') {
+      const current = await loadState();
+      postDeletionPaths = new Set(meta.items.map(item => {
+        const entry = postEntry(current.main, item.slug, item.status === 'draft' ? 'drafts' : 'posts') || (item.status === 'draft' && current.main.legacyDraftSlugs.has(item.slug) ? postEntry(current.main, item.slug) : undefined);
+        if (!entry) throw new ContentError('待删除文章版本不存在或已变化，请刷新后重新核对。', 409, 'conflict');
+        return entry.path;
+      }));
+    }
     const allowed = file => {
       const name = file.filename;
+      if (meta.kind === 'post-delete-batch') return file.status === 'removed' && postDeletionPaths.has(name);
+      if (meta.kind === 'media-delete-batch') return file.status === 'removed' && meta.names.some(value => name === mediaPath(value));
       if (name.startsWith('public/images/posts/')) return managedPath(name);
       if (meta.kind === 'settings') return name === 'src/data/site.json';
       if (meta.kind === 'media') return false;
@@ -473,15 +633,19 @@ export function createRepository(config, deps = {}) {
     const pr = await api(`/pulls/${input.id}`);
     if (pr.head.sha !== input.sha || pr.head.ref !== input.branch) conflict();
     if (pr.state !== 'open' || pr.draft) throw new ContentError('此发布仍是草稿或已关闭，请先准备发布。');
-    await checkPublication(pr);
-    const [checks, statuses] = await Promise.all([pages(`/commits/${pr.head.sha}/check-runs?filter=latest`, 'check_runs'), pages(`/commits/${pr.head.sha}/status`, 'statuses')]);
+    progress('正在核对发布内容与构建检查…');
+    const [, checks, statuses] = await Promise.all([checkPublication(pr), pages(`/commits/${pr.head.sha}/check-runs?filter=latest`, 'check_runs'), pages(`/commits/${pr.head.sha}/status`, 'statuses')]);
     if (!checks.length && !statuses.length) throw new ContentError('此提交尚无构建检查结果，无法确认可以发布。', 409, 'checks_pending');
     if (checks.some(check => check.status !== 'completed') || statuses.some(item => item.state === 'pending')) throw new ContentError('发布检查仍在运行，请等待完成后重试。', 409, 'checks_pending');
     if (checks.some(check => !['success', 'neutral', 'skipped'].includes(check.conclusion)) || statuses.some(item => item.state !== 'success')) throw new ContentError('发布检查未通过，请打开 PR 查看失败原因。', 409, 'checks_failed');
     if (pr.mergeable !== true || pr.mergeable_state !== 'clean') throw new ContentError('GitHub 分支保护、评审或合并条件尚未满足，请打开 PR 处理。', 409, 'merge_blocked');
+    progress('检查已通过，正在合并发布…');
     const result = await api(`/pulls/${pr.number}/merge`, { method: 'PUT', body: { sha: pr.head.sha, merge_method: 'merge' } });
     if (!result.merged) throw new ContentError('GitHub 未完成合并，请打开 PR 检查保护条件。', 409, 'merge_blocked');
-    return { release: { ...release(pr), state: 'merged', mergeSha: result.sha, detail: '代码已合并。站点部署结果请查看 Cloudflare 的部署记录。' } };
+    const state = lastState || await loadState();
+    const main = await snapshot(branch, result.sha);
+    const fresh = await updatedState(state, state.workspaces.filter(item => item.pr.number === pr.number).map(item => ({ ...item, pr: { ...item.pr, state: 'closed' } })), main);
+    return { state: visible(fresh), release: { ...release(pr), state: 'merged', mergeSha: result.sha, detail: '代码已合并。站点部署结果请查看 Cloudflare 的部署记录。' } };
   }
 
   function login() {
@@ -517,15 +681,17 @@ export function createRepository(config, deps = {}) {
   function logout() {
     cancelLogin?.(); token = ''; try { session?.removeItem(tokenKey); } catch { /* memory-only token cleared */ }
     for (const entry of previews.values()) if (entry.url.startsWith('blob:')) URL.revokeObjectURL(entry.url);
-    previews.clear(); blobs.clear(); lastState = undefined;
+    previews.clear(); blobs.clear(); snapshots.clear(); fileLists.clear(); lastState = undefined;
   }
   return {
-    async load() { if (!token) return { posts: [], settings: null, media: [], releases: [], connection: connection(false) }; return visible(await loadState()); },
+    async load() { await mutationQueue; if (!token) return { posts: [], settings: null, media: [], releases: [], connection: connection(false) }; return visible(await loadState()); },
     savePost: (post, options) => mutate(() => savePost(post, options)),
     deletePost: post => mutate(() => deletePost(post)),
+    deletePosts: posts => mutate(() => deletePosts(posts)),
     saveSettings: settings => mutate(() => saveSettings(settings)),
     uploadMedia: file => mutate(() => uploadMedia(file)),
     deleteMedia: media => mutate(() => deleteMedia(media)), getMediaPreview,
+    deleteMediaBatch: media => mutate(() => deleteMediaBatch(media)),
     publishRelease: value => mutate(() => publishRelease(value)), login, logout,
   };
 }

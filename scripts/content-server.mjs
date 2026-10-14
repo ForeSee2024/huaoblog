@@ -6,6 +6,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ContentError, MAX_IMAGE_BYTES, MAX_POST_BYTES, findMediaReferences, inspectMediaBytes, parsePost, stringifyPost, validateMediaName, validatePost, validateSlug } from '../src/admin/content-model.js';
 import { serializeSettings, validateSettings } from '../src/admin/settings-model.js';
+import { mediaSelection, postSelection } from '../src/admin/bulk-model.js';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const ORIGINS = new Set(['http://127.0.0.1:4321', 'http://localhost:4321']);
@@ -114,6 +115,7 @@ async function readJson(request, limit) {
   });
   try { const data = JSON.parse(bytes.toString('utf8')); if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error(); return data; } catch { throw new ContentError('JSON 请求无法解析。'); }
 }
+const publicState = ({ records: _records, ...state }) => state;
 
 export async function createContentServer({ root = DEFAULT_ROOT } = {}) {
   const store = await storage(root);
@@ -147,7 +149,31 @@ export async function createContentServer({ root = DEFAULT_ROOT } = {}) {
           await store.write(destination, stringifyPost(article));
           if (draft && draft.path !== destination) await store.remove(draft.path);
           const fresh = await snapshot(store);
-          return { post: fresh.posts.find(post => post.slug === article.slug && post.status === article.status) };
+          return { state: publicState(fresh), post: fresh.posts.find(post => post.slug === article.slug && post.status === article.status) };
+        }
+        if (request.method === 'POST' && ['/api/posts/delete', '/api/media/delete'].includes(pathname)) {
+          const articles = pathname === '/api/posts/delete';
+          const selection = articles ? postSelection(body.posts) : mediaSelection(body.media);
+          const targets = selection.map(item => {
+            if (articles) {
+              checkRevision(item.revision, revisionFor(state.records, item.slug));
+              const record = state.records.find(record => record.post.slug === item.slug && record.post.status === item.status);
+              if (!record) throw new ContentError(`文章 ${item.slug} 不存在，请刷新列表。`, 404);
+              return { path: record.path, item };
+            }
+            const current = state.media.find(media => media.path === item.path);
+            if (!current) throw new ContentError(`图片 ${item.name} 不存在，请刷新媒体库。`, 404);
+            checkRevision(item.revision, current.revision);
+            const references = findMediaReferences(current.publicUrl, state.posts, state.settings);
+            if (references.length) throw new ContentError(`图片 ${item.name} 仍被${references.join('、')}引用，请先移除引用。`, 409, 'referenced_media');
+            return { path: current.path, item: current };
+          });
+          const deleted = [], failed = [];
+          for (const target of targets) {
+            try { await store.remove(target.path); deleted.push(target.item); }
+            catch { failed.push({ ...target.item, error: '文件未能删除，请刷新后重试。' }); }
+          }
+          return { state: publicState(await snapshot(store)), deleted, failed, releases: [] };
         }
         const postMatch = pathname.match(/^\/api\/posts\/([^/]+)$/);
         if (postMatch && request.method === 'DELETE') {
@@ -157,14 +183,14 @@ export async function createContentServer({ root = DEFAULT_ROOT } = {}) {
           const record = state.records.find(item => item.post.slug === slug && item.post.status === body.post.status);
           if (!record) throw new ContentError('文章版本不存在，请刷新列表。', 404);
           await store.remove(record.path);
-          return { deleted: { slug, status: body.post.status } };
+          return { state: publicState(await snapshot(store)), deleted: { slug, status: body.post.status } };
         }
         if (pathname === '/api/settings' && request.method === 'PUT') {
           const settings = validateSettings(body.settings);
           checkRevision(settings.revision, state.settings.revision);
           await store.write('src/data/site.json', serializeSettings(settings));
           const fresh = await snapshot(store);
-          return { settings: fresh.settings };
+          return { state: publicState(fresh), settings: fresh.settings };
         }
         if (pathname === '/api/media' && request.method === 'POST') {
           const name = validateMediaName(body.name);
@@ -174,7 +200,7 @@ export async function createContentServer({ root = DEFAULT_ROOT } = {}) {
           if (body.mime && body.mime !== info.mime) throw new ContentError('图片类型与文件内容不符。');
           if (state.media.some(media => media.name === name) || await store.read(`public/images/posts/${name}`, MAX_IMAGE_BYTES)) throw new ContentError('同名图片已存在，请换一个名称。', 409, 'conflict');
           await store.write(`public/images/posts/${name}`, bytes);
-          return { media: { name, path: `public/images/posts/${name}`, publicUrl: `/images/posts/${name}`, url: `/images/posts/${name}`, size: info.size, revision: hash(bytes) } };
+          return { state: publicState(await snapshot(store)), media: { name, path: `public/images/posts/${name}`, publicUrl: `/images/posts/${name}`, url: `/images/posts/${name}`, size: info.size, revision: hash(bytes) } };
         }
         const mediaMatch = pathname.match(/^\/api\/media\/([^/]+)$/);
         if (mediaMatch && request.method === 'DELETE') {
@@ -185,7 +211,7 @@ export async function createContentServer({ root = DEFAULT_ROOT } = {}) {
           const references = findMediaReferences(current.publicUrl, state.posts, state.settings);
           if (references.length) throw new ContentError(`图片仍被${references.join('、')}引用，请先移除引用。`, 409, 'referenced_media');
           await store.remove(current.path);
-          return { deleted: current };
+          return { state: publicState(await snapshot(store)), deleted: current };
         }
         throw new ContentError('接口不存在。', 404);
       });
