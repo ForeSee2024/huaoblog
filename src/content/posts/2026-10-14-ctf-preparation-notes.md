@@ -3,7 +3,7 @@ title: "从逆向经验到 CTF：我的备赛起点"
 description: "从已有逆向分析和网页脚本经验出发，整理第一次 CTF 备赛需要补齐的基础与记录方式。"
 pubDate: "2026-10-14"
 category: "极客安全与攻防"
-tags: ["CTF","逆向","Web","学习路线"]
+tags: ["CTF"]
 series: "安全学习记录"
 featured: false
 draft: false

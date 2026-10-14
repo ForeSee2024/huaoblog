@@ -3,7 +3,7 @@ title: "动态图学习笔记：先确定问题，再谈模型"
 description: "从预测与聚类兴趣出发，整理动态图、分布漂移和时序图聚类的学习方向与当前阶段。"
 pubDate: "2026-10-14"
 category: "AI 与前沿科研"
-tags: ["动态图","图神经网络","聚类","科研学习"]
+tags: ["图学习"]
 series: "图学习笔记"
 featured: true
 draft: false

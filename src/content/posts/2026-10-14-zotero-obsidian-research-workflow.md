@@ -3,7 +3,7 @@ title: "用 Zotero 与 Obsidian，把论文连接起来"
 description: "记录文献管理的初步分工：保存完整条目与 PDF，把研究问题、概念和论文关系整理进笔记库。"
 pubDate: "2026-10-14"
 category: "生活随笔与杂项"
-tags: ["Zotero","Obsidian","文献管理","工作流"]
+tags: ["文献管理"]
 series: "阅读与整理"
 featured: false
 draft: false
