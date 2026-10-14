@@ -33,7 +33,7 @@ test('settings reject script urls, invalid palette keys and unsafe navigation', 
 });
 
 test('profile configuration survives a save and older settings remain editable', () => {
-  const about = { ...canonical.about, coverImage: '/images/posts/profile.webp', githubEnabled: false, recentPostsEnabled: true, tools: [{ name: 'Python', description: '实验与数据整理', icon: 'code' }] };
+  const about = { ...canonical.about, introduction: '我是 Huao。', languages: '简体中文 / English', operatingSystems: ['macos', 'linux'], coverImage: '/images/posts/profile.webp', githubEnabled: false, tools: [{ name: 'Python', description: '实验与数据整理', icon: 'python' }] };
   const saved = JSON.parse(model.serializeSettings({ ...canonical, about }));
   assert.deepEqual(saved.about, about);
   const legacy = { title: '关于我', subtitle: '', body: '' };
@@ -41,7 +41,13 @@ test('profile configuration survives a save and older settings remain editable',
   assert.equal(upgraded.about.coverImage, '');
   assert.deepEqual(upgraded.about.tools, []);
   assert.equal(upgraded.about.githubEnabled, true);
-  assert.equal(upgraded.about.recentPostsEnabled, true);
+  assert.equal(upgraded.about.introduction, '');
+  assert.equal(upgraded.about.languages, '');
+  assert.deepEqual(upgraded.about.operatingSystems, []);
+  assert.equal(upgraded.about.recentPostsEnabled, undefined);
+  const previous = model.validateSettings({ ...canonical, about: { ...legacy, recentPostsEnabled: true, tools: [{ name: 'Python', description: '', icon: 'code' }] } });
+  assert.equal(previous.about.tools[0].icon, 'code');
+  assert.equal(previous.about.recentPostsEnabled, undefined);
 });
 
 test('profile configuration rejects unsafe covers and malformed tool entries', () => {
@@ -52,6 +58,9 @@ test('profile configuration rejects unsafe covers and malformed tool entries', (
     { tools: [{ name: '', description: '', icon: 'code' }] },
     { tools: Array.from({ length: 13 }, () => ({ name: 'Python', description: '', icon: 'code' })) },
     { githubEnabled: 'false' },
-    { recentPostsEnabled: 1 },
+    { operatingSystems: ['<svg>'] },
+    { operatingSystems: 'macos' },
+    { operatingSystems: Array(9).fill('macos') },
+    { introduction: 'x'.repeat(301) },
   ]) assert.throws(() => model.validateSettings({ ...canonical, about: { ...canonical.about, ...patch } }));
 });

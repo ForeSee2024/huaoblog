@@ -8,6 +8,9 @@ import {
   icon,
 } from "./ui.js";
 import { pageHeading } from "./views.js";
+const toolIcons = [["typescript", "TypeScript"], ["python", "Python"], ["astro", "Astro"], ["cloudflare", "Cloudflare"], ["zotero", "Zotero"], ["obsidian", "Obsidian"], ["code", "通用代码"], ["terminal", "终端"], ["cloud", "云服务"], ["book", "文献"], ["notebook", "笔记"], ["monitor", "设备"]];
+const systemIcons = [["macos", "macOS"], ["windows", "Windows"], ["linux", "Linux"]];
+const previewBadge = (name, key) => `<span>${[...toolIcons.slice(0, 6), ...systemIcons].some(([value]) => value === key) ? `<img src="/images/profile-icons/${key}.svg" alt="" />` : icon(key)}<small>${e(name)}</small></span>`;
 const socialIcons = [
   ["link", "网址"],
   ["github", "GitHub"],
@@ -26,7 +29,7 @@ export function settingsPreview(settings, image = (value) => value, tab = "home"
   if (tab === "about") {
     const { about } = settings;
     const cover = safeImage(image(about.coverImage || ""));
-    return `<p>个人简介实时预览</p><div class="mini-about"><div class="mini-about-cover">${cover ? `<img data-preview-path="${e(about.coverImage)}" src="${e(cover)}" alt="" />` : ""}<small>ABOUT / ${e(identity.brand)}</small><h3>${e(about.title)}</h3><p>${e(about.subtitle)}</p></div><div class="mini-about-profile"><img data-preview-path="${e(identity.avatar)}" src="${e(safeImage(image(identity.avatar)) || "/favicon.svg")}" alt="" /><div><strong>${e(identity.author)}</strong><p>${e(identity.tagline)}</p></div></div>${about.tools?.length ? `<div class="mini-about-tools"><strong>常用工具与工作流</strong>${about.tools.map(tool => `<p>${icon(tool.icon)}<span>${e(tool.name)}</span></p>`).join("")}</div>` : ""}<div class="mini-about-modules">${about.githubEnabled !== false ? "<span>GitHub 主页</span>" : ""}${about.recentPostsEnabled !== false ? "<span>最近记录</span>" : ""}</div></div><p class="preview-caption">封面留空时使用品牌图案。头像、名字与社交链接沿用“站点信息”。正文在前台按 Markdown 排版。</p>`;
+    return `<p>个人简介实时预览</p><div class="mini-about"><div class="mini-about-cover ${cover ? "has-cover" : ""}">${cover ? `<img data-preview-path="${e(about.coverImage)}" src="${e(cover)}" alt="" />` : ""}<small>HOME / ABOUT ME</small><h3>${e(about.title)}</h3><p>${e(about.subtitle)}</p></div><div class="mini-about-profile"><img data-preview-path="${e(identity.avatar)}" src="${e(safeImage(image(identity.avatar)) || "/favicon.svg")}" alt="" /><strong>${e(about.introduction || identity.author)}</strong><p>${e(about.languages || "")}</p></div>${about.operatingSystems?.length ? `<div class="mini-about-tools"><strong>My Operating Systems | 个人用系统</strong><div class="mini-about-icon-row">${about.operatingSystems.map(key => previewBadge(systemIcons.find(([value]) => value === key)?.[1] || key, key)).join("")}</div></div>` : ""}${about.tools?.length ? `<div class="mini-about-tools"><strong>My Skill Set | 技能与工具</strong><div class="mini-about-icon-row">${about.tools.map(tool => previewBadge(tool.name, tool.icon)).join("")}</div></div>` : ""}${about.githubEnabled !== false ? `<div class="mini-about-tools"><strong>GitHub Stats | GitHub 详情</strong><p>公开资料与仓库语言统计</p></div>` : ""}</div><p class="preview-caption">头像与联系链接沿用“站点信息”。封面留空时使用全站主题底色，正文在前台按 Markdown 排版。</p>`;
   }
   return `<p>首页实时预览</p><div class="mini-home"><div class="mini-home-header"><img data-preview-path="${e(identity.avatar)}" src="${e(safeImage(image(identity.avatar)) || "/favicon.svg")}" alt="" /><span>${e(identity.brand)}</span></div><div class="mini-home-body"><small>${e(home.eyebrow)}</small><h3>${e(home.title)}</h3><p>${e(home.intro)}</p><span class="mini-home-button">${e(home.primaryLabel)}</span></div>${home.announcementEnabled ? `<div class="mini-home-announcement">${e(home.announcementTitle)} · ${e(home.announcement)}</div>` : ""}</div><p class="preview-caption">预览显示当前编辑内容。${settings.revision ? "保存后更新前台配置。" : "保存配置后，前台会使用这些设定。"}</p>`;
 }
@@ -217,7 +220,7 @@ export function settingsView(settings, tab, local, image) {
       grid(
         f("封面图片", "about.coverImage", settings.about.coverImage || "", {
           wide: true,
-          hint: "留空显示品牌图案；可以上传自己的横向封面，建议比例 3:1。",
+          hint: "留空使用全站主题底色；可上传自己的横向封面，建议比例 3:1。",
         }) +
           `<div class="field-wide">${button("从媒体库选择封面", "pick-about-cover", "image", "secondary")}</div>` +
           f("页面标题", "about.title", settings.about.title, {
@@ -229,6 +232,18 @@ export function settingsView(settings, tab, local, image) {
             wide: true,
             max: 300,
           }) +
+          f("个人介绍", "about.introduction", settings.about.introduction || "", {
+            wide: true,
+            type: "textarea",
+            rows: 2,
+            max: 300,
+            hint: "显示在大头像下方，建议用一两句话介绍自己。",
+          }) +
+          f("使用语言", "about.languages", settings.about.languages || "", {
+            wide: true,
+            max: 200,
+            placeholder: "例如：我使用简体中文，也阅读英文资料。",
+          }) +
           f("正文", "about.body", settings.about.body, {
             wide: true,
             type: "textarea",
@@ -238,16 +253,19 @@ export function settingsView(settings, tab, local, image) {
           }),
       ),
     ) + section(
-      "常用工具与工作流",
-      "只列出主要工具。清空列表可隐藏这一栏。",
+      "个人用系统",
+      "只展示实际使用的系统，按图标行排列；清空后隐藏。",
+      (settings.about.operatingSystems || []).map((key, index) => `<div class="repeater-row"><div class="repeater-bar"><strong>系统 ${index + 1}</strong>${button("移除", "remove-about-system", "delete", "quiet", `data-index="${index}"`)}</div>${f("操作系统", `about.operatingSystems.${index}`, key, { choices: systemIcons })}</div>`).join("") + button("添加系统", "add-about-system", "plus", "secondary", (settings.about.operatingSystems || []).length >= 3 ? "disabled" : ""),
+    ) + section(
+      "技能与工具",
+      "使用品牌图标排列，保留主要技能与工具即可。清空后隐藏。",
       (settings.about.tools || []).map((tool, index) =>
-        `<div class="repeater-row"><div class="repeater-bar"><strong>工具 ${index + 1}</strong>${button("移除", "remove-about-tool", "delete", "quiet", `data-index="${index}"`)}</div>${grid(f("工具名称", `about.tools.${index}.name`, tool.name, { required: true, max: 80 }) + f("图标", `about.tools.${index}.icon`, tool.icon, { choices: [["code", "代码"], ["terminal", "终端"], ["cloud", "云服务"], ["book", "文献"], ["notebook", "笔记"], ["monitor", "设备"]] }) + f("简短说明", `about.tools.${index}.description`, tool.description, { wide: true, max: 160 }))}</div>`
+        `<div class="repeater-row"><div class="repeater-bar"><strong>工具 ${index + 1}</strong>${button("移除", "remove-about-tool", "delete", "quiet", `data-index="${index}"`)}</div>${grid(f("工具名称", `about.tools.${index}.name`, tool.name, { required: true, max: 80 }) + f("图标", `about.tools.${index}.icon`, tool.icon, { choices: toolIcons }) + f("简短说明", `about.tools.${index}.description`, tool.description, { wide: true, max: 160, hint: "作为图标提示显示，页面不展开工具说明清单。" }))}</div>`
       ).join("") + button("添加工具", "add-about-tool", "plus", "secondary", (settings.about.tools || []).length >= 12 ? "disabled" : ""),
     ) + section(
-      "展示模块",
-      "按需要选择页面末尾与侧栏的内容。",
-      toggle("显示 GitHub 主页", "about.githubEnabled", settings.about.githubEnabled !== false, "使用站点信息中配置的 GitHub 个人主页；未填写时自动隐藏。") +
-      toggle("显示最近记录", "about.recentPostsEnabled", settings.about.recentPostsEnabled !== false, "自动选取 3 篇已发布文章；没有文章时自动隐藏。"),
+      "GitHub 详情",
+      "展示公开资料与仓库语言统计。",
+      toggle("显示 GitHub 统计", "about.githubEnabled", settings.about.githubEnabled !== false, "使用站点信息中的 GitHub 个人主页。部署时刷新公开资料，暂时无法连接时保留上次已核实的数据与日期。"),
     );
   } else if (tab === "friends") {
     content = section(

@@ -33,10 +33,12 @@ export interface SiteSettings {
     title: string;
     subtitle: string;
     body: string;
+    introduction?: string;
+    languages?: string;
+    operatingSystems?: Array<'macos' | 'windows' | 'linux'>;
     coverImage?: string;
-    tools?: Array<{ name: string; description: string; icon: 'code' | 'terminal' | 'cloud' | 'book' | 'notebook' | 'monitor' }>;
+    tools?: Array<{ name: string; description: string; icon: 'typescript' | 'python' | 'astro' | 'cloudflare' | 'zotero' | 'obsidian' | 'code' | 'terminal' | 'cloud' | 'book' | 'notebook' | 'monitor' }>;
     githubEnabled?: boolean;
-    recentPostsEnabled?: boolean;
   };
   friends: Array<{ name: string; url: string; description: string; avatar?: string }>;
   footer: { text: string; icp: string; icpUrl: string };

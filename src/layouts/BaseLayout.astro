@@ -12,13 +12,11 @@ import { safeExternalHref, settings, site } from '../config/site';
 interface Props {
   title?: string;
   description?: string;
-  fullWidth?: boolean;
 }
 
 const {
   title = site.name,
-  description = site.description,
-  fullWidth = false
+  description = site.description
 } = Astro.props;
 
 const currentPath = Astro.url.pathname;
@@ -62,7 +60,7 @@ const icpHref = safeExternalHref(settings.footer.icpUrl);
   </div>
 
   <!-- 主体工作区容器 -->
-  <div class:list={['relative z-10 pt-24 pb-16 min-h-screen', { 'max-w-7xl mx-auto px-4': !fullWidth }]}>
+  <div class="relative z-10 pt-24 pb-16 min-h-screen max-w-7xl mx-auto px-4">
     <slot />
   </div>
 
