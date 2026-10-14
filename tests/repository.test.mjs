@@ -99,6 +99,246 @@ function repository(fake, extra = {}) {
   return createRepository({ local: false, repo: 'test/blog', authUrl: 'https://auth.example', siteUrl: 'https://blog.example', branch: 'main' }, { fetch: fake.fetch, sessionStorage: fake.storage, ...extra });
 }
 
+test('unchanged synchronization reuses immutable snapshots while reading current heads', async t => {
+  const fake = github(), repo = repository(fake);
+  await repo.load();
+  const start = fake.calls.length;
+  await repo.load();
+  const calls = fake.calls.slice(start);
+  t.diagnostic(`unchanged synchronization: ${calls.length} API requests`);
+  assert.equal(calls.some(call => /\/git\/(commits|trees|blobs)\//.test(call.route)), false);
+  assert.ok(calls.some(call => call.route === '/git/ref/heads/main'));
+  assert.ok(calls.length <= 4);
+});
+
+test('concurrent synchronization shares a single remote read', async () => {
+  const fake = github(), repo = repository(fake);
+  const states = await Promise.all([repo.load(), repo.load()]);
+  assert.deepEqual(states[0], states[1]);
+  assert.equal(fake.calls.filter(call => call.route === '/git/ref/heads/main').length, 1);
+});
+
+test('cold synchronization reads pending workspaces without waiting for the main tree', async () => {
+  const fake = github(), seed = repository(fake);
+  const initial = await seed.load();
+  const draft = await seed.savePost({ ...initial.posts[0], body: '待同步草稿' });
+  const mainTree = fake.commits.get(fake.refs.get('main')).tree.sha;
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const start = fake.calls.length;
+  const repo = repository(fake, { fetch: async (url, options) => {
+    if (new URL(url).pathname.endsWith(`/git/trees/${mainTree}`)) await gate;
+    return fake.fetch(url, options);
+  } });
+  const pending = repo.load();
+  await new Promise(resolve => setImmediate(resolve));
+  try { assert.ok(fake.calls.slice(start).some(call => call.route === `/git/commits/${draft.release.sha}`), 'pending branches should start loading while the main tree is in flight'); }
+  finally { release(); await pending; }
+});
+
+test('writing a post avoids repeated full synchronization and returns its confirmed workspace', async t => {
+  const fake = github(), repo = repository(fake), initial = await repo.load();
+  const start = fake.calls.length;
+  const saved = await repo.savePost({ ...initial.posts[0], body: '更快地保存。' });
+  const calls = fake.calls.slice(start);
+  t.diagnostic(`save existing article as a draft: ${calls.length} API requests`);
+  assert.ok(calls.length <= 12, 'a single save should not rescan the complete workspace twice');
+  assert.equal(saved.state.posts.find(item => item.status === 'draft').body, '更快地保存。');
+  assert.equal(saved.state.posts.find(item => item.status === 'published').body, initial.posts[0].body);
+  assert.equal(saved.state.releases[0].sha, saved.release.sha);
+});
+
+test('batch article deletion creates one commit and preserves main until reviewed publication', async () => {
+  const fake = github(), repo = repository(fake);
+  fake.putMain('src/content/posts/second.md', stringifyPost({ ...post(), slug: 'second' }));
+  const state = await repo.load(), before = fake.refs.get('main');
+  assert.equal(typeof repo.deletePosts, 'function');
+  const result = await repo.deletePosts(state.posts);
+  assert.equal(fake.refs.get('main'), before);
+  assert.equal(fake.prs.length, 1);
+  assert.equal(fake.calls.filter(call => call.method === 'POST' && call.route === '/git/commits').length, 1);
+  assert.equal(result.deleted.length, 2);
+  assert.ok(result.state.posts.every(item => item.pendingDeletion));
+  assert.ok((await repo.load()).posts.every(item => item.pendingDeletion));
+  await repo.publishRelease(result.release);
+  assert.equal((await repo.load()).posts.length, 0);
+});
+
+test('batch deletion validates every revision before changing any branch', async () => {
+  const fake = github(), repo = repository(fake);
+  fake.putMain('src/content/posts/second.md', stringifyPost({ ...post(), slug: 'second' }));
+  const state = await repo.load();
+  fake.putMain('src/content/posts/second.md', stringifyPost({ ...post(), slug: 'second', body: '另一窗口已修改。' }));
+  const before = [...fake.refs], start = fake.calls.length;
+  assert.equal(typeof repo.deletePosts, 'function');
+  await assert.rejects(repo.deletePosts(state.posts), /修改|刷新/);
+  assert.deepEqual([...fake.refs], before);
+  assert.equal(fake.calls.slice(start).some(call => call.method !== 'GET'), false);
+});
+
+test('batch deletion confirms an existing release after its final diff read fails', async () => {
+  const fake = github();
+  let fail = true;
+  const repo = repository(fake, { fetch: (url, options = {}) => {
+    if (fail && new URL(url).pathname.endsWith('/pulls/1/files')) {
+      fail = false;
+      return Promise.resolve(Response.json({ message: 'temporary' }, { status: 503 }));
+    }
+    return fake.fetch(url, options);
+  } });
+  const result = await repo.deletePosts((await repo.load()).posts);
+  assert.equal(fake.prs.length, 1);
+  assert.equal(result.deleted.length, 1);
+  assert.equal(result.failed.length, 0);
+  assert.equal(result.state.posts[0].pendingDeletion, true);
+  assert.equal(result.release.id, fake.prs[0].number);
+  assert.equal(result.release.sha, fake.prs[0].head.sha);
+  assert.equal(result.release.state, 'review');
+  assert.equal(result.refreshRequired, false);
+});
+
+test('batch deletion reconciles successful PR creation despite a failed response', async () => {
+  const fake = github(), repo = repository(fake, { fetch: async (url, options = {}) => {
+    const response = await fake.fetch(url, options);
+    if (new URL(url).pathname.endsWith('/pulls') && options.method === 'POST') return Response.json({ message: 'temporary' }, { status: 503 });
+    return response;
+  } });
+  const result = await repo.deletePosts((await repo.load()).posts);
+  assert.equal(result.deleted.length, 1);
+  assert.equal(result.failed.length, 0);
+  assert.equal(result.release.id, fake.prs[0].number);
+  assert.equal(result.state.posts[0].pendingDeletion, true);
+});
+
+test('batch draft withdrawal confirms a closed PR after its response fails', async () => {
+  const fake = github(), repo = repository(fake, { fetch: async (url, options = {}) => {
+    const response = await fake.fetch(url, options);
+    if (new URL(url).pathname.endsWith('/pulls/1') && options.method === 'PATCH' && JSON.parse(options.body).state === 'closed') return Response.json({ message: 'temporary' }, { status: 503 });
+    return response;
+  } });
+  const original = (await repo.load()).posts[0];
+  const saved = await repo.savePost({ ...original, body: '修订草稿。' });
+  const result = await repo.deletePosts(saved.state.posts.filter(item => item.status === 'draft'));
+  assert.equal(result.deleted.length, 1);
+  assert.equal(result.failed.length, 0);
+  assert.equal(result.state.posts.length, 1);
+  assert.equal(result.state.posts[0].body, original.body);
+  assert.equal(result.release.state, 'closed');
+});
+
+test('pending media withdrawal confirms its updated branch after the diff read fails', async () => {
+  const fake = github();
+  let fail = false;
+  const repo = repository(fake, { fetch: (url, options = {}) => {
+    if (fail && new URL(url).pathname.endsWith('/pulls/1/files')) {
+      fail = false;
+      return Promise.resolve(Response.json({ message: 'temporary' }, { status: 503 }));
+    }
+    return fake.fetch(url, options);
+  } });
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=', 'base64');
+  const saved = await repo.uploadMedia({ name: 'temporary.png', size: png.length, type: 'image/png', arrayBuffer: async () => png });
+  fail = true;
+  const result = await repo.deleteMediaBatch(saved.state.media);
+  assert.equal(result.deleted.length, 1);
+  assert.equal(result.failed.length, 0);
+  assert.equal(result.state.media.length, 0);
+  assert.equal(result.state.releases.length, 0);
+  assert.equal(result.release.state, 'closed');
+});
+
+test('pending media withdrawal reconciles a successful branch update with a failed response', async () => {
+  const fake = github();
+  let fail = false;
+  const repo = repository(fake, { fetch: async (url, options = {}) => {
+    const response = await fake.fetch(url, options);
+    if (fail && new URL(url).pathname.includes('/git/refs/heads/') && options.method === 'PATCH') {
+      fail = false;
+      return Response.json({ message: 'temporary' }, { status: 503 });
+    }
+    return response;
+  } });
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=', 'base64');
+  const saved = await repo.uploadMedia({ name: 'temporary.png', size: png.length, type: 'image/png', arrayBuffer: async () => png });
+  fail = true;
+  const result = await repo.deleteMediaBatch(saved.state.media);
+  assert.equal(result.deleted.length, 1);
+  assert.equal(result.failed.length, 0);
+  assert.equal(result.state.media.length, 0);
+  assert.equal(result.release.state, 'closed');
+});
+
+test('batch draft withdrawal leaves published articles and reports partial network failures', async () => {
+  const fake = github();
+  const failingFetch = (url, options = {}) => {
+    if (new URL(url).pathname.endsWith('/pulls/2') && options.method === 'PATCH' && JSON.parse(options.body).state === 'closed') return Promise.resolve(Response.json({ message: 'temporarily unavailable' }, { status: 503 }));
+    return fake.fetch(url, options);
+  };
+  const repo = repository(fake, { fetch: failingFetch });
+  const original = (await repo.load()).posts[0];
+  await repo.savePost({ ...original, body: '修订草稿。' });
+  await repo.savePost({ ...post(), slug: 'second-draft', status: 'draft', body: '另一草稿。' });
+  const drafts = (await repo.load()).posts.filter(item => item.status === 'draft');
+  assert.equal(typeof repo.deletePosts, 'function');
+  const result = await repo.deletePosts(drafts);
+  assert.equal(result.deleted.length, 1);
+  assert.equal(result.failed.length, 1);
+  assert.equal(result.state.posts.find(item => item.status === 'published').body, original.body);
+  assert.equal(result.state.posts.filter(item => item.status === 'draft').length, 1);
+  assert.equal(fake.prs[0].state, 'closed');
+});
+
+test('batch deletion rejects duplicate versions, oversized selections and repeated pending removals', async () => {
+  const fake = github(), repo = repository(fake), state = await repo.load();
+  assert.equal(typeof repo.deletePosts, 'function');
+  await assert.rejects(repo.deletePosts([state.posts[0], state.posts[0]]), /重复/);
+  await assert.rejects(repo.deletePosts(Array.from({ length: 101 }, (_, index) => ({ ...state.posts[0], slug: `item-${index}` }))), /100|数量/);
+  const result = await repo.deletePosts([state.posts[0]]);
+  await assert.rejects(repo.deletePosts(result.state.posts), /待删除|删除变更/);
+  assert.equal(fake.prs.length, 1);
+});
+
+test('batch media deletion protects referenced files before staging the whole selection', async () => {
+  const fake = github(), repo = repository(fake), png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=', 'base64');
+  fake.putMain('public/images/posts/one.png', png);
+  fake.putMain('public/images/posts/two.png', png);
+  fake.putMain('src/content/posts/existing.md', stringifyPost({ ...post(), body: '![使用中](/images/posts/one.png)' }));
+  const state = await repo.load(), before = [...fake.refs];
+  assert.equal(typeof repo.deleteMediaBatch, 'function');
+  await assert.rejects(repo.deleteMediaBatch(state.media), /引用/);
+  assert.deepEqual([...fake.refs], before);
+  assert.equal(fake.prs.length, 0);
+  fake.putMain('src/content/posts/existing.md', stringifyPost(post()));
+  const result = await repo.deleteMediaBatch((await repo.load()).media);
+  assert.equal(fake.prs.length, 1);
+  assert.equal(result.deleted.length, 2);
+  assert.ok(result.state.media.every(item => item.pendingDeletion));
+  await repo.publishRelease(result.release);
+  assert.equal((await repo.load()).media.length, 0);
+});
+
+test('batch publication refuses deletion files omitted from its declared selection', async () => {
+  const fake = github(), repo = repository(fake);
+  fake.putMain('src/content/posts/second.md', stringifyPost({ ...post(), slug: 'second' }));
+  assert.equal(typeof repo.deletePosts, 'function');
+  const result = await repo.deletePosts((await repo.load()).posts), head = fake.refs.get('main');
+  const meta = JSON.parse(fake.prs[0].body.match(/<!-- huaovo-admin:(\{[^\n]*\}) -->/)[1]);
+  meta.items = meta.items.slice(0, 1);
+  fake.prs[0].body = `<!-- huaovo-admin:${JSON.stringify(meta)} -->`;
+  await assert.rejects(repo.publishRelease(result.release), /范围|文件/);
+  assert.equal(fake.refs.get('main'), head);
+});
+
+test('batch publication cannot disguise a published article removal as draft deletion', async () => {
+  const fake = github(), repo = repository(fake);
+  const result = await repo.deletePosts((await repo.load()).posts), head = fake.refs.get('main');
+  const meta = JSON.parse(fake.prs[0].body.match(/<!-- huaovo-admin:(\{[^\n]*\}) -->/)[1]);
+  meta.items[0].status = 'draft';
+  fake.prs[0].body = `<!-- huaovo-admin:${JSON.stringify(meta)} -->`;
+  await assert.rejects(repo.publishRelease(result.release), /版本|范围|文件/);
+  assert.equal(fake.refs.get('main'), head);
+});
+
 test('GitHub draft editing preserves main and publishing stages a reviewed PR', async () => {
   const fake = github(), repo = repository(fake), originalHead = fake.refs.get('main');
   const loaded = await repo.load();

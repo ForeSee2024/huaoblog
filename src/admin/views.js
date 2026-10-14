@@ -14,6 +14,7 @@ import {
   collectTaxonomy,
   summarizeWorkspace,
 } from "./view-model.js";
+import { postKey } from './bulk-model.js';
 export const pageHeading = (title, description, actions = "", eyebrow = "") =>
   `<div class="page-heading"><div>${eyebrow ? `<p class="eyebrow">${e(eyebrow)}</p>` : ""}<h1>${e(title)}</h1><p>${e(description)}</p></div><div class="heading-actions">${actions}</div></div>`;
 const editAttrs = (post) =>
@@ -48,7 +49,12 @@ export function overview(data, local) {
   <section class="side-section"><h2>我的站点</h2><div class="site-mini"><div class="site-mini-brand"><img src="${e(safeImage(data.settings.identity.avatar) || "/favicon.svg")}" alt="" />${e(data.settings.identity.brand)}</div><p>${e(data.settings.identity.description)}</p><div class="site-mini-foot"><span>${local ? "本地预览" : "静态博客"}</span><a class="text-link" href="/" target="_blank" rel="noopener noreferrer">查看站点${icon("external")}</a></div></div></section>
   <section><h2 style="margin-bottom:10px">发布工作流</h2><p class="section-copy">${local ? "保存草稿后继续编辑，确认内容与预览后发布。站点配置保存后，本地前台会自动更新。" : "草稿与配置提交到 GitHub 分支，通过检查后合并；Cloudflare 随后构建站点。"}</p><a class="text-link" style="margin-top:12px" href="#/connection">查看发布与连接${icon("chevron")}</a></section></aside></div>`;
 }
-export function postTable(posts) {
+export function bulkToolbar(kind, items, selected, key) {
+  const available = items.filter(item => !item.pendingDeletion);
+  const count = available.filter(item => selected.has(key(item))).length;
+  return `<div class="bulk-toolbar"><label class="selection-label"><input type="checkbox" class="selection-checkbox" data-select-all="${kind}" aria-label="全选当前筛选结果" ${available.length && count === available.length ? 'checked' : ''} ${!available.length ? 'disabled data-locked="true"' : ''} /><span>全选当前结果${available.length > 100 ? '（最多100项）' : ''}</span></label><span class="selection-count" id="${kind}-selection-count" role="status">已选择 ${count} 项</span><div class="bulk-actions">${button('取消选择', `clear-${kind}-selection`, '', 'quiet', count ? '' : 'disabled')}${button('批量删除', `delete-${kind}-batch`, 'delete', 'danger', count ? '' : 'disabled')}</div></div>`;
+}
+export function postTable(posts, selected = new Set()) {
   if (!posts.length)
     return empty(
       "没有符合条件的文章",
@@ -56,9 +62,9 @@ export function postTable(posts) {
       "new-post",
       "新建文章",
     );
-  return `<div class="table-header"><span>文章</span><span class="table-category">分类</span><span>文章日期</span><span>状态</span><span>操作</span></div>${posts.map((post) => `<div class="table-row"><div><button type="button" class="table-title" data-action="edit-post" ${editAttrs(post)}>${e(post.data.title || "未命名草稿")}</button><p class="table-description">${e(post.data.description || post.slug)}</p></div><div class="table-category">${e(post.data.category || "未设置")}</div><div class="table-date">${e(date(post.data.pubDate))}</div><div class="table-state">${status(post)}</div><div class="table-actions"><button type="button" class="icon-button" data-action="edit-post" ${editAttrs(post)} aria-label="编辑 ${e(post.data.title || "草稿")}">${icon("edit")}</button><button type="button" class="icon-button" data-action="delete-post" ${editAttrs(post)} aria-label="${post.status === "draft" ? "删除草稿" : "移除文章"} ${e(post.data.title || "")}">${icon("delete")}</button></div></div>`).join("")}`;
+  return `<div class="table-header"><span></span><span>文章</span><span class="table-category">分类</span><span>文章日期</span><span>状态</span><span>操作</span></div>${posts.map((post) => `<div class="table-row ${selected.has(postKey(post)) ? 'selected' : ''}"><input type="checkbox" class="selection-checkbox" data-select-post="${e(postKey(post))}" aria-label="选择${post.status === 'draft' ? '草稿' : '文章'} ${e(post.data.title || post.slug)}" ${selected.has(postKey(post)) ? 'checked' : ''} ${post.pendingDeletion ? 'disabled data-locked="true"' : ''} /><div class="table-content"><button type="button" class="table-title" data-action="edit-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''}>${e(post.data.title || "未命名草稿")}</button><p class="table-description">${e(post.data.description || post.slug)}</p></div><div class="table-category">${e(post.data.category || "未设置")}</div><div class="table-date">${e(date(post.data.pubDate))}</div><div class="table-state">${post.pendingDeletion ? '<span class="badge pending">待删除</span>' : status(post)}</div><div class="table-actions"><button type="button" class="icon-button" data-action="edit-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''} aria-label="编辑 ${e(post.data.title || "草稿")}">${icon("edit")}</button><button type="button" class="icon-button" data-action="delete-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''} aria-label="${post.status === "draft" ? "删除草稿" : "移除文章"} ${e(post.data.title || "")}">${icon("delete")}</button></div></div>`).join("")}`;
 }
-export function postsView(data, filters) {
+export function postsView(data, filters, selected = new Set()) {
   const counts = summarizeWorkspace(data);
   return `${pageHeading("文章管理", "管理已发表内容、草稿和文章更新。", button("新建文章", "new-post", "plus", "primary"))}
   <div class="filter-toolbar"><div class="tabs" role="tablist" aria-label="文章状态">${[
@@ -73,7 +79,7 @@ export function postsView(data, filters) {
     .join(
       "",
     )}</div><label class="search-field">${icon("search")}<input id="post-search" type="search" placeholder="搜索标题、摘要或标签…" aria-label="搜索文章" value="${e(filters.search)}" /></label></div>
-  ${filters.category || filters.tag ? notice(`正在筛选：${filters.category || filters.tag}`) + button("清除筛选", "reset-filter", "", "quiet") : ""}<div class="post-table" id="post-table">${postTable(filterPosts(data.posts, filters))}</div><div class="table-footer"><span id="post-result-count">共 ${filterPosts(data.posts, filters).length} 篇内容</span><span>草稿不会显示在前台</span></div>`;
+  ${filters.category || filters.tag ? notice(`正在筛选：${filters.category || filters.tag}`) + button("清除筛选", "reset-filter", "", "quiet") : ""}<div id="posts-bulk">${bulkToolbar('posts', filterPosts(data.posts, filters), selected, postKey)}</div><div class="post-table" id="post-table">${postTable(filterPosts(data.posts, filters), selected)}</div><div class="table-footer"><span id="post-result-count">共 ${filterPosts(data.posts, filters).length} 篇内容</span><span>草稿与待删除变更分别管理</span></div>`;
 }
 export function taxonomyView(data, categories) {
   const counts = collectTaxonomy(data.posts);
@@ -96,18 +102,18 @@ export function taxonomyView(data, categories) {
     '<p class="section-copy" style="margin-top:16px">在文章中填写系列名称，可以把连续的探索集中展示。</p>'
   }</section></div>`;
 }
-export function mediaView(data, search = "") {
+export function mediaView(data, search = "", selected = new Set()) {
   const media = data.media.filter((item) =>
     item.name.toLowerCase().includes(search.toLowerCase()),
   );
-  return `${pageHeading("媒体资源", "管理文章封面、正文图片和站点素材。", button("上传图片", "upload-media", "upload", "primary"))}<div class="filter-toolbar"><span class="section-copy">${data.media.length} 项资源</span><label class="search-field">${icon("search")}<input id="media-search" type="search" placeholder="搜索文件名称…" aria-label="搜索媒体" value="${e(search)}" /></label></div><div id="media-grid" class="media-grid">${mediaCards(media)}</div><p class="upload-note">支持 JPG、PNG、WebP、GIF、AVIF，单张不超过 10 MB。文章或站点仍在使用的图片不能删除。</p>`;
+  return `${pageHeading("媒体资源", "管理文章封面、正文图片和站点素材。", button("上传图片", "upload-media", "upload", "primary"))}<div class="filter-toolbar"><span class="section-copy">${data.media.length} 项资源</span><label class="search-field">${icon("search")}<input id="media-search" type="search" placeholder="搜索文件名称…" aria-label="搜索媒体" value="${e(search)}" /></label></div><div id="media-bulk">${bulkToolbar('media', media, selected, item => item.name)}</div><div id="media-grid" class="media-grid">${mediaCards(media, selected)}</div><p class="upload-note">支持 JPG、PNG、WebP、GIF、AVIF，单张不超过 10 MB。文章或站点仍在使用的图片不能删除。</p>`;
 }
-export function mediaCards(media) {
+export function mediaCards(media, selected = new Set()) {
   return media.length
     ? media
         .map(
           (item) =>
-            `<article class="media-item"><div class="media-image"><img data-preview-media="${e(item.name)}" src="${e(safeImage(item.url))}" loading="lazy" alt="${e(item.name)}" /></div><div class="media-details"><strong title="${e(item.name)}">${e(item.name)}</strong><small>${size(item.size)}</small></div><div class="media-actions"><button type="button" class="icon-button" data-action="copy-media" data-name="${e(item.name)}" aria-label="复制 ${e(item.name)} 的地址">${icon("copy")}</button><button type="button" class="icon-button" data-action="delete-media" data-name="${e(item.name)}" aria-label="删除图片 ${e(item.name)}">${icon("delete")}</button></div></article>`,
+            `<article class="media-item ${selected.has(item.name) ? 'selected' : ''}"><label class="media-selection"><input type="checkbox" class="selection-checkbox" data-select-media="${e(item.name)}" aria-label="选择图片 ${e(item.name)}" ${selected.has(item.name) ? 'checked' : ''} ${item.pendingDeletion ? 'disabled data-locked="true"' : ''} /></label><div class="media-image"><img data-preview-media="${e(item.name)}" src="${e(safeImage(item.url))}" loading="lazy" alt="${e(item.name)}" /></div><div class="media-details"><strong title="${e(item.name)}">${e(item.name)}</strong><small>${size(item.size)} ${item.pendingDeletion ? '· 待删除' : ''}</small></div><div class="media-actions"><button type="button" class="icon-button" data-action="copy-media" data-name="${e(item.name)}" aria-label="复制 ${e(item.name)} 的地址">${icon("copy")}</button><button type="button" class="icon-button" data-action="delete-media" data-name="${e(item.name)}" ${item.pendingDeletion ? 'disabled' : ''} aria-label="删除图片 ${e(item.name)}">${icon("delete")}</button></div></article>`,
         )
         .join("")
     : empty(

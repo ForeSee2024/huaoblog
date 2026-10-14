@@ -14,11 +14,12 @@ import {
 import { settingsView, settingsPreview } from "./settings-view.js";
 import { editorView } from "./editor-view.js";
 import { filterPosts, parseTags } from "./view-model.js";
+import { postKey } from './bulk-model.js';
 
 const config = JSON.parse(document.body.dataset.connection);
 const initialSettings = JSON.parse(document.body.dataset.settings);
 const categories = JSON.parse(document.body.dataset.categories);
-const repository = createRepository(config);
+const repository = createRepository(config, { onProgress: reportOperation });
 const main = document.getElementById("console-main");
 const dialog = document.getElementById("console-dialog");
 let data = {
@@ -42,6 +43,7 @@ let currentRoute = "",
 let filters = { search: "", state: "all", category: "", tag: "" },
   mediaSearch = "",
   saving = false;
+const selectedPosts = new Set(), selectedMedia = new Set();
 const copy = (value) => structuredClone(value);
 const publicPath = (media) =>
   media.publicUrl || (media.path || "").replace(/^public/, "") || media.url;
@@ -210,6 +212,7 @@ document.addEventListener("keydown", (event) => {
 });
 function toast(message, error = false) {
   const element = document.getElementById("console-toast");
+  delete element.dataset.operation;
   clearTimeout(toastTimer);
   element.innerHTML =
     icon(error ? "alert" : "check") + `<span>${e(message)}</span>`;
@@ -221,6 +224,62 @@ function toast(message, error = false) {
     },
     error ? 9000 : 4500,
   );
+}
+function reportOperation(message) {
+  const element = document.getElementById('console-toast');
+  if (!element) return;
+  clearTimeout(toastTimer);
+  element.dataset.operation = 'true';
+  element.classList.remove('error');
+  element.innerHTML = icon('refresh') + `<span>${e(message)}</span>`;
+  element.hidden = false;
+}
+function finishOperation() {
+  const element = document.getElementById('console-toast');
+  if (element.dataset.operation) { element.hidden = true; delete element.dataset.operation; }
+}
+function selectionItems(kind) {
+  return kind === 'posts' ? filterPosts(data.posts, filters) : data.media.filter(item => item.name.toLowerCase().includes(mediaSearch.toLowerCase()));
+}
+function syncSelectionControls() {
+  for (const kind of ['posts', 'media']) {
+    const selected = kind === 'posts' ? selectedPosts : selectedMedia;
+    const key = kind === 'posts' ? postKey : item => item.name;
+    const items = selectionItems(kind).filter(item => !item.pendingDeletion), valid = new Set(items.map(key));
+    for (const value of selected) if (!valid.has(value)) selected.delete(value);
+    const all = main.querySelector(`[data-select-all="${kind}"]`);
+    if (all) { all.checked = Boolean(items.length && selected.size === items.length); all.indeterminate = selected.size > 0 && selected.size < items.length; all.disabled = saving || !items.length; }
+    const count = document.getElementById(`${kind}-selection-count`);
+    if (count) count.textContent = `已选择 ${selected.size} 项`;
+    for (const action of [`clear-${kind}-selection`, `delete-${kind}-batch`]) {
+      const button = main.querySelector(`[data-action="${action}"]`);
+      if (button) button.disabled = saving || !selected.size;
+    }
+    const selector = kind === 'posts' ? '[data-select-post]' : '[data-select-media]';
+    main.querySelectorAll(selector).forEach(input => {
+      const id = kind === 'posts' ? input.dataset.selectPost : input.dataset.selectMedia;
+      input.checked = selected.has(id);
+      input.disabled = saving || input.dataset.locked === 'true';
+      input.closest('.table-row,.media-item')?.classList.toggle('selected', input.checked);
+    });
+  }
+}
+async function deleteItems(kind, items) {
+  if (!items.length) return;
+  const articles = kind === 'posts';
+  const names = items.map(item => articles ? `${item.data.title || item.slug}（${item.status === 'draft' ? '草稿' : '已发表'}）` : item.name);
+  const summary = `<ul class="batch-summary">${names.slice(0, 8).map(name => `<li>${e(name)}</li>`).join('')}</ul>${names.length > 8 ? `<p class="field-hint">另有 ${names.length - 8} 项，共 ${names.length} 项。</p>` : ''}`;
+  const detail = config.local ? '所选内容将从本地工作区移除。' : articles ? '草稿会从工作区撤回，已发表版本保留；已发表文章会集中提交删除变更，检查并发布后前台移除。' : '正在使用的图片会受到保护；已上线图片提交删除变更后，检查并发布才会正式移除。';
+  if (!await ask(`删除 ${items.length} ${articles ? '篇内容' : '张图片'}？`, `<p class="dialog-copy">${detail}</p>${summary}`, '确认删除', true)) return;
+  const result = await (articles ? repository.deletePosts(items) : repository.deleteMediaBatch(items));
+  await readWorkspace(result.state);
+  const selected = articles ? selectedPosts : selectedMedia;
+  selected.clear();
+  for (const item of result.failed || []) selected.add(articles ? postKey(item) : item.name);
+  await render(currentRoute);
+  const completed = result.deleted.length, pending = (result.releases || []).some(item => item.state === 'review');
+  if (result.failed?.length) showError(new Error(`已处理 ${completed} 项，${result.failed.length} 项未完成：${result.failed[0].error}${result.refreshRequired ? ' 请刷新状态确认结果后重试。' : ' 失败内容已保留选择，可重试。'}`));
+  else toast(pending ? `已提交 ${completed} 项删除变更，前往“发布与连接”完成发布` : `已移除 ${completed} 项内容`);
 }
 function showError(error) {
   const message = error?.message || "操作未完成，请重试。";
@@ -270,6 +329,7 @@ function setSaving(value) {
     form.inert = value;
   });
   if (value) {
+    reportOperation('正在处理，请稍候…');
     document
       .getElementById("editor-save-state")
       ?.replaceChildren(document.createTextNode("正在保存…"));
@@ -277,11 +337,14 @@ function setSaving(value) {
       .getElementById("settings-save-state")
       ?.replaceChildren(document.createTextNode("正在保存…"));
   }
+  else finishOperation();
+  syncSelectionControls();
 }
 
 function ask(title, content, confirmLabel = "确认", danger = false) {
   return new Promise((resolve) => {
     dialog.classList.remove("wide");
+    dialog.setAttribute('role', danger ? 'alertdialog' : 'dialog');
     dialog.innerHTML = `<div class="dialog-header"><h2 id="dialog-title">${e(title)}</h2><button type="button" class="icon-button" data-dialog="cancel" aria-label="关闭对话框">${icon("close")}</button></div>${content}<div class="dialog-actions"><button type="button" class="button secondary" data-dialog="cancel">取消</button><button type="button" class="button ${danger ? "danger" : "primary"}" data-dialog="confirm">${e(confirmLabel)}</button></div>`;
     dialog.setAttribute("aria-labelledby", "dialog-title");
     let settled = false;
@@ -314,9 +377,9 @@ function ask(title, content, confirmLabel = "确认", danger = false) {
 async function go(route) {
   location.hash = `#/${route}`;
 }
-async function readWorkspace() {
+async function readWorkspace(knownState) {
   try {
-    const loaded = await repository.load();
+    const loaded = knownState || await repository.load();
     data = {
       ...data,
       ...loaded,
@@ -346,6 +409,7 @@ async function readWorkspace() {
   document.getElementById("nav-post-count").textContent = String(
     data.posts.length,
   );
+  if (!saving) finishOperation();
 }
 async function render(route) {
   const navWasOpen = document.body.classList.contains("nav-visible");
@@ -383,9 +447,9 @@ async function render(route) {
     main.innerHTML =
       (loadError ? notice(loadError, "error") : "") +
       overview(data, config.local);
-  else if (page === "posts") main.innerHTML = postsView(data, filters);
+  else if (page === "posts") main.innerHTML = postsView(data, filters, selectedPosts);
   else if (page === "taxonomy") main.innerHTML = taxonomyView(data, categories);
-  else if (page === "media") main.innerHTML = mediaView(data, mediaSearch);
+  else if (page === "media") main.innerHTML = mediaView(data, mediaSearch, selectedMedia);
   else if (page === "connection")
     main.innerHTML = connectionView(data, config, loadError);
   else if (page === "settings") {
@@ -466,6 +530,7 @@ async function render(route) {
       ?.replaceChildren(document.createTextNode("有未保存的配置"));
   }
   document.title = `${titles[page] || "文章编辑"} · ${data.settings.identity.brand}`;
+  syncSelectionControls();
   observeMedia();
   if (navWasOpen) main.focus();
 }
@@ -666,6 +731,7 @@ async function upload() {
   if (!file) return null;
   toast("正在上传图片…");
   const result = await repository.uploadMedia(file);
+  if (result.state) await readWorkspace(result.state);
   if (result.media) {
     const index = data.media.findIndex(
       (media) => media.name === result.media.name,
@@ -684,7 +750,8 @@ async function upload() {
 function chooseMedia(title) {
   return new Promise((resolve) => {
     dialog.classList.add("wide");
-    dialog.innerHTML = `<div class="dialog-header"><h2 id="dialog-title">${e(title)}</h2><button type="button" class="icon-button" data-picker="close" aria-label="关闭媒体选择">${icon("close")}</button></div><p class="dialog-copy">选择已有素材，或上传一张新图片。</p><button type="button" class="button primary" data-picker="upload">${icon("upload")}上传新图片</button><div class="dialog-media-grid">${data.media.map((media) => `<button type="button" class="dialog-media-item" data-picker="select" data-name="${e(media.name)}"><img data-preview-media="${e(media.name)}" src="${e(safeImage(media.url))}" alt="" /><span>${e(media.name)}</span></button>`).join("")}</div>`;
+    dialog.setAttribute('role', 'dialog');
+    dialog.innerHTML = `<div class="dialog-header"><h2 id="dialog-title">${e(title)}</h2><button type="button" class="icon-button" data-picker="close" aria-label="关闭媒体选择">${icon("close")}</button></div><p class="dialog-copy">选择已有素材，或上传一张新图片。</p><button type="button" class="button primary" data-picker="upload">${icon("upload")}上传新图片</button><div class="dialog-media-grid">${data.media.filter(media => !media.pendingDeletion).map((media) => `<button type="button" class="dialog-media-item" data-picker="select" data-name="${e(media.name)}"><img data-preview-media="${e(media.name)}" src="${e(safeImage(media.url))}" alt="" /><span>${e(media.name)}</span></button>`).join("")}</div>`;
     dialog.setAttribute("aria-labelledby", "dialog-title");
     let settled = false;
     const finish = (value) => {
@@ -737,7 +804,7 @@ async function saveArticle(publish = false) {
   const result = await repository.savePost(post, { publish });
   clearRecovery();
   dirty = false;
-  await readWorkspace();
+  await readWorkspace(result.state);
   activePost = result.post || post;
   const saved = copy(activePost);
   history.replaceState(null, "", `#/editor/${saved.slug}/${saved.status}`);
@@ -756,13 +823,14 @@ async function saveConfiguration() {
   const settings = validateSettings(gatherSettings());
   const result = await repository.saveSettings(settings);
   dirty = false;
-  await readWorkspace();
+  await readWorkspace(result.state);
   editingSettings = copy(result.settings || data.settings);
   await render(currentRoute);
   toast(config.local ? "配置已保存，前台已更新" : "配置已提交到待发布变更");
 }
 
 main.addEventListener("input", (event) => {
+  if (saving) return;
   if (event.target.closest("#article-form")) {
     gatherPost();
     markDirty();
@@ -779,24 +847,50 @@ main.addEventListener("input", (event) => {
     observeMedia();
   }
   if (event.target.id === "post-search") {
+    selectedPosts.clear();
     filters.search = event.target.value;
     document.getElementById("post-table").innerHTML = postTable(
-      filterPosts(data.posts, filters),
+      filterPosts(data.posts, filters), selectedPosts,
     );
     document.getElementById("post-result-count").textContent =
       `共 ${filterPosts(data.posts, filters).length} 篇内容`;
+    syncSelectionControls();
   }
   if (event.target.id === "media-search") {
+    selectedMedia.clear();
     mediaSearch = event.target.value;
     document.getElementById("media-grid").innerHTML = mediaCards(
       data.media.filter((media) =>
         media.name.toLowerCase().includes(mediaSearch.toLowerCase()),
       ),
+      selectedMedia,
     );
+    syncSelectionControls();
     observeMedia();
   }
 });
 main.addEventListener("change", (event) => {
+  if (saving) return;
+  const target = event.target;
+  if (target.matches('[data-select-post],[data-select-media],[data-select-all]')) {
+    const kind = target.dataset.selectAll || (target.hasAttribute('data-select-post') ? 'posts' : 'media');
+    const selected = kind === 'posts' ? selectedPosts : selectedMedia, key = kind === 'posts' ? postKey : item => item.name;
+    if (target.dataset.selectAll) {
+      selected.clear();
+      if (target.checked) {
+        const items = selectionItems(kind).filter(item => !item.pendingDeletion);
+        items.slice(0, 100).forEach(item => selected.add(key(item)));
+        if (items.length > 100) toast('本次选择前 100 项，可筛选后继续分批处理');
+      }
+    } else {
+      const value = kind === 'posts' ? target.dataset.selectPost : target.dataset.selectMedia;
+      if (target.checked && selected.size >= 100) toast('每批最多选择 100 项', true);
+      else if (target.checked) selected.add(value);
+      else selected.delete(value);
+    }
+    syncSelectionControls();
+    return;
+  }
   if (event.target.closest("#settings-form")) {
     gatherSettings();
     markDirty();
@@ -824,6 +918,7 @@ main.addEventListener("click", async (event) => {
     "delete-media",
     "publish-release",
     "upload-media",
+    "delete-posts-batch", "delete-media-batch", "refresh", "login", "logout",
   ].includes(action);
   if (mutation) {
     setSaving(true);
@@ -836,12 +931,15 @@ main.addEventListener("click", async (event) => {
     else if (action === "edit-post")
       await go(`editor/${target.dataset.slug}/${target.dataset.status}`);
     else if (action === "filter-state") {
+      selectedPosts.clear();
       filters.state = target.dataset.state;
       await render("posts");
     } else if (action === "reset-filter") {
+      selectedPosts.clear();
       filters = { search: "", state: "all", category: "", tag: "" };
       await render("posts");
     } else if (action === "filter-category") {
+      selectedPosts.clear();
       filters = {
         search: "",
         state: "all",
@@ -850,6 +948,7 @@ main.addEventListener("click", async (event) => {
       };
       await go("posts");
     } else if (action === "filter-tag") {
+      selectedPosts.clear();
       filters = {
         search: "",
         state: "all",
@@ -870,42 +969,25 @@ main.addEventListener("click", async (event) => {
       );
       await navigator.clipboard.writeText(publicPath(media));
       toast("图片地址已复制");
+    } else if (action === 'clear-posts-selection' || action === 'clear-media-selection') {
+      (action === 'clear-posts-selection' ? selectedPosts : selectedMedia).clear();
+      syncSelectionControls();
+    } else if (action === 'delete-posts-batch') {
+      await deleteItems('posts', selectionItems('posts').filter(post => selectedPosts.has(postKey(post))));
+    } else if (action === 'delete-media-batch') {
+      await deleteItems('media', selectionItems('media').filter(media => selectedMedia.has(media.name)));
     } else if (action === "delete-media") {
       const media = data.media.find(
         (media) => media.name === target.dataset.name,
       );
-      if (
-        await ask(
-          "删除这张图片？",
-          `<p class="dialog-copy">${e(media.name)}。正在使用的图片会受到保护。</p>`,
-          "删除图片",
-          true,
-        )
-      ) {
-        await repository.deleteMedia(media);
-        await readWorkspace();
-        await render(currentRoute);
-        toast(config.local ? "图片已删除" : "删除图片的变更已提交");
-      }
+      await deleteItems('media', [media]);
     } else if (action === "delete-post") {
       const post = data.posts.find(
         (post) =>
           post.slug === target.dataset.slug &&
           post.status === target.dataset.status,
       );
-      if (
-        await ask(
-          post.status === "draft" ? "删除这个草稿？" : "移除这篇已发表文章？",
-          `<p class="dialog-copy">${e(post.data.title || "未命名草稿")}。${post.status === "draft" ? "如有已发表版本，会保留前台文章。" : "操作将移除前台内容，请确认没有仍在使用的文章链接。"}</p>`,
-          "确认移除",
-          true,
-        )
-      ) {
-        await repository.deletePost(post);
-        await readWorkspace();
-        await render(currentRoute);
-        toast(config.local ? "内容已移除" : "移除内容的变更已提交");
-      }
+      await deleteItems('posts', [post]);
     } else if (["pick-cover", "insert-image", "pick-avatar", "pick-about-cover"].includes(action)) {
       const media = await chooseMedia(
         action === "pick-cover"
@@ -1042,8 +1124,8 @@ main.addEventListener("click", async (event) => {
           "检查并发布",
         )
       ) {
-        await repository.publishRelease(release);
-        await readWorkspace();
+        const result = await repository.publishRelease(release);
+        await readWorkspace(result.state);
         await render(currentRoute);
         toast("变更已合并，请在 Cloudflare 确认部署");
       }
@@ -1110,6 +1192,7 @@ main.addEventListener("click", async (event) => {
     if (mutation) {
       setSaving(false);
       target.disabled = false;
+      syncSelectionControls();
       if (dirty) {
         document
           .getElementById("editor-save-state")

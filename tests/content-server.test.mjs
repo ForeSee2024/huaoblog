@@ -114,3 +114,31 @@ test('saving a legacy draft migrates it out of the published directory', async t
   await assert.rejects(readFile(path.join(root, 'src/content/posts/new-post.md')));
   assert.match(await readFile(path.join(root, 'src/content/drafts/new-post.md'), 'utf8'), /迁移后正文/);
 });
+
+test('local batch deletion validates every article before deleting and returns updated state', async t => {
+  const { request } = await fixture(t);
+  await request('/api/posts', 'POST', { post: post() });
+  await request('/api/posts', 'POST', { post: { ...post(), slug: 'another', data: { ...post().data, title: '另一篇' } } });
+  const state = (await request('/api/content')).body;
+  const invalid = await request('/api/posts/delete', 'POST', { posts: [state.posts[0], { ...state.posts[1], revision: 'stale' }] });
+  assert.equal(invalid.status, 409);
+  assert.equal((await request('/api/content')).body.posts.length, 2);
+  const result = await request('/api/posts/delete', 'POST', { posts: state.posts });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.deleted.length, 2);
+  assert.equal(result.body.state.posts.length, 0);
+});
+
+test('local batch media deletion refuses a referenced selection without removing unused files', async t => {
+  const { request } = await fixture(t);
+  for (const name of ['one.png', 'two.png']) await request('/api/media', 'POST', { name, content: png });
+  await request('/api/posts', 'POST', { post: { ...post(), body: '![图片](/images/posts/one.png)' } });
+  const state = (await request('/api/content')).body;
+  const refused = await request('/api/media/delete', 'POST', { media: state.media });
+  assert.equal(refused.status, 409);
+  assert.equal((await request('/api/content')).body.media.length, 2);
+  const unused = state.media.filter(media => media.name === 'two.png');
+  const deleted = await request('/api/media/delete', 'POST', { media: unused });
+  assert.equal(deleted.status, 200);
+  assert.equal(deleted.body.state.media.length, 1);
+});
