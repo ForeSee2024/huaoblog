@@ -58,7 +58,7 @@ npm run dev
 
 ## Cloudflare Pages 与 GitHub
 
-当前站点已上线到 [aoblog.eu.cc](https://aoblog.eu.cc/)，后台地址为 [aoblog.eu.cc/admin/](https://aoblog.eu.cc/admin/)。GitHub 自动部署连接、OAuth 加密密钥和实际后台登录均已完成，无需补做上线配置。日常写作与发布见 [使用与上线操作清单](docs/上线操作清单.md)，完整配置与域名迁移说明见 [部署配置](docs/DEPLOYMENT.md)。
+当前站点已上线到 [huaoblog.cn](https://huaoblog.cn/)，后台地址为 [huaoblog.cn/admin/](https://huaoblog.cn/admin/)。GitHub 自动部署连接、OAuth 加密密钥和实际后台登录均已完成，无需补做上线配置。日常写作与发布见 [使用与上线操作清单](docs/上线操作清单.md)，完整配置与域名迁移说明见 [部署配置](docs/DEPLOYMENT.md)。
 
 推送到 GitHub 并连接 Pages 项目：
 
