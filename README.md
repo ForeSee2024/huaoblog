@@ -58,7 +58,7 @@ npm run dev
 
 ## Cloudflare Pages 与 GitHub
 
-当前站点已上线到 [aoblog.eu.cc](https://aoblog.eu.cc/)，后台地址为 [aoblog.eu.cc/admin/](https://aoblog.eu.cc/admin/)。本人还需完成 GitHub 自动部署授权及 OAuth 密钥填写，步骤见 [上线操作清单](docs/上线操作清单.md)，完整配置与域名迁移说明见 [部署配置](docs/DEPLOYMENT.md)。
+当前站点已上线到 [aoblog.eu.cc](https://aoblog.eu.cc/)，后台地址为 [aoblog.eu.cc/admin/](https://aoblog.eu.cc/admin/)。GitHub 自动部署连接、OAuth 加密密钥和实际后台登录均已完成，无需补做上线配置。日常写作与发布见 [使用与上线操作清单](docs/上线操作清单.md)，完整配置与域名迁移说明见 [部署配置](docs/DEPLOYMENT.md)。
 
 推送到 GitHub 并连接 Pages 项目：
 
@@ -90,7 +90,7 @@ npm run build
 npm run preview
 ```
 
-构建产物预览：http://127.0.0.1:4323/ 。测试涵盖实际文件草稿/发布、配置冲突、图片引用保护、上传限制、GitHub 分支与 PR、检查门禁、OAuth、Markdown 安全和编辑器内容往返。真实 GitHub / Cloudflare 账号尚需上线联调。
+构建产物预览：http://127.0.0.1:4323/ 。测试涵盖实际文件草稿/发布、配置冲突、图片引用保护、上传限制、GitHub 分支与 PR、检查门禁、OAuth、Markdown 安全和编辑器内容往返。真实账号的 GitHub PR 合并、Cloudflare 从 Git 构建部署、后台 OAuth 登录及内容同步已验证。
 
 后台样式：`src/styles/console.css`；共享主题：`src/styles/tokens.css`；正文排版：`src/styles/prose.css`；文章：`src/content/posts/`；草稿：`src/content/drafts/`；图片：`public/images/posts/`。管理入口无索引，生产前台不依赖 Node 服务、数据库或 SSR。
 
