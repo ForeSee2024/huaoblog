@@ -21,6 +21,9 @@ pnpm-debug.log*
 .env.*
 !.env.example
 
+# Local editorial evidence and content backups; never published
+.local/content-review/
+
 # macOS system files
 .DS_Store
 Thumbs.db

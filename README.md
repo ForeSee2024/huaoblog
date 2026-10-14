@@ -94,4 +94,4 @@ npm run preview
 
 后台样式：`src/styles/console.css`；共享主题：`src/styles/tokens.css`；正文排版：`src/styles/prose.css`；文章：`src/content/posts/`；草稿：`src/content/drafts/`；图片：`public/images/posts/`。管理入口无索引，生产前台不依赖 Node 服务、数据库或 SSR。
 
-现有示例文章用于展示排版，可替换为自己的内容。后台重设计和验收记录见 `docs/ADMIN_CONSOLE.md`。
+目前首批 7 篇文章是个人项目与学习记录的初稿，可在后台继续修改、补充图片和真实结果；资料与文章入口见 [内容修改指南](docs/CONTENT_GUIDE.md)。原示例文章已移除，并为旧地址保留跳转。
