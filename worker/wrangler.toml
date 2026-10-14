@@ -6,7 +6,7 @@ compatibility_date = "2026-10-12"
 [vars]
 # 生产必需配置：允许调用本网关的精确博客后台域名 (逗号分隔，不支持通配符)
 # 博客更换域名时更新此白名单；Worker 地址和 OAuth Callback 保持稳定。
-ALLOWED_ORIGINS = "https://aoblog.eu.cc,https://www.aoblog.eu.cc,https://huaoblog.pages.dev"
+ALLOWED_ORIGINS = "https://huaoblog.cn,https://www.huaoblog.cn,https://huaoblog.pages.dev"
 
 # 秘钥注入与部署指令：
 # 1. npx wrangler secret put GITHUB_CLIENT_ID
