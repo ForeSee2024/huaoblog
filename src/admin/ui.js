@@ -42,6 +42,9 @@ import {
   LogOut,
   CircleAlert,
   ExternalLink,
+  NotebookPen,
+  Terminal,
+  Monitor,
 } from "lucide";
 const icons = {
   overview: LayoutDashboard,
@@ -87,6 +90,9 @@ const icons = {
   logout: LogOut,
   alert: CircleAlert,
   open: ExternalLink,
+  notebook: NotebookPen,
+  terminal: Terminal,
+  monitor: Monitor,
 };
 export const escape = (value) =>
   String(value ?? "").replace(
@@ -126,7 +132,7 @@ export const size = (value) =>
     : `${Math.ceil((value || 0) / 1024)} KB`;
 export function field(label, name, value = "", options = {}) {
   const id = `field-${name.replaceAll(".", "-")}`;
-  const common = `id="${id}" name="${escape(name)}" ${options.required ? "required" : ""} ${options.disabled ? "disabled" : ""} ${options.max ? `maxlength="${options.max}"` : ""} ${options.min ? `min="${options.min}"` : ""} ${options.maxValue ? `max="${options.maxValue}"` : ""} ${options.placeholder ? `placeholder="${escape(options.placeholder)}"` : ""}`;
+  const common = `id="${id}" name="${escape(name)}" ${options.hint ? `aria-describedby="${id}-hint"` : ""} ${options.required ? "required" : ""} ${options.disabled ? "disabled" : ""} ${options.max ? `maxlength="${options.max}"` : ""} ${options.min ? `min="${options.min}"` : ""} ${options.maxValue ? `max="${options.maxValue}"` : ""} ${options.placeholder ? `placeholder="${escape(options.placeholder)}"` : ""}`;
   let control;
   if (options.type === "textarea")
     control = `<textarea ${common} rows="${options.rows || 3}">${escape(value)}</textarea>`;
@@ -139,7 +145,7 @@ export function field(label, name, value = "", options = {}) {
       .join("")}</select>`;
   else
     control = `<input ${common} type="${options.type || "text"}" value="${escape(value)}" ${options.pattern ? `pattern="${escape(options.pattern)}"` : ""} />`;
-  return `<div class="field ${options.wide ? "field-wide" : ""}"><label for="${id}">${escape(label)}${options.required ? '<span class="required-dot">*</span>' : ""}</label>${control}${options.hint ? `<p class="field-hint">${escape(options.hint)}</p>` : ""}</div>`;
+  return `<div class="field ${options.wide ? "field-wide" : ""}"><label for="${id}">${escape(label)}${options.required ? '<span class="required-dot">*</span>' : ""}</label>${control}${options.hint ? `<p id="${id}-hint" class="field-hint">${escape(options.hint)}</p>` : ""}</div>`;
 }
 export const toggle = (label, name, value, hint = "") =>
   `<label class="toggle-row"><span><strong>${escape(label)}</strong>${hint ? `<small>${escape(hint)}</small>` : ""}</span><input type="checkbox" name="${escape(name)}" ${value ? "checked" : ""} /><span class="toggle-track" aria-hidden="true"></span></label>`;

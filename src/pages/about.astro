@@ -1,25 +1,103 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import Sidebar from '../components/layout/Sidebar.astro';
-import { categories, settings, site } from '../config/site';
+import ProfileIcon from '../components/common/ProfileIcon.astro';
+import { settings, site, safeExternalHref, safeImageSrc } from '../config/site';
 import { renderMarkdownPreview } from '../lib/markdown-preview.js';
-const body = renderMarkdownPreview(settings.about.body);
+import { formatDate, getPublishedPosts } from '../utils/posts';
+import '../styles/about.css';
+
+const { about } = settings;
+const body = renderMarkdownPreview(about.body);
+const cover = safeImageSrc(about.coverImage || '');
+const avatar = safeImageSrc(site.avatar) || '/favicon.svg';
+const tools = about.tools || [];
+const socials = site.socialLinks.filter(link => safeExternalHref(link.url));
+const github = socials.find(link => {
+  const url = new URL(link.url);
+  return url.protocol === 'https:' && url.hostname === 'github.com' && /^\/[a-zA-Z0-9-]+\/?$/.test(url.pathname);
+});
+const githubName = github && new URL(github.url).pathname.replaceAll('/', '');
+const posts = (await getPublishedPosts({ forceIncludeDrafts: false })).sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+const recentPosts = posts.slice(0, 3);
+const showGithub = about.githubEnabled !== false && github;
+const showRecent = about.recentPostsEnabled !== false && recentPosts.length > 0;
+const hasAside = tools.length > 0 || showGithub;
 ---
-<BaseLayout title={`关于 ${site.author} | ${site.name}`}>
-  <div class="flex flex-col lg:flex-row gap-8 items-start">
-    <Sidebar />
-    <main class="w-full lg:flex-1 flex flex-col gap-6 min-w-0 order-1 lg:order-2">
-      <section class="cyber-card p-6 md:p-10">
-        <p class="font-mono text-xs text-[var(--accent)] mb-4">ABOUT / {site.brand}</p>
-        <h1 class="text-3xl md:text-5xl font-extrabold text-[var(--text-hero)] mb-3">{settings.about.title}</h1>
-        {settings.about.subtitle && <p class="text-lg text-[var(--text-muted)] mb-6">{settings.about.subtitle}</p>}
-        <div class="article-prose" set:html={body}></div>
-      </section>
-      <section class="cyber-card p-6 md:p-8">
-        <h2 class="text-xl font-bold text-[var(--text-hero)] mb-4">我在这里记录什么</h2>
-        <p class="text-sm text-[var(--text-muted)] leading-loose mb-5">文章按一个主要主题归类，交叉内容用标签联系起来，连续的探索放进同一个系列。</p>
-        <div class="flex flex-col divide-y divide-[var(--border-subtle)]">{categories.map((category, index) => <a href={`/posts?cat=${encodeURIComponent(category)}`} class="flex items-center gap-4 py-4 no-underline group"><span class="font-mono text-xs text-[var(--accent)]">0{index + 1}</span><span class="text-sm text-[var(--text-main)] group-hover:text-[var(--accent)]">{category}</span></a>)}</div>
-      </section>
-    </main>
-  </div>
+<BaseLayout title={`关于 ${site.author} | ${site.brand}`} description={site.description} fullWidth>
+  <main class="about-page">
+    <section class:list={['about-hero', { 'about-hero-covered': cover }]} aria-labelledby="about-title">
+      {cover && <img class="about-cover" src={cover} alt="" fetchpriority="high" />}
+      <div class="about-hero-inner">
+        <div class="about-hero-copy">
+          <p class="about-kicker">ABOUT / {site.brand}</p>
+          <h1 id="about-title">{about.title}</h1>
+          {about.subtitle && <p class="about-hero-subtitle">{about.subtitle}</p>}
+        </div>
+        {!cover && <div class="about-hero-art" aria-hidden="true">
+          <svg class="about-network" viewBox="0 0 560 280" fill="none">
+            <g stroke="currentColor" stroke-width="1">
+              <path d="M62 154 190 44l154 44 144-54M62 154l160 76 122-142 144 110M190 44l32 186 266-32M344 88l-44 162M62 154l426 44" />
+              <circle cx="344" cy="88" r="72" /><circle cx="344" cy="88" r="114" />
+            </g>
+            <g fill="currentColor">
+              <circle cx="62" cy="154" r="4" /><circle cx="190" cy="44" r="4" /><circle cx="222" cy="230" r="4" /><circle cx="344" cy="88" r="6" /><circle cx="488" cy="34" r="4" /><circle cx="488" cy="198" r="4" /><circle cx="300" cy="250" r="4" />
+            </g>
+          </svg>
+          <span class="about-wordmark">{site.brand}</span>
+          <span class="about-art-caption">PROJECTS · NOTES · IDEAS</span>
+        </div>}
+      </div>
+    </section>
+
+    <div class="about-sheet">
+      <header class="about-profile">
+        <img class="about-avatar" src={avatar} alt={`${site.author}的头像`} width="104" height="104" />
+        <div class="about-profile-copy">
+          <p class="about-author">{site.author}</p>
+          {site.tagline && <p class="about-tagline">{site.tagline}</p>}
+          {site.bio && <p class="about-bio">{site.bio}</p>}
+        </div>
+        <div class="about-profile-links">
+          {socials.map(link => <a class="about-button" href={link.url} target="_blank" rel="noopener noreferrer"><span>{link.label}</span><ProfileIcon name="arrow" /></a>)}
+          <a class="about-button about-button-primary" href="/posts"><span>阅读我的记录</span><ProfileIcon name="arrow" /></a>
+        </div>
+      </header>
+
+      <nav class="about-index" aria-label="个人简介页目录">
+        <a href="#profile-intro">个人简介</a>
+        {tools.length > 0 && <a href="#profile-tools">常用工具</a>}
+        {showGithub && <a href="#profile-github">找到我</a>}
+        {showRecent && <a href="#profile-posts">最近记录</a>}
+      </nav>
+
+      <div class:list={['about-content', { 'about-content-wide': !hasAside }]}>
+        <section class="about-story" id="profile-intro" aria-label="个人简介">
+          <p class="about-section-kicker">一些关于我</p>
+          <div class="article-prose about-prose" set:html={body}></div>
+        </section>
+        {hasAside && <aside class="about-aside" aria-label="工具与个人主页">
+          {tools.length > 0 && <section class="about-tools" id="profile-tools" aria-labelledby="tools-title">
+            <p class="about-section-kicker">TOOLBOX</p>
+            <h2 id="tools-title">常用工具与工作流</h2>
+            <ul class="about-tool-list">
+              {tools.map(tool => <li><span class="about-tool-icon"><ProfileIcon name={tool.icon} /></span><div><h3>{tool.name}</h3>{tool.description && <p>{tool.description}</p>}</div></li>)}
+            </ul>
+          </section>}
+          {showGithub && <section class="about-github" id="profile-github" aria-labelledby="github-title">
+            <div class="about-github-symbol"><ProfileIcon name="github" /><span>GITHUB</span></div>
+            <h2 id="github-title">@{githubName}</h2>
+            <p>项目的代码、修改和后续进展，放在 GitHub 上继续记录。</p>
+            <a class="about-text-link" href={github!.url} target="_blank" rel="noopener noreferrer"><span>访问 GitHub 主页</span><ProfileIcon name="arrow" /></a>
+          </section>}
+        </aside>}
+      </div>
+
+      {showRecent && <section class="about-recent" id="profile-posts" aria-labelledby="recent-title">
+        <div class="about-section-heading"><div><p class="about-section-kicker">LATEST NOTES</p><h2 id="recent-title">最近写下的</h2></div><a class="about-text-link" href="/posts">全部 {posts.length} 篇记录<ProfileIcon name="arrow" /></a></div>
+        <ol class="about-post-list">
+          {recentPosts.map((post, index) => <li><a href={`/posts/${post.slug}`}><span class="about-post-number">0{index + 1}</span><div class="about-post-copy"><p><time datetime={formatDate(post.data.pubDate)}>{formatDate(post.data.pubDate)}</time><span>{post.data.category}</span></p><h3>{post.data.title}</h3></div><ProfileIcon name="arrow" /></a></li>)}
+        </ol>
+      </section>}
+    </div>
+  </main>
 </BaseLayout>

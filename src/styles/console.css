@@ -1138,6 +1138,22 @@ html[data-theme="light"] .tabs button[aria-selected="true"] {
   color: var(--text-muted);
   font-size: 9px;
 }
+.mini-about { overflow: hidden; border: 1px solid var(--border-subtle); border-radius: 14px; background: var(--bg-card-solid); }
+.mini-about-cover { position: relative; padding: 24px 20px 32px; background: #0b233b; color: #f5f9ff; }
+.mini-about-cover > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .25; }
+.mini-about-cover :is(small, h3, p) { position: relative; overflow-wrap: anywhere; }
+.mini-about-cover small { font-family: var(--font-mono); font-size: 10px; color: #b5d5ef; }
+.console .mini-about-cover h3 { color: #f5f9ff; font-size: 20px; line-height: 1.5; margin-top: 12px; }
+.console .mini-about-cover p { font-size: 12px; line-height: 1.8; color: #d5e6f5; margin-top: 8px; }
+.mini-about-profile { display: flex; align-items: center; gap: 12px; padding: 20px; }
+.mini-about-profile > img { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; }
+.mini-about-profile strong { color: var(--text-hero); font-size: 14px; }
+.console .mini-about-profile p { font-size: 11px; line-height: 1.8; color: var(--text-muted); margin-top: 4px; }
+.mini-about-tools { border-top: 1px solid var(--border-subtle); padding: 16px 20px; }
+.mini-about-tools > strong { color: var(--text-hero); font-size: 13px; }
+.console .mini-about-tools > p { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-muted); margin-top: 12px; }
+.mini-about-tools svg { color: var(--accent); }
+.mini-about-modules { display: flex; flex-wrap: wrap; gap: 12px; padding: 0 20px 20px; font-size: 11px; color: var(--text-muted); }
 .preview-caption {
   font-size: 11px;
   color: var(--text-dim);

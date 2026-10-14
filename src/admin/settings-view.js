@@ -5,6 +5,7 @@ import {
   toggle,
   section,
   safeImage,
+  icon,
 } from "./ui.js";
 import { pageHeading } from "./views.js";
 const socialIcons = [
@@ -20,8 +21,13 @@ const socialIcons = [
 const grid = (content) => `<div class="form-grid">${content}</div>`;
 const f = field;
 
-export function settingsPreview(settings, image = (value) => value) {
+export function settingsPreview(settings, image = (value) => value, tab = "home") {
   const { identity, home } = settings;
+  if (tab === "about") {
+    const { about } = settings;
+    const cover = safeImage(image(about.coverImage || ""));
+    return `<p>个人简介实时预览</p><div class="mini-about"><div class="mini-about-cover">${cover ? `<img data-preview-path="${e(about.coverImage)}" src="${e(cover)}" alt="" />` : ""}<small>ABOUT / ${e(identity.brand)}</small><h3>${e(about.title)}</h3><p>${e(about.subtitle)}</p></div><div class="mini-about-profile"><img data-preview-path="${e(identity.avatar)}" src="${e(safeImage(image(identity.avatar)) || "/favicon.svg")}" alt="" /><div><strong>${e(identity.author)}</strong><p>${e(identity.tagline)}</p></div></div>${about.tools?.length ? `<div class="mini-about-tools"><strong>常用工具与工作流</strong>${about.tools.map(tool => `<p>${icon(tool.icon)}<span>${e(tool.name)}</span></p>`).join("")}</div>` : ""}<div class="mini-about-modules">${about.githubEnabled !== false ? "<span>GitHub 主页</span>" : ""}${about.recentPostsEnabled !== false ? "<span>最近记录</span>" : ""}</div></div><p class="preview-caption">封面留空时使用品牌图案。头像、名字与社交链接沿用“站点信息”。正文在前台按 Markdown 排版。</p>`;
+  }
   return `<p>首页实时预览</p><div class="mini-home"><div class="mini-home-header"><img data-preview-path="${e(identity.avatar)}" src="${e(safeImage(image(identity.avatar)) || "/favicon.svg")}" alt="" /><span>${e(identity.brand)}</span></div><div class="mini-home-body"><small>${e(home.eyebrow)}</small><h3>${e(home.title)}</h3><p>${e(home.intro)}</p><span class="mini-home-button">${e(home.primaryLabel)}</span></div>${home.announcementEnabled ? `<div class="mini-home-announcement">${e(home.announcementTitle)} · ${e(home.announcement)}</div>` : ""}</div><p class="preview-caption">预览显示当前编辑内容。${settings.revision ? "保存后更新前台配置。" : "保存配置后，前台会使用这些设定。"}</p>`;
 }
 export function settingsView(settings, tab, local, image) {
@@ -206,10 +212,15 @@ export function settingsView(settings, tab, local, image) {
     );
   } else if (tab === "about") {
     content = section(
-      "关于页面",
-      "介绍你自己，以及这个博客的记录方向。",
+      "封面与个人介绍",
+      "设置个人简介页。头像、作者名称与社交链接在“站点信息”中统一修改。",
       grid(
-        f("页面标题", "about.title", settings.about.title, {
+        f("封面图片", "about.coverImage", settings.about.coverImage || "", {
+          wide: true,
+          hint: "留空显示品牌图案；可以上传自己的横向封面，建议比例 3:1。",
+        }) +
+          `<div class="field-wide">${button("从媒体库选择封面", "pick-about-cover", "image", "secondary")}</div>` +
+          f("页面标题", "about.title", settings.about.title, {
           wide: true,
           required: true,
           max: 200,
@@ -226,6 +237,17 @@ export function settingsView(settings, tab, local, image) {
             hint: "支持 Markdown 标题、段落、列表与链接。",
           }),
       ),
+    ) + section(
+      "常用工具与工作流",
+      "只列出主要工具。清空列表可隐藏这一栏。",
+      (settings.about.tools || []).map((tool, index) =>
+        `<div class="repeater-row"><div class="repeater-bar"><strong>工具 ${index + 1}</strong>${button("移除", "remove-about-tool", "delete", "quiet", `data-index="${index}"`)}</div>${grid(f("工具名称", `about.tools.${index}.name`, tool.name, { required: true, max: 80 }) + f("图标", `about.tools.${index}.icon`, tool.icon, { choices: [["code", "代码"], ["terminal", "终端"], ["cloud", "云服务"], ["book", "文献"], ["notebook", "笔记"], ["monitor", "设备"]] }) + f("简短说明", `about.tools.${index}.description`, tool.description, { wide: true, max: 160 }))}</div>`
+      ).join("") + button("添加工具", "add-about-tool", "plus", "secondary", (settings.about.tools || []).length >= 12 ? "disabled" : ""),
+    ) + section(
+      "展示模块",
+      "按需要选择页面末尾与侧栏的内容。",
+      toggle("显示 GitHub 主页", "about.githubEnabled", settings.about.githubEnabled !== false, "使用站点信息中配置的 GitHub 个人主页；未填写时自动隐藏。") +
+      toggle("显示最近记录", "about.recentPostsEnabled", settings.about.recentPostsEnabled !== false, "自动选取 3 篇已发布文章；没有文章时自动隐藏。"),
     );
   } else if (tab === "friends") {
     content = section(
@@ -263,5 +285,5 @@ export function settingsView(settings, tab, local, image) {
       ),
     );
   }
-  return `${pageHeading("站点配置", "前台内容与外观，在这里统一维护。")}<div class="settings-tabs">${tabs.map(([id, label]) => `<a href="#/settings/${id}" class="${id === tab ? "active" : ""}" ${id === tab ? 'aria-current="page"' : ""}>${label}</a>`).join("")}</div><form id="settings-form"><div class="settings-layout"><div>${content}<div class="save-bar"><p id="settings-save-state">${local ? "保存后更新本地前台。" : "保存后创建待发布变更。"}</p>${button("保存配置", "save-settings", "save", "primary")}</div></div><aside id="settings-preview" class="settings-preview">${settingsPreview(settings, image)}</aside></div></form>`;
+  return `${pageHeading("站点配置", "前台内容与外观，在这里统一维护。")}<div class="settings-tabs">${tabs.map(([id, label]) => `<a href="#/settings/${id}" class="${id === tab ? "active" : ""}" ${id === tab ? 'aria-current="page"' : ""}>${label}</a>`).join("")}</div><form id="settings-form"><div class="settings-layout"><div>${content}<div class="save-bar"><p id="settings-save-state">${local ? "保存后更新本地前台。" : "保存后创建待发布变更。"}</p>${button("保存配置", "save-settings", "save", "primary")}</div></div><aside id="settings-preview" class="settings-preview">${settingsPreview(settings, image, tab)}</aside></div></form>`;
 }
