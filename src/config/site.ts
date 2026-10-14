@@ -29,7 +29,15 @@ export interface SiteSettings {
     accent: 'cyberblue' | 'neoncyan' | 'violet' | 'lumine';
     backgroundEffect: boolean;
   };
-  about: { title: string; subtitle: string; body: string };
+  about: {
+    title: string;
+    subtitle: string;
+    body: string;
+    coverImage?: string;
+    tools?: Array<{ name: string; description: string; icon: 'code' | 'terminal' | 'cloud' | 'book' | 'notebook' | 'monitor' }>;
+    githubEnabled?: boolean;
+    recentPostsEnabled?: boolean;
+  };
   friends: Array<{ name: string; url: string; description: string; avatar?: string }>;
   footer: { text: string; icp: string; icpUrl: string };
 }

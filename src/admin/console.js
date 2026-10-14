@@ -390,7 +390,7 @@ async function render(route) {
     main.innerHTML = connectionView(data, config, loadError);
   else if (page === "settings") {
     if (!editingSettings || !previous.startsWith("settings/"))
-      editingSettings = copy(data.settings);
+      editingSettings = copy(validateSettings(data.settings));
     main.innerHTML = settingsView(
       editingSettings,
       segments[1] || "general",
@@ -774,6 +774,7 @@ main.addEventListener("input", (event) => {
     document.getElementById("settings-preview").innerHTML = settingsPreview(
       editingSettings,
       resolveImage,
+      currentRoute.split("/")[1],
     );
     observeMedia();
   }
@@ -802,6 +803,7 @@ main.addEventListener("change", (event) => {
     document.getElementById("settings-preview").innerHTML = settingsPreview(
       editingSettings,
       resolveImage,
+      currentRoute.split("/")[1],
     );
     observeMedia();
   }
@@ -904,10 +906,12 @@ main.addEventListener("click", async (event) => {
         await render(currentRoute);
         toast(config.local ? "内容已移除" : "移除内容的变更已提交");
       }
-    } else if (["pick-cover", "insert-image", "pick-avatar"].includes(action)) {
+    } else if (["pick-cover", "insert-image", "pick-avatar", "pick-about-cover"].includes(action)) {
       const media = await chooseMedia(
         action === "pick-cover"
           ? "选择文章封面"
+          : action === "pick-about-cover"
+            ? "选择个人简介封面"
           : action === "pick-avatar"
             ? "选择头像"
             : "插入正文图片",
@@ -932,10 +936,12 @@ main.addEventListener("click", async (event) => {
           document.querySelector('[data-action="clear-cover"]').hidden = false;
           markDirty();
         } else {
-          editingSettings.identity.avatar = path;
-          document.querySelector('[name="identity.avatar"]').value = path;
+          const settingPath = action === "pick-about-cover" ? "about.coverImage" : "identity.avatar";
+          setPath(editingSettings, settingPath, path);
+          document.querySelector(`[name="${settingPath}"]`).value = path;
           document.getElementById("settings-preview").innerHTML =
-            settingsPreview(editingSettings, resolveImage);
+            settingsPreview(editingSettings, resolveImage, currentRoute.split("/")[1]);
+          observeMedia();
           markDirty();
         }
       }
@@ -1051,6 +1057,8 @@ main.addEventListener("click", async (event) => {
         "remove-social",
         "add-friend",
         "remove-friend",
+        "add-about-tool",
+        "remove-about-tool",
         "move-nav",
       ].includes(action)
     ) {
@@ -1072,6 +1080,9 @@ main.addEventListener("click", async (event) => {
           avatar: "",
         });
       if (action === "remove-friend") editingSettings.friends.splice(index, 1);
+      if (action === "add-about-tool" && editingSettings.about.tools.length < 12)
+        editingSettings.about.tools.push({ name: "", description: "", icon: "code" });
+      if (action === "remove-about-tool") editingSettings.about.tools.splice(index, 1);
       if (action === "move-nav") {
         const next = index + Number(target.dataset.direction);
         if (next >= 0 && next < editingSettings.navigation.length)

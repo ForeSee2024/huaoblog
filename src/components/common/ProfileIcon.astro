@@ -1,0 +1,11 @@
+---
+import { ArrowUpRight, BookOpen, Cloud, Code2, GitBranch, Monitor, NotebookPen, Terminal } from 'lucide';
+
+const icons = { arrow: ArrowUpRight, book: BookOpen, cloud: Cloud, code: Code2, github: GitBranch, monitor: Monitor, notebook: NotebookPen, terminal: Terminal };
+interface Props { name?: keyof typeof icons; }
+const { name = 'code' } = Astro.props;
+const nodes = icons[name] || icons.code;
+---
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  {nodes.map(([Tag, attributes]) => <Tag {...attributes} />)}
+</svg>

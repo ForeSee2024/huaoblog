@@ -2,6 +2,7 @@ import { ContentError, safeUrl, textField } from './content-model.js';
 
 export const THEMES = ['system', 'light', 'dark'];
 export const ACCENTS = ['cyberblue', 'neoncyan', 'violet', 'lumine'];
+export const ABOUT_TOOL_ICONS = ['code', 'terminal', 'cloud', 'book', 'notebook', 'monitor'];
 
 function object(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ContentError(`${label}格式不正确。`);
@@ -51,7 +52,18 @@ export function validateSettings(input) {
       return { label: textField(item.label, '导航名称', 40, true), href, enabled: boolean(item.enabled, '导航状态') };
     }),
     appearance: { theme: appearance.theme, accent: appearance.accent, backgroundEffect: boolean(appearance.backgroundEffect, '背景效果') },
-    about: { title: textField(about.title, '关于页标题', 200, true), subtitle: textField(about.subtitle, '关于页副标题', 300), body: textField(about.body, '关于页正文', 30000) },
+    about: {
+      title: textField(about.title, '关于页标题', 200, true),
+      subtitle: textField(about.subtitle, '关于页副标题', 300),
+      body: textField(about.body, '关于页正文', 30000),
+      coverImage: safeUrl(about.coverImage ?? '', { label: '关于页封面' }),
+      tools: list(about.tools ?? [], '常用工具', 12, item => {
+        if (!ABOUT_TOOL_ICONS.includes(item.icon)) throw new ContentError('请选择有效的工具图标。');
+        return { name: textField(item.name, '工具名称', 80, true), description: textField(item.description, '工具说明', 160), icon: item.icon };
+      }),
+      githubEnabled: boolean(about.githubEnabled ?? true, 'GitHub 展示状态'),
+      recentPostsEnabled: boolean(about.recentPostsEnabled ?? true, '最近文章展示状态'),
+    },
     friends: list(source.friends ?? [], '友情链接', 100, item => ({ name: textField(item.name, '友链名称', 100, true), url: safeUrl(item.url, { local: false, optional: false, label: '友链网址' }), description: textField(item.description, '友链简介', 300), ...(item.avatar ? { avatar: safeUrl(item.avatar, { label: '友链头像' }) } : {}) })),
     footer: { text: textField(footer.text, '页脚文字', 300), icp: textField(footer.icp, '备案号', 100), icpUrl: safeUrl(footer.icpUrl, { local: false, label: '备案链接' }) },
     ...(typeof source.revision === 'string' ? { revision: source.revision } : {}),

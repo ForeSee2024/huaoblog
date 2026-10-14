@@ -31,3 +31,27 @@ test('settings reject script urls, invalid palette keys and unsafe navigation', 
   const valid = model.validateSettings({ ...canonical, friends: [{ name: '朋友', url: 'https://example.com', description: '朋友的博客', avatar: '/images/posts/friend.png' }], identity: { ...canonical.identity, socialLinks: [{ label: 'GitHub', url: 'https://github.com/example', icon: 'github' }] } });
   assert.equal(valid.friends[0].name, '朋友');
 });
+
+test('profile configuration survives a save and older settings remain editable', () => {
+  const about = { ...canonical.about, coverImage: '/images/posts/profile.webp', githubEnabled: false, recentPostsEnabled: true, tools: [{ name: 'Python', description: '实验与数据整理', icon: 'code' }] };
+  const saved = JSON.parse(model.serializeSettings({ ...canonical, about }));
+  assert.deepEqual(saved.about, about);
+  const legacy = { title: '关于我', subtitle: '', body: '' };
+  const upgraded = model.validateSettings({ ...canonical, about: legacy });
+  assert.equal(upgraded.about.coverImage, '');
+  assert.deepEqual(upgraded.about.tools, []);
+  assert.equal(upgraded.about.githubEnabled, true);
+  assert.equal(upgraded.about.recentPostsEnabled, true);
+});
+
+test('profile configuration rejects unsafe covers and malformed tool entries', () => {
+  for (const patch of [
+    { coverImage: 'javascript:alert(1)' },
+    { coverImage: '//evil.example/cover.png' },
+    { tools: [{ name: 'Python', description: '', icon: '<svg>' }] },
+    { tools: [{ name: '', description: '', icon: 'code' }] },
+    { tools: Array.from({ length: 13 }, () => ({ name: 'Python', description: '', icon: 'code' })) },
+    { githubEnabled: 'false' },
+    { recentPostsEnabled: 1 },
+  ]) assert.throws(() => model.validateSettings({ ...canonical, about: { ...canonical.about, ...patch } }));
+});
