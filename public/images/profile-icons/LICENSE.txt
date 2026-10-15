@@ -23,6 +23,191 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-The Zotero icon comes from Simple Icons (CC0 1.0 Universal):
+The Simple Icons listed below are licensed under CC0 1.0 Universal:
 https://github.com/simple-icons/simple-icons
+https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md
+https://creativecommons.org/publicdomain/zero/1.0/
+
+All SVGs are saved locally; Iconify is used only to retrieve the source assets.
+Simple Icons paths retain their official brand color from the upstream data
+directory; neutral background rectangles are added to match the existing tiles.
 Brand names and marks belong to their respective owners.
+
+Additional assets retrieved 2026-10-15:
+canva.svg: devicon:canva (fixed #00c4cc fill)
+ghidra.svg: devicon:ghidra
+nmap.svg: file-icons:nmap (fixed #0076b8 fill)
+Devicon: https://github.com/devicons/devicon
+File Icons: https://github.com/file-icons/icons
+
+Devicon license: https://github.com/devicons/devicon/blob/master/LICENSE
+The MIT License (MIT)
+
+Copyright (c) 2015 konpa
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+File Icons license (ISC): https://github.com/file-icons/icons/blob/master/LICENSE.md
+Copyright (c) 2016-2021, John Gardner
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+Source manifest (retrieved 2026-10-14):
+Iconify endpoint: https://api.iconify.design/<collection>.json?icons=<names>
+Skill Icons sources: https://github.com/tandpfun/skill-icons
+Simple Icons colors: https://github.com/simple-icons/simple-icons/blob/develop/data/simple-icons.json
+
+alpine.svg: simple-icons:alpinelinux
+anaconda.svg: skill-icons:anaconda-dark
+android-studio.svg: skill-icons:androidstudio-dark
+android.svg: simple-icons:android
+angular.svg: skill-icons:angular-dark
+arch.svg: skill-icons:arch-dark
+astro.svg: skill-icons:astro
+aws.svg: skill-icons:aws-dark
+azure.svg: skill-icons:azure-dark
+bash.svg: skill-icons:bash-dark
+blender.svg: skill-icons:blender-dark
+bootstrap.svg: skill-icons:bootstrap
+bun.svg: skill-icons:bun-dark
+burp-suite.svg: simple-icons:burpsuite
+c.svg: skill-icons:c
+clion.svg: skill-icons:clion-dark
+cloudflare.svg: skill-icons:cloudflare-dark
+cpp.svg: skill-icons:cpp
+csharp.svg: skill-icons:cs
+css.svg: skill-icons:css
+cursor.svg: simple-icons:cursor
+dart.svg: skill-icons:dart-dark
+debian.svg: skill-icons:debian-dark
+deno.svg: skill-icons:deno-dark
+django.svg: skill-icons:django
+docker.svg: skill-icons:docker
+dotnet.svg: skill-icons:dotnet
+electron.svg: skill-icons:electron
+express.svg: skill-icons:expressjs-dark
+fastapi.svg: skill-icons:fastapi
+fedora.svg: simple-icons:fedora
+figma.svg: skill-icons:figma-dark
+firebase.svg: simple-icons:firebase
+flask.svg: skill-icons:flask-dark
+flutter.svg: skill-icons:flutter-dark
+freebsd.svg: simple-icons:freebsd
+gimp.svg: simple-icons:gimp
+git.svg: skill-icons:git
+github.svg: skill-icons:github-dark
+gitlab.svg: skill-icons:gitlab-dark
+go.svg: skill-icons:golang
+grafana.svg: skill-icons:grafana-dark
+html.svg: skill-icons:html
+huggingface.svg: simple-icons:huggingface
+illustrator.svg: skill-icons:illustrator
+inkscape.svg: simple-icons:inkscape
+intellij-idea.svg: skill-icons:idea-dark
+java.svg: skill-icons:java-dark
+javascript.svg: skill-icons:javascript
+jenkins.svg: skill-icons:jenkins-dark
+jquery.svg: skill-icons:jquery
+julia.svg: skill-icons:julia-dark
+jupyter.svg: simple-icons:jupyter
+kali.svg: skill-icons:kali-dark
+keras.svg: simple-icons:keras
+kotlin.svg: skill-icons:kotlin-dark
+kubernetes.svg: skill-icons:kubernetes
+laravel.svg: skill-icons:laravel-dark
+latex.svg: skill-icons:latex-dark
+linux-mint.svg: skill-icons:mint-dark
+linux.svg: skill-icons:linux-dark
+lua.svg: skill-icons:lua-dark
+macos.svg: skill-icons:apple-dark
+markdown.svg: skill-icons:markdown-dark
+matlab.svg: skill-icons:matlab-dark
+metasploit.svg: simple-icons:metasploit
+mongodb.svg: skill-icons:mongodb
+mysql.svg: skill-icons:mysql-dark
+neovim.svg: skill-icons:neovim-dark
+netlify.svg: skill-icons:netlify-dark
+nextjs.svg: skill-icons:nextjs-dark
+nginx.svg: skill-icons:nginx
+nixos.svg: skill-icons:nix-dark
+nodejs.svg: skill-icons:nodejs-dark
+notion.svg: skill-icons:notion-dark
+numpy.svg: simple-icons:numpy
+nuxt.svg: skill-icons:nuxtjs-dark
+obsidian.svg: skill-icons:obsidian-dark
+ollama.svg: simple-icons:ollama
+opencv.svg: skill-icons:opencv-dark
+opensuse.svg: simple-icons:opensuse
+pandas.svg: simple-icons:pandas
+photoshop.svg: skill-icons:photoshop
+php.svg: skill-icons:php-dark
+polars.svg: simple-icons:polars
+postgresql.svg: skill-icons:postgresql-dark
+powershell.svg: skill-icons:powershell-dark
+prometheus.svg: skill-icons:prometheus
+pycharm.svg: skill-icons:pycharm-dark
+python.svg: skill-icons:python-dark
+pytorch.svg: skill-icons:pytorch-dark
+r.svg: skill-icons:r-dark
+rails.svg: skill-icons:rails
+react.svg: skill-icons:react-dark
+redis.svg: skill-icons:redis-dark
+ruby.svg: skill-icons:ruby
+rust.svg: skill-icons:rust
+sass.svg: skill-icons:sass
+scikit-learn.svg: skill-icons:scikitlearn-dark
+scipy.svg: simple-icons:scipy
+spring.svg: skill-icons:spring-dark
+sqlite.svg: skill-icons:sqlite
+sublime-text.svg: skill-icons:sublime-dark
+supabase.svg: skill-icons:supabase-dark
+svelte.svg: skill-icons:svelte
+swift.svg: skill-icons:swift
+tailwind.svg: skill-icons:tailwindcss-dark
+tensorflow.svg: skill-icons:tensorflow-dark
+terraform.svg: skill-icons:terraform-dark
+typescript.svg: skill-icons:typescript
+typst.svg: simple-icons:typst
+ubuntu.svg: skill-icons:ubuntu-dark
+unity.svg: skill-icons:unity-dark
+unreal-engine.svg: skill-icons:unrealengine
+vercel.svg: skill-icons:vercel-dark
+vim.svg: skill-icons:vim-dark
+visual-studio.svg: skill-icons:visualstudio-dark
+vite.svg: skill-icons:vite-dark
+vscode.svg: skill-icons:vscode-dark
+vue.svg: skill-icons:vuejs-dark
+webstorm.svg: skill-icons:webstorm-dark
+windows.svg: skill-icons:windows-dark
+wireshark.svg: simple-icons:wireshark
+xcode.svg: simple-icons:xcode
+zig.svg: skill-icons:zig-dark
+zotero.svg: simple-icons:zotero
+
+iOS and iPadOS reuse macos.svg (Apple logo).
+IDA uses the existing generic terminal icon when no local brand asset is available.

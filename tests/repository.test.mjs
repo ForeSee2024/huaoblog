@@ -71,11 +71,22 @@ function github() {
       const number = prs.length + 1; const pr = { number, node_id: `PR_${number}`, title: body.title, body: body.body, draft: body.draft ?? false, state: 'open', html_url: `https://github.com/test/blog/pull/${number}`, mergeable: true, mergeable_state: 'clean', comparisonBase: refs.get('main'), head: { ref: body.head, sha: refs.get(body.head), repo: { full_name: 'test/blog' } }, base: { ref: body.base, repo: { full_name: 'test/blog' } } };
       prs.push(pr); return json(pr, 201);
     }
-    match = route.match(/^\/pulls\/(\d+)(?:\/(files|merge))?$/);
+    match = route.match(/^\/pulls\/(\d+)(?:\/(files|merge|update-branch))?$/);
     if (match) {
       const pr = prs.find(item => item.number === Number(match[1]));
       if (!pr) return json({ message: 'missing' }, 404);
       pr.head.sha = refs.get(pr.head.ref);
+      if (match[2] === 'update-branch' && method === 'PUT') {
+        assert.equal(body.expected_head_sha, pr.head.sha);
+        const previous = pr.head.sha, main = refs.get('main');
+        const before = trees.get(commits.get(pr.comparisonBase).tree.sha), pending = trees.get(commits.get(previous).tree.sha);
+        const files = new Map(trees.get(commits.get(main).tree.sha));
+        for (const path of new Set([...before.keys(), ...pending.keys()])) if (before.get(path) !== pending.get(path)) { if (pending.has(path)) files.set(path, pending.get(path)); else files.delete(path); }
+        const treeSha = digest([...files]), sha = digest({tree:treeSha,parents:[previous,main]});
+        trees.set(treeSha, files); commits.set(sha, {sha,tree:{sha:treeSha},parents:[previous,main]}); refs.set(pr.head.ref, sha);
+        pr.head.sha = sha; pr.base.sha = main; pr.comparisonBase = main; pr.mergeable_state = 'clean';
+        return json({message:'Updating pull request branch.'},202);
+      }
       if (match[2] === 'files') {
         const before = trees.get(commits.get(pr.comparisonBase).tree.sha), after = trees.get(commits.get(pr.head.sha).tree.sha);
         return json([...new Set([...before.keys(), ...after.keys()])].filter(name => before.get(name) !== after.get(name)).map(filename => ({ filename, status: after.has(filename) ? (before.has(filename) ? 'modified' : 'added') : 'removed' })));
@@ -339,6 +350,69 @@ test('batch publication cannot disguise a published article removal as draft del
   assert.equal(fake.refs.get('main'), head);
 });
 
+test('publication base update preserves selected changes and confirms both parents', async () => {
+  const fake = github(), repo = repository(fake), state = await repo.load();
+  const saved = await repo.saveSettings({ ...state.settings, home:{...state.settings.home,title:'新的首页标题'} });
+  fake.putMain('src/content/posts/another.md', stringifyPost({ ...post(),slug:'another' }));
+  const main = fake.refs.get('main'); fake.prs[0].mergeable_state = 'behind';
+  assert.equal(typeof repo.prepareRelease, 'function');
+  const prepared = await repo.prepareRelease(saved.release);
+  assert.notEqual(prepared.sha, saved.release.sha);
+  assert.ok(fake.commits.get(prepared.sha).parents.includes(saved.release.sha));
+  assert.ok(fake.commits.get(prepared.sha).parents.includes(main));
+  const merged = await repo.publishRelease(prepared);
+  assert.equal(merged.state.settings.home.title, '新的首页标题');
+  assert.ok(merged.state.posts.some(item => item.slug === 'another'));
+});
+
+test('publication refuses an unexpected commit during a base update', async () => {
+  const fake = github(), repo = repository(fake, { fetch:async (url, options={}) => {
+    const response = await fake.fetch(url, options);
+    if (new URL(url).pathname.endsWith('/pulls/1/update-branch')) {
+      const commit = fake.commits.get(fake.refs.get(fake.prs[0].head.ref));
+      commit.parents = ['unexpected-parent'];
+    }
+    return response;
+  } });
+  const state = await repo.load(), saved = await repo.saveSettings({...state.settings,home:{...state.settings.home,title:'新的标题'}});
+  fake.putMain('src/content/posts/another.md', stringifyPost({...post(),slug:'another'}));
+  const main = fake.refs.get('main'); fake.prs[0].mergeable_state='behind';
+  assert.equal(typeof repo.prepareRelease, 'function');
+  await assert.rejects(repo.prepareRelease(saved.release), error=>error.code==='conflict');
+  assert.equal(fake.refs.get('main'), main);
+  assert.equal(fake.prs[0].state, 'open');
+});
+
+for (const modification of ['selected settings', 'additional image']) test(`publication refuses changed content with the expected merge parents: ${modification}`, async () => {
+  const fake = github(), repo = repository(fake, { fetch: async (url, options = {}) => {
+    const response = await fake.fetch(url, options);
+    if (new URL(url).pathname.endsWith('/pulls/1/update-branch')) {
+      const current = fake.commits.get(fake.refs.get(fake.prs[0].head.ref));
+      const entries = new Map(fake.trees.get(current.tree.sha));
+      const path = modification === 'selected settings' ? 'src/data/site.json' : 'public/images/posts/unselected.png';
+      const settings = JSON.parse(fake.blobs.get(entries.get('src/data/site.json')).toString('utf8'));
+      settings.identity.author = '未经选择的修改';
+      const bytes = modification === 'selected settings'
+        ? Buffer.from(JSON.stringify(settings))
+        : Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=', 'base64');
+      const blob = createHash('sha1').update(bytes).digest('hex');
+      fake.blobs.set(blob, bytes); entries.set(path, blob);
+      const tree = digest([...entries]), sha = digest({ tree, parents: current.parents });
+      fake.trees.set(tree, entries);
+      fake.commits.set(sha, { sha, tree: { sha: tree }, parents: [...current.parents] });
+      fake.refs.set(fake.prs[0].head.ref, sha);
+    }
+    return response;
+  } });
+  const state = await repo.load();
+  const saved = await repo.saveSettings({ ...state.settings, home: { ...state.settings.home, title: '已选择的新标题' } });
+  fake.putMain('src/content/posts/another.md', stringifyPost({ ...post(), slug: 'another' }));
+  const main = fake.refs.get('main'); fake.prs[0].mergeable_state = 'behind';
+  await assert.rejects(repo.prepareRelease(saved.release), error => error.code === 'conflict');
+  assert.equal(fake.refs.get('main'), main);
+  assert.equal(fake.calls.some(call => call.route.endsWith('/merge')), false);
+});
+
 test('GitHub draft editing preserves main and publishing stages a reviewed PR', async () => {
   const fake = github(), repo = repository(fake), originalHead = fake.refs.get('main');
   const loaded = await repo.load();
@@ -372,6 +446,17 @@ test('publish refuses pending, failing, absent checks and stale PR heads', async
   await assert.rejects(repo.publishRelease({ ...staged.release, sha: 'stale' }), /更新|修改/);
   fake.prs[0].mergeable_state = 'blocked';
   await assert.rejects(repo.publishRelease(staged.release), /保护|合并/);
+  assert.equal(fake.calls.some(call => call.route.endsWith('/merge')), false);
+});
+
+test('publication stops on a confirmed failure even while another check remains pending', async () => {
+  const fake = github(), repo = repository(fake), state = await repo.load();
+  const staged = await repo.savePost({ ...state.posts[0], body: '新正文。' }, { publish: true });
+  fake.setChecks([{ status: 'completed', conclusion: 'failure' }, { status: 'in_progress', conclusion: null }]);
+  await assert.rejects(repo.publishRelease(staged.release), error => error.code === 'checks_failed');
+  fake.setChecks([{ status: 'completed', conclusion: 'success' }]);
+  fake.setStatuses([{ state: 'failure' }, { state: 'pending' }]);
+  await assert.rejects(repo.publishRelease(staged.release), error => error.code === 'checks_failed');
   assert.equal(fake.calls.some(call => call.route.endsWith('/merge')), false);
 });
 
