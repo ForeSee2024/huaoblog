@@ -15,6 +15,10 @@ import { settingsView, settingsPreview } from "./settings-view.js";
 import { editorView } from "./editor-view.js";
 import { filterPosts, parseTags } from "./view-model.js";
 import { postKey } from './bulk-model.js';
+import { publishWhenReady, isDeletionPublication } from './publication.js';
+import { SYSTEM_CATALOG, TOOL_CATALOG, MAX_PROFILE_TOOLS } from '../data/profile-catalog.js';
+import { profileMatches, toggleProfileItem, moveProfileItem } from './profile-selection.js';
+import { profileSelectedItems } from './profile-view.js';
 
 const config = JSON.parse(document.body.dataset.connection);
 const initialSettings = JSON.parse(document.body.dataset.settings);
@@ -269,17 +273,39 @@ async function deleteItems(kind, items) {
   const articles = kind === 'posts';
   const names = items.map(item => articles ? `${item.data.title || item.slug}（${item.status === 'draft' ? '草稿' : '已发表'}）` : item.name);
   const summary = `<ul class="batch-summary">${names.slice(0, 8).map(name => `<li>${e(name)}</li>`).join('')}</ul>${names.length > 8 ? `<p class="field-hint">另有 ${names.length - 8} 项，共 ${names.length} 项。</p>` : ''}`;
-  const detail = config.local ? '所选内容将从本地工作区移除。' : articles ? '草稿会从工作区撤回，已发表版本保留；已发表文章会集中提交删除变更，检查并发布后前台移除。' : '正在使用的图片会受到保护；已上线图片提交删除变更后，检查并发布才会正式移除。';
-  if (!await ask(`删除 ${items.length} ${articles ? '篇内容' : '张图片'}？`, `<p class="dialog-copy">${detail}</p>${summary}`, '确认删除', true)) return;
+  const detail = config.local ? '所选内容将从本地工作区移除。' : articles ? '草稿会从工作区撤回，已发表版本保留。已发表文章将在检查通过后自动删除并发布，网站随后更新。' : '正在使用的图片会受到保护。已上线图片将在检查通过后自动删除并发布；待发布图片从工作区撤回。';
+  if (!await ask(`删除 ${items.length} ${articles ? '篇内容' : '张图片'}？`, `<p class="dialog-copy">${detail}</p>${summary}`, config.local ? '确认删除' : '删除并发布', true)) return;
   const result = await (articles ? repository.deletePosts(items) : repository.deleteMediaBatch(items));
   await readWorkspace(result.state);
   const selected = articles ? selectedPosts : selectedMedia;
   selected.clear();
   for (const item of result.failed || []) selected.add(articles ? postKey(item) : item.name);
   await render(currentRoute);
-  const completed = result.deleted.length, pending = (result.releases || []).some(item => item.state === 'review');
-  if (result.failed?.length) showError(new Error(`已处理 ${completed} 项，${result.failed.length} 项未完成：${result.failed[0].error}${result.refreshRequired ? ' 请刷新状态确认结果后重试。' : ' 失败内容已保留选择，可重试。'}`));
-  else toast(pending ? `已提交 ${completed} 项删除变更，前往“发布与连接”完成发布` : `已移除 ${completed} 项内容`);
+  let published = false, publicationError;
+  for (const release of (result.releases || []).filter(isDeletionPublication)) {
+    try {
+      const publication = await publishWhenReady(repository, release, {onProgress:reportOperation});
+      await readWorkspace(publication.state);
+      published = true;
+    } catch (error) {
+      publicationError = error;
+      await readWorkspace();
+      break;
+    }
+  }
+  await render(currentRoute);
+  const completed = result.deleted.length;
+  if (publicationError) showError(new Error(`删除变更已保存，发布尚未完成：${publicationError.message} 请前往“发布与连接”继续。`));
+  else if (result.failed?.length) showError(new Error(`已处理 ${completed} 项，${result.failed.length} 项未完成：${result.failed[0].error}${result.refreshRequired ? ' 请刷新状态确认结果后重试。' : ' 失败内容已保留选择，可重试。'}`));
+  else if (published) { toast(`已发布 ${completed} 项删除，网站正在自动更新`); publicationNotice('删除已发布，正在等待网站构建更新。'); }
+  else toast(`已移除 ${completed} 项内容`);
+}
+function publicationNotice(message) {
+  document.getElementById('publication-notice')?.remove();
+  const element = document.createElement('div');
+  element.id = 'publication-notice';
+  element.innerHTML = notice(`${message}可以打开前台查看，完整部署记录在“发布与连接”中。`);
+  main.prepend(element);
 }
 function showError(error) {
   const message = error?.message || "操作未完成，请重试。";
@@ -530,6 +556,9 @@ async function render(route) {
       ?.replaceChildren(document.createTextNode("有未保存的配置"));
   }
   document.title = `${titles[page] || "文章编辑"} · ${data.settings.identity.brand}`;
+  main.querySelectorAll('#article-form,#settings-form').forEach(form => {
+    form.inert = saving;
+  });
   syncSelectionControls();
   observeMedia();
   if (navWasOpen) main.focus();
@@ -587,6 +616,46 @@ function gatherSettings() {
           : control.value,
     );
   return editingSettings;
+}
+function filterProfileCatalog(kind, query) {
+  const picker = main.querySelector(`[data-profile-picker="${kind}"]`);
+  if (!picker) return;
+  const catalog = kind === 'systems' ? SYSTEM_CATALOG : TOOL_CATALOG;
+  const entries = new Map(catalog.map(item => [item.id,item]));
+  let count = 0;
+  for (const card of picker.querySelectorAll('[data-profile-card]')) {
+    card.hidden = !profileMatches(entries.get(card.dataset.profileCard),query);
+    if (!card.hidden) count++;
+  }
+  for (const group of picker.querySelectorAll('[data-profile-group]')) {
+    group.hidden = ![...group.querySelectorAll('[data-profile-card]')].some(card => !card.hidden);
+    if (query.trim() && !group.hidden) group.open = true;
+  }
+  picker.querySelector('[data-profile-no-results]').hidden = count > 0;
+}
+function updateProfileControls(kind) {
+  const picker = main.querySelector(`[data-profile-picker="${kind}"]`);
+  if (!picker) return;
+  const items = kind === 'systems' ? editingSettings.about.operatingSystems : editingSettings.about.tools;
+  const selected = new Set(kind === 'systems' ? items : items.map(item=>item.icon));
+  for (const input of picker.querySelectorAll('[data-profile-item]')) {
+    input.checked = selected.has(input.dataset.profileItem);
+    input.closest('[data-profile-card]').classList.toggle('selected',input.checked);
+  }
+  for (const group of picker.querySelectorAll('[data-profile-group]')) {
+    const inputs = [...group.querySelectorAll('[data-profile-item]')];
+    group.querySelector('[data-profile-group-count]').textContent = `${inputs.filter(input=>input.checked).length} 已选 / ${inputs.length}`;
+  }
+  picker.querySelector('[data-profile-total]').textContent = String(items.length);
+  picker.querySelector('.profile-selected-list').innerHTML = profileSelectedItems(editingSettings.about,kind);
+  const custom = picker.querySelector('[data-action="add-about-tool"]');
+  if (custom) custom.disabled = items.length >= MAX_PROFILE_TOOLS;
+  updateSettingsPreview();
+}
+function updateSettingsPreview() {
+  const preview = document.getElementById('settings-preview');
+  if (preview) preview.innerHTML = settingsPreview(editingSettings,resolveImage,currentRoute.split('/')[1]);
+  observeMedia();
 }
 function updateCharacterCount() {
   const count = (activePost?.body || "").replace(/\s/g, "").length;
@@ -817,20 +886,44 @@ async function saveArticle(publish = false) {
       : "草稿已保存",
   );
 }
-async function saveConfiguration() {
+function settingsFormIsValid() {
   const form = document.getElementById("settings-form");
-  if (!form.reportValidity()) return;
+  if (!form) return false;
+  for (const control of form.querySelectorAll('[name]:invalid')) {
+    for (let parent = control.parentElement; parent && parent !== form; parent = parent.parentElement) {
+      if (parent.tagName === 'DETAILS') parent.open = true;
+    }
+  }
+  return form.reportValidity();
+}
+async function saveConfiguration() {
   const settings = validateSettings(gatherSettings());
   const result = await repository.saveSettings(settings);
   dirty = false;
   await readWorkspace(result.state);
   editingSettings = copy(result.settings || data.settings);
   await render(currentRoute);
-  toast(config.local ? "配置已保存，前台已更新" : "配置已提交到待发布变更");
+  if (!config.local && result.release?.state === 'review') {
+    try {
+      const publication = await publishWhenReady(repository,result.release,{onProgress:reportOperation});
+      await readWorkspace(publication.state);
+      editingSettings = copy(data.settings);
+      await render(currentRoute);
+      toast('配置已发布，网站正在自动更新');
+      publicationNotice('配置已发布，正在等待网站构建更新。');
+    } catch (error) {
+      await readWorkspace();
+      editingSettings = copy(data.settings);
+      await render(currentRoute);
+      throw new Error(`配置已保存，发布尚未完成：${error.message} 请前往“发布与连接”继续。`);
+    }
+  } else toast(config.local ? "配置已保存，前台已更新" : "配置已保存");
 }
 
 main.addEventListener("input", (event) => {
   if (saving) return;
+  if (event.target.dataset.profileSearch) { filterProfileCatalog(event.target.dataset.profileSearch,event.target.value); return; }
+  if (event.target.hasAttribute('data-profile-item')) return;
   if (event.target.closest("#article-form")) {
     gatherPost();
     markDirty();
@@ -872,6 +965,16 @@ main.addEventListener("input", (event) => {
 main.addEventListener("change", (event) => {
   if (saving) return;
   const target = event.target;
+  if (target.dataset.profileSearch) return;
+  if (target.hasAttribute('data-profile-item')) {
+    gatherSettings();
+    try {
+      editingSettings.about = toggleProfileItem(editingSettings.about,target.dataset.profileKind,target.dataset.profileItem,target.checked);
+      markDirty();
+      updateProfileControls(target.dataset.profileKind);
+    } catch (error) { target.checked = !target.checked; showError(error); }
+    return;
+  }
   if (target.matches('[data-select-post],[data-select-media],[data-select-all]')) {
     const kind = target.dataset.selectAll || (target.hasAttribute('data-select-post') ? 'posts' : 'media');
     const selected = kind === 'posts' ? selectedPosts : selectedMedia, key = kind === 'posts' ? postKey : item => item.name;
@@ -910,6 +1013,7 @@ main.addEventListener("click", async (event) => {
   const target = event.target.closest("[data-action]");
   if (!target || saving) return;
   const action = target.dataset.action;
+  if (action === 'save-settings' && !settingsFormIsValid()) return;
   const mutation = [
     "save-post",
     "publish-post",
@@ -1124,11 +1228,32 @@ main.addEventListener("click", async (event) => {
           "检查并发布",
         )
       ) {
-        const result = await repository.publishRelease(release);
+        const result = await publishWhenReady(repository,release,{onProgress:reportOperation});
         await readWorkspace(result.state);
         await render(currentRoute);
         toast("变更已合并，请在 Cloudflare 确认部署");
       }
+    } else if (action === 'move-profile-item' || action === 'remove-profile-item' || action === 'add-about-tool') {
+      gatherSettings();
+      const kind = action === 'add-about-tool' ? 'tools' : target.dataset.kind;
+      const index = Number(target.dataset.index);
+      const field = kind === 'systems' ? 'operatingSystems' : 'tools';
+      if (action === 'move-profile-item') editingSettings.about = moveProfileItem(editingSettings.about,kind,index,target.dataset.direction);
+      else if (action === 'add-about-tool') {
+        if (editingSettings.about.tools.length >= MAX_PROFILE_TOOLS) throw new Error(`技能与工具最多 ${MAX_PROFILE_TOOLS} 项。`);
+        editingSettings.about.tools.push({name:'',icon:'code',description:''});
+      } else editingSettings.about[field].splice(index,1);
+      markDirty();
+      updateProfileControls(kind);
+      const next = action === 'move-profile-item' ? index + (target.dataset.direction === 'up' ? -1 : 1) : action === 'add-about-tool' ? editingSettings.about.tools.length - 1 : Math.min(index,editingSettings.about[field].length-1);
+      const focus = action === 'add-about-tool'
+        ? main.querySelector(`[name="about.tools.${next}.name"]`)
+        : action === 'move-profile-item'
+          ? main.querySelector(`[data-action="move-profile-item"][data-kind="${kind}"][data-index="${next}"][data-direction="${target.dataset.direction}"]:not(:disabled)`)
+            || main.querySelector(`[data-action="move-profile-item"][data-kind="${kind}"][data-index="${next}"]:not(:disabled)`)
+          : main.querySelector(`[data-action="remove-profile-item"][data-kind="${kind}"][data-index="${next}"]`)
+            || main.querySelector(`[data-profile-search="${kind}"]`);
+      focus?.focus();
     } else if (action === "select-accent") {
       editingSettings.appearance.accent = target.dataset.accent;
       markDirty();
@@ -1139,10 +1264,6 @@ main.addEventListener("click", async (event) => {
         "remove-social",
         "add-friend",
         "remove-friend",
-        "add-about-tool",
-        "remove-about-tool",
-        "add-about-system",
-        "remove-about-system",
         "move-nav",
       ].includes(action)
     ) {
@@ -1164,14 +1285,6 @@ main.addEventListener("click", async (event) => {
           avatar: "",
         });
       if (action === "remove-friend") editingSettings.friends.splice(index, 1);
-      if (action === "add-about-tool" && editingSettings.about.tools.length < 12)
-        editingSettings.about.tools.push({ name: "", description: "", icon: "code" });
-      if (action === "remove-about-tool") editingSettings.about.tools.splice(index, 1);
-      if (action === "add-about-system" && editingSettings.about.operatingSystems.length < 3) {
-        const key = ["macos", "windows", "linux"].find(key => !editingSettings.about.operatingSystems.includes(key));
-        if (key) editingSettings.about.operatingSystems.push(key);
-      }
-      if (action === "remove-about-system") editingSettings.about.operatingSystems.splice(index, 1);
       if (action === "move-nav") {
         const next = index + Number(target.dataset.direction);
         if (next >= 0 && next < editingSettings.navigation.length)
@@ -1250,6 +1363,7 @@ document.addEventListener("keydown", (event) => {
   ) {
     event.preventDefault();
     if (saving) return;
+    if (!activePost && !settingsFormIsValid()) return;
     setSaving(true);
     (activePost ? saveArticle() : saveConfiguration())
       .catch(showError)
