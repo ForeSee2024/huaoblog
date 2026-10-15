@@ -5,12 +5,11 @@ import {
   toggle,
   section,
   safeImage,
-  icon,
 } from "./ui.js";
 import { pageHeading } from "./views.js";
-const toolIcons = [["typescript", "TypeScript"], ["python", "Python"], ["astro", "Astro"], ["cloudflare", "Cloudflare"], ["zotero", "Zotero"], ["obsidian", "Obsidian"], ["code", "通用代码"], ["terminal", "终端"], ["cloud", "云服务"], ["book", "文献"], ["notebook", "笔记"], ["monitor", "设备"]];
-const systemIcons = [["macos", "macOS"], ["windows", "Windows"], ["linux", "Linux"]];
-const previewBadge = (name, key) => `<span>${[...toolIcons.slice(0, 6), ...systemIcons].some(([value]) => value === key) ? `<img src="/images/profile-icons/${key}.svg" alt="" />` : icon(key)}<small>${e(name)}</small></span>`;
+import { SYSTEM_CATALOG } from '../data/profile-catalog.js';
+import { profilePicker, profilePreviewBadge as previewBadge } from './profile-view.js';
+const systemIcons = SYSTEM_CATALOG.map(item => [item.id,item.name]);
 const socialIcons = [
   ["link", "网址"],
   ["github", "GitHub"],
@@ -254,14 +253,12 @@ export function settingsView(settings, tab, local, image) {
       ),
     ) + section(
       "个人用系统",
-      "只展示实际使用的系统，按图标行排列；清空后隐藏。",
-      (settings.about.operatingSystems || []).map((key, index) => `<div class="repeater-row"><div class="repeater-bar"><strong>系统 ${index + 1}</strong>${button("移除", "remove-about-system", "delete", "quiet", `data-index="${index}"`)}</div>${f("操作系统", `about.operatingSystems.${index}`, key, { choices: systemIcons })}</div>`).join("") + button("添加系统", "add-about-system", "plus", "secondary", (settings.about.operatingSystems || []).length >= 3 ? "disabled" : ""),
+      "直接点选系统图标，前台只展示已选项目。可调整顺序，清空后隐藏。",
+      profilePicker(settings.about,'systems'),
     ) + section(
       "技能与工具",
-      "使用品牌图标排列，保留主要技能与工具即可。清空后隐藏。",
-      (settings.about.tools || []).map((tool, index) =>
-        `<div class="repeater-row"><div class="repeater-bar"><strong>工具 ${index + 1}</strong>${button("移除", "remove-about-tool", "delete", "quiet", `data-index="${index}"`)}</div>${grid(f("工具名称", `about.tools.${index}.name`, tool.name, { required: true, max: 80 }) + f("图标", `about.tools.${index}.icon`, tool.icon, { choices: toolIcons }) + f("简短说明", `about.tools.${index}.description`, tool.description, { wide: true, max: 160, hint: "作为图标提示显示，页面不展开工具说明清单。" }))}</div>`
-      ).join("") + button("添加工具", "add-about-tool", "plus", "secondary", (settings.about.tools || []).length >= 12 ? "disabled" : ""),
+      "主流语言、框架与应用已内置。搜索或展开分类，直接点选图标即可展示，名称自动填写。",
+      profilePicker(settings.about,'tools'),
     ) + section(
       "GitHub 详情",
       "展示公开资料与仓库语言统计。",
@@ -303,5 +300,5 @@ export function settingsView(settings, tab, local, image) {
       ),
     );
   }
-  return `${pageHeading("站点配置", "前台内容与外观，在这里统一维护。")}<div class="settings-tabs">${tabs.map(([id, label]) => `<a href="#/settings/${id}" class="${id === tab ? "active" : ""}" ${id === tab ? 'aria-current="page"' : ""}>${label}</a>`).join("")}</div><form id="settings-form"><div class="settings-layout"><div>${content}<div class="save-bar"><p id="settings-save-state">${local ? "保存后更新本地前台。" : "保存后创建待发布变更。"}</p>${button("保存配置", "save-settings", "save", "primary")}</div></div><aside id="settings-preview" class="settings-preview">${settingsPreview(settings, image, tab)}</aside></div></form>`;
+  return `${pageHeading("站点配置", "前台内容与外观，在这里统一维护。")}<div class="settings-tabs">${tabs.map(([id, label]) => `<a href="#/settings/${id}" class="${id === tab ? "active" : ""}" ${id === tab ? 'aria-current="page"' : ""}>${label}</a>`).join("")}</div><form id="settings-form"><div class="settings-layout"><div>${content}<div class="save-bar"><p id="settings-save-state">${local ? "保存后更新本地前台。" : "保存后自动等待检查并发布，网站随后更新。"}</p>${button(local ? "保存配置" : "保存并发布", "save-settings", "save", "primary")}</div></div><aside id="settings-preview" class="settings-preview">${settingsPreview(settings, image, tab)}</aside></div></form>`;
 }

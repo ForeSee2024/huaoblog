@@ -35,9 +35,9 @@ export interface SiteSettings {
     body: string;
     introduction?: string;
     languages?: string;
-    operatingSystems?: Array<'macos' | 'windows' | 'linux'>;
+    operatingSystems?: string[];
     coverImage?: string;
-    tools?: Array<{ name: string; description: string; icon: 'typescript' | 'python' | 'astro' | 'cloudflare' | 'zotero' | 'obsidian' | 'code' | 'terminal' | 'cloud' | 'book' | 'notebook' | 'monitor' }>;
+    tools?: Array<{ name: string; description: string; icon: string }>;
     githubEnabled?: boolean;
   };
   friends: Array<{ name: string; url: string; description: string; avatar?: string }>;

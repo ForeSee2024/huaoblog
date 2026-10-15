@@ -1,9 +1,10 @@
 import { ContentError, safeUrl, textField } from './content-model.js';
+import { MAX_PROFILE_SYSTEMS, MAX_PROFILE_TOOLS, PROFILE_GENERIC_ICONS, SYSTEM_CATALOG, TOOL_CATALOG } from '../data/profile-catalog.js';
 
 export const THEMES = ['system', 'light', 'dark'];
 export const ACCENTS = ['cyberblue', 'neoncyan', 'violet', 'lumine'];
-export const ABOUT_TOOL_ICONS = ['typescript', 'python', 'astro', 'cloudflare', 'zotero', 'obsidian', 'code', 'terminal', 'cloud', 'book', 'notebook', 'monitor'];
-export const ABOUT_SYSTEMS = ['macos', 'windows', 'linux'];
+export const ABOUT_TOOL_ICONS = [...TOOL_CATALOG.map(item => item.id), ...PROFILE_GENERIC_ICONS.map(([id]) => id)];
+export const ABOUT_SYSTEMS = SYSTEM_CATALOG.map(item => item.id);
 
 function object(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ContentError(`${label}格式不正确。`);
@@ -61,11 +62,11 @@ export function validateSettings(input) {
       languages: textField(about.languages, '使用语言', 200),
       operatingSystems: (() => {
         const items = about.operatingSystems ?? [];
-        if (!Array.isArray(items) || items.length > 8 || items.some(item => !ABOUT_SYSTEMS.includes(item))) throw new ContentError('请选择有效的个人用系统，最多 8 项。');
+        if (!Array.isArray(items) || items.length > MAX_PROFILE_SYSTEMS || items.some(item => !ABOUT_SYSTEMS.includes(item))) throw new ContentError(`请选择有效的个人用系统，最多 ${MAX_PROFILE_SYSTEMS} 项。`);
         return [...new Set(items)];
       })(),
       coverImage: safeUrl(about.coverImage ?? '', { label: '关于页封面' }),
-      tools: list(about.tools ?? [], '常用工具', 12, item => {
+      tools: list(about.tools ?? [], '常用工具', MAX_PROFILE_TOOLS, item => {
         if (!ABOUT_TOOL_ICONS.includes(item.icon)) throw new ContentError('请选择有效的工具图标。');
         return { name: textField(item.name, '工具名称', 80, true), description: textField(item.description, '工具说明', 160), icon: item.icon };
       }),

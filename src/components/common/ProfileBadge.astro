@@ -1,12 +1,15 @@
 ---
 import ProfileIcon from './ProfileIcon.astro';
+import { profileIconSrc, SYSTEM_CATALOG, TOOL_CATALOG } from '../../data/profile-catalog.js';
 interface Props { name: string; icon: string; description?: string; }
 const { name, icon, description } = Astro.props;
-const brands = ['typescript', 'python', 'astro', 'cloudflare', 'zotero', 'obsidian', 'macos', 'windows', 'linux'];
+const source = profileIconSrc(icon);
+const entry = [...SYSTEM_CATALOG,...TOOL_CATALOG].find(item => item.id === icon);
+const fallback = entry && 'fallback' in entry ? entry.fallback || icon : icon;
 ---
 <li class="about-badge" title={description || name}>
   <span class:list={['about-badge-icon', { 'about-badge-zotero': icon === 'zotero' }]} aria-hidden="true">
-    {brands.includes(icon) ? <img src={`/images/profile-icons/${icon}.svg`} alt="" width="56" height="56" loading="lazy" /> : <ProfileIcon name={icon as 'code'} />}
+    {source ? <img src={source} alt="" width="56" height="56" loading="lazy" /> : <ProfileIcon name={fallback as 'code'} />}
   </span>
   <span>{name}</span>
 </li>
