@@ -56,11 +56,21 @@ test('profile configuration rejects unsafe covers and malformed tool entries', (
     { coverImage: '//evil.example/cover.png' },
     { tools: [{ name: 'Python', description: '', icon: '<svg>' }] },
     { tools: [{ name: '', description: '', icon: 'code' }] },
-    { tools: Array.from({ length: 13 }, () => ({ name: 'Python', description: '', icon: 'code' })) },
+    { tools: Array.from({ length: 61 }, () => ({ name: 'Python', description: '', icon: 'code' })) },
     { githubEnabled: 'false' },
     { operatingSystems: ['<svg>'] },
     { operatingSystems: 'macos' },
-    { operatingSystems: Array(9).fill('macos') },
+    { operatingSystems: Array(17).fill('macos') },
     { introduction: 'x'.repeat(301) },
   ]) assert.throws(() => model.validateSettings({ ...canonical, about: { ...canonical.about, ...patch } }));
+});
+
+test('expanded profile catalogs accept common entries and the current selection limits', () => {
+  const systems = ['macos', 'windows', 'linux', 'ubuntu', 'debian', 'arch', 'fedora', 'kali', 'linux-mint', 'android', 'ios', 'ipados', 'freebsd', 'nixos', 'opensuse', 'alpine'];
+  const tools = Array.from({ length: 60 }, (_, index) => ({ name: `工具 ${index + 1}`, description: '', icon: index === 0 ? 'rust' : 'code' }));
+  const about = { ...canonical.about, operatingSystems: systems, tools };
+  assert.deepEqual(model.validateSettings({ ...canonical, about }).about, about);
+  for (const icon of ['code', 'terminal', 'cloud', 'book', 'notebook', 'monitor', 'vscode', 'react', 'docker', 'zotero', 'nmap']) assert.ok(model.ABOUT_TOOL_ICONS.includes(icon), `${icon} is missing from the allowed icons`);
+  assert.equal(new Set(model.ABOUT_TOOL_ICONS).size, model.ABOUT_TOOL_ICONS.length);
+  assert.deepEqual(model.ABOUT_SYSTEMS, systems);
 });

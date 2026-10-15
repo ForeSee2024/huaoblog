@@ -628,6 +628,43 @@ export function createRepository(config, deps = {}) {
     const source = normalizePercentEncoding(JSON.stringify(value));
     for (const match of source.matchAll(/\/images\/posts\/([a-zA-Z0-9._-]+\.(?:png|jpe?g|gif|webp|avif))/gi)) if (!workspace.entries.has(mediaPath(match[1]))) throw new ContentError(`图片 ${match[1]} 尚未包含在当前发布中。`);
   }
+  async function prepareRelease(input) {
+    if (!input || !Number.isInteger(input.id) || input.id < 1 || typeof input.sha !== 'string') throw new ContentError('发布版本格式不正确，请刷新列表。');
+    const pr = await api(`/pulls/${input.id}`);
+    if (pr.head.sha !== input.sha || pr.head.ref !== input.branch || pr.state !== 'open' || pr.draft) conflict();
+    if (pr.mergeable_state !== 'behind') return release(pr);
+    const selected = await checkPublication(pr);
+    const files = await filesFor(pr, lastState?.main.head);
+    const main = await snapshot(branch);
+    const expected = new Map(main.entries);
+    for (const file of files) {
+      if (file.status === 'removed') expected.delete(file.filename);
+      else {
+        const entry = selected.entries.get(file.filename);
+        if (!entry) conflict();
+        expected.set(file.filename, entry);
+      }
+    }
+    progress('正在同步发布分支与最新网站版本…');
+    await api(`/pulls/${pr.number}/update-branch`, { method: 'PUT', body: { expected_head_sha: pr.head.sha } });
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const current = await api(`/pulls/${pr.number}`);
+      if (current.head.ref !== input.branch || current.state !== 'open' || current.draft) conflict();
+      if (current.head.sha !== input.sha) {
+        const commit = await api(`/git/commits/${current.head.sha}`);
+        const parents = (commit.parents || []).map(parent => typeof parent === 'string' ? parent : parent?.sha);
+        if (parents.length !== 2 || !parents.includes(input.sha) || !parents.includes(main.head)) conflict();
+        const updated = await checkPublication(current);
+        if (updated.entries.size !== expected.size || [...expected].some(([path, entry]) => {
+          const actual = updated.entries.get(path);
+          return actual?.sha !== entry.sha || actual?.mode !== entry.mode;
+        })) conflict();
+        return release(current);
+      }
+      await (deps.delay || (ms => new Promise(resolve => setTimeout(resolve, ms))))(1000);
+    }
+    throw new ContentError('发布分支正在更新，请刷新待发布列表后继续。', 409, 'checks_pending');
+  }
   async function publishRelease(input) {
     if (!Number.isInteger(input.id) || input.id < 1 || typeof input.sha !== 'string') throw new ContentError('发布版本格式不正确，请刷新列表。');
     const pr = await api(`/pulls/${input.id}`);
@@ -636,8 +673,8 @@ export function createRepository(config, deps = {}) {
     progress('正在核对发布内容与构建检查…');
     const [, checks, statuses] = await Promise.all([checkPublication(pr), pages(`/commits/${pr.head.sha}/check-runs?filter=latest`, 'check_runs'), pages(`/commits/${pr.head.sha}/status`, 'statuses')]);
     if (!checks.length && !statuses.length) throw new ContentError('此提交尚无构建检查结果，无法确认可以发布。', 409, 'checks_pending');
+    if (checks.some(check => check.status === 'completed' && !['success', 'neutral', 'skipped'].includes(check.conclusion)) || statuses.some(item => !['success', 'pending'].includes(item.state))) throw new ContentError('发布检查未通过，请打开 PR 查看失败原因。', 409, 'checks_failed');
     if (checks.some(check => check.status !== 'completed') || statuses.some(item => item.state === 'pending')) throw new ContentError('发布检查仍在运行，请等待完成后重试。', 409, 'checks_pending');
-    if (checks.some(check => !['success', 'neutral', 'skipped'].includes(check.conclusion)) || statuses.some(item => item.state !== 'success')) throw new ContentError('发布检查未通过，请打开 PR 查看失败原因。', 409, 'checks_failed');
     if (pr.mergeable !== true || pr.mergeable_state !== 'clean') throw new ContentError('GitHub 分支保护、评审或合并条件尚未满足，请打开 PR 处理。', 409, 'merge_blocked');
     progress('检查已通过，正在合并发布…');
     const result = await api(`/pulls/${pr.number}/merge`, { method: 'PUT', body: { sha: pr.head.sha, merge_method: 'merge' } });
@@ -692,6 +729,7 @@ export function createRepository(config, deps = {}) {
     uploadMedia: file => mutate(() => uploadMedia(file)),
     deleteMedia: media => mutate(() => deleteMedia(media)), getMediaPreview,
     deleteMediaBatch: media => mutate(() => deleteMediaBatch(media)),
-    publishRelease: value => mutate(() => publishRelease(value)), login, logout,
+    publishRelease: value => mutate(() => publishRelease(value)),
+    prepareRelease: value => mutate(() => prepareRelease(value)), login, logout,
   };
 }

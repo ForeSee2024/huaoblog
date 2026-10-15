@@ -7,6 +7,7 @@ import { settings, site, safeExternalHref, safeImageSrc } from '../config/site';
 import { renderMarkdownPreview } from '../lib/markdown-preview.js';
 import { loadGitHubProfile } from '../lib/github-profile.js';
 import githubSnapshot from '../data/github-profile.json';
+import { SYSTEM_CATALOG } from '../data/profile-catalog.js';
 import '../styles/about.css';
 
 const { about } = settings;
@@ -21,7 +22,7 @@ const github = socials.find(link => {
 const githubName = github && new URL(github.url).pathname.replaceAll('/', '');
 const showGithub = about.githubEnabled !== false && githubName;
 const stats = showGithub ? await loadGitHubProfile(githubName, githubSnapshot) : undefined;
-const systemNames = { macos: 'macOS', windows: 'Windows', linux: 'Linux' };
+const systemNames: Record<string,string> = Object.fromEntries(SYSTEM_CATALOG.map(item => [item.id,item.name]));
 const systems = (about.operatingSystems || []).filter(key => key in systemNames);
 const languages = stats?.languages || [];
 const colors: Record<string, string> = { CSS: '#a78bfa', JavaScript: '#facc15', TypeScript: '#60a5fa', Python: '#34d399', HTML: '#fb923c', Rust: '#f87171' };
