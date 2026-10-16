@@ -7,13 +7,15 @@ import SearchModal from '../components/common/SearchModal.astro';
 import Toast from '../components/common/Toast.astro';
 import '../styles/global.css';
 import 'katex/dist/katex.min.css';
-import { safeExternalHref, settings, site } from '../config/site';
+import { safeExternalHref, siteFor } from '../config/site';
 
 interface Props {
   title?: string;
   description?: string;
 }
 
+const settings = Astro.locals.siteSettings;
+const site = siteFor(settings);
 const {
   title = site.name,
   description = site.description

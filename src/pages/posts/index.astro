@@ -4,10 +4,11 @@ import Sidebar from '../../components/layout/Sidebar.astro';
 import PostCard from '../../components/post/PostCard.astro';
 import { getPublishedPosts } from '../../utils/posts';
 import { sortFeedPosts } from '../../utils/post-filters';
-import { categories } from '../../config/site';
-const posts = sortFeedPosts(await getPublishedPosts());
+import { categories, siteFor } from '../../config/site';
+const site = siteFor(Astro.locals.siteSettings);
+const posts = sortFeedPosts(await getPublishedPosts(Astro.locals.services.store));
 ---
-<BaseLayout title="技术博文 | HuaOvO · 胡敖的技术笔记">
+<BaseLayout title={`技术博文 | ${site.name}`}>
   <div class="flex flex-col lg:flex-row gap-8 items-start">
     <Sidebar />
     <main class="w-full lg:flex-1 flex flex-col gap-6 min-w-0 order-1 lg:order-2">
@@ -52,7 +53,7 @@ const posts = sortFeedPosts(await getPublishedPosts());
       if (!value || !active) continue;
       const button = document.createElement('button');
       button.type = 'button'; button.className = 'post-filter'; button.textContent = `${label}：${value} · 清除`;
-      button.addEventListener('click', () => updateFilter(key, '')); active.append(button);
+      button.addEventListener('click', () => updateFilter(key, '')); active.appendChild(button);
     }
   }
   function updateFilter(key: string, value: string) {

@@ -1,17 +1,20 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import TableOfContents from '../components/post/TableOfContents.astro';
-import type { CollectionEntry } from 'astro:content';
-import { formatDate } from '../utils/posts';
-interface Props { post: CollectionEntry<'posts'>; headings: { depth: number; slug: string; text: string }[]; }
+import { formatDate, type BlogPost } from '../utils/posts';
+import { safeExternalHref, safeImageSrc, siteFor } from '../config/site';
+interface Props { post: BlogPost; headings: { depth: number; slug: string; text: string }[]; }
 const { post, headings } = Astro.props;
 const { title, description, pubDate, category, tags, views, coverImage, series, extraMeta } = post.data;
+const site = siteFor(Astro.locals.siteSettings);
+const cover = safeImageSrc(coverImage || '');
+const repoHref = safeExternalHref(extraMeta?.repoUrl || '');
 ---
-<BaseLayout title={`${title} | HuaOvO · 胡敖的技术笔记`} description={description}>
+<BaseLayout title={`${title} | ${site.name}`} description={description}>
   <div class="flex flex-col xl:flex-row gap-8 items-start">
     <main class="w-full xl:flex-1 min-w-0">
       <header class="post-intro">
-        {coverImage && <img src={coverImage} alt="" class="post-cover" />}
+        {cover && <img src={cover} alt="" class="post-cover" />}
         <div class="post-intro-content">
           <div class="post-meta">
             <a href={`/posts?cat=${encodeURIComponent(category)}`} class="post-category">{category}</a>
@@ -19,16 +22,16 @@ const { title, description, pubDate, category, tags, views, coverImage, series, 
             {views && <span>{views} 次阅读</span>}
             {extraMeta?.targetEvent && <span>{extraMeta.targetEvent}</span>}
           </div>
-          <h1 class="post-heading" data-pagefind-meta="title">{title}</h1>
+          <h1 class="post-heading">{title}</h1>
           <p class="post-summary">{description}</p>
         </div>
       </header>
-      <article class="article-prose post-body-surface" data-pagefind-body><slot /></article>
+      <article class="article-prose post-body-surface"><slot /></article>
       <footer class="cyber-card p-6 mt-6 flex flex-col gap-4">
         <div class="post-tags">{tags.map(tag => <a href={`/posts?tag=${encodeURIComponent(tag)}`}>#{tag}</a>)}</div>
         {series && <a href={`/posts?series=${encodeURIComponent(series)}`} class="text-sm text-[var(--accent)]">连载系列：{series}</a>}
         <div class="flex flex-wrap gap-4 text-sm">
-          {extraMeta?.repoUrl && <a href={extraMeta.repoUrl} target="_blank" rel="noopener noreferrer" class="text-[var(--accent)]">配套代码仓库</a>}
+          {repoHref && <a href={repoHref} target="_blank" rel="noopener noreferrer" class="text-[var(--accent)]">配套代码仓库</a>}
           {extraMeta?.paperDoi && <span class="text-[var(--text-muted)]">DOI：{extraMeta.paperDoi}</span>}
           <a href="/posts" class="text-[var(--accent)] ml-auto">返回文章列表</a>
         </div>

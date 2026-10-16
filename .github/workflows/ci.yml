@@ -31,5 +31,8 @@ jobs:
       - name: Verify Content, Preview and OAuth Behavior
         run: npm test
 
-      - name: Run Production Static Build & Pagefind Indexing
-        run: npm run build
+      - name: Build Independent Node Application
+        run: npm run test:node
+
+      - name: Build Cloudflare Worker
+        run: npm run build:cloudflare

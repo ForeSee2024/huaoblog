@@ -1,7 +1,3 @@
----
-import { getPublishedPosts } from '../../utils/posts';
-const fallback = (await getPublishedPosts()).map(post => ({ title: post.data.title, category: post.data.category, tags: post.data.tags, url: `/posts/${post.slug}/`, excerpt: post.data.description }));
----
 <dialog id="site-search" aria-labelledby="search-title" class="cyber-card">
   <header class="search-heading"><h2 id="search-title">搜索文章</h2><button type="button" id="search-close" aria-label="关闭搜索">关闭 <kbd>Esc</kbd></button></header>
   <label class="sr-only" for="search-input">搜索关键词</label>
@@ -9,64 +5,63 @@ const fallback = (await getPublishedPosts()).map(post => ({ title: post.data.tit
   <p id="search-state" role="status">输入关键词，开始查找文章。</p>
   <div id="search-results-list"></div>
 </dialog>
-<script type="application/json" id="article-search-data" set:html={JSON.stringify(fallback).replace(/</g, '\\u003c')} />
 <script>
-  interface SearchItem { url: string; excerpt: string; meta?: { title?: string }; title?: string; category?: string; tags?: string[]; }
-  interface Pagefind { init?: () => Promise<void>; search: (query: string) => Promise<{ results: { data: () => Promise<SearchItem> }[] }>; }
+  interface SearchItem { url: string; title: string; excerpt: string; }
   const dialog = document.getElementById('site-search') as HTMLDialogElement;
   const input = document.getElementById('search-input') as HTMLInputElement;
   const list = document.getElementById('search-results-list')!;
   const status = document.getElementById('search-state')!;
-  const fallback: SearchItem[] = JSON.parse(document.getElementById('article-search-data')?.textContent || '[]');
-  let enginePromise: Promise<Pagefind | null> | undefined;
+  let pending: AbortController | undefined;
   let timer: ReturnType<typeof setTimeout>;
   let revision = 0;
   let previousFocus: HTMLElement | null;
-  function loadEngine() {
-    return enginePromise ??= (async () => {
-      if (import.meta.env.DEV) return null;
-      try { const url = '/pagefind/pagefind.js'; const engine = await import(/* @vite-ignore */ url) as Pagefind; await engine.init?.(); return engine; } catch { return null; }
-    })();
-  }
   function renderResults(items: SearchItem[]) {
     list.replaceChildren();
     for (const item of items) {
-      const url = new URL(item.url, location.origin);
-      if (url.origin !== location.origin || !['http:', 'https:'].includes(url.protocol)) continue;
+      let url: URL;
+      try { url = new URL(item.url, location.origin); } catch { continue; }
+      if (url.origin !== location.origin || !url.pathname.startsWith('/posts/') || !['http:', 'https:'].includes(url.protocol)) continue;
       const link = document.createElement('a'); link.href = url.href; link.className = 'search-result';
-      const title = document.createElement('strong'); title.textContent = item.meta?.title || item.title || '文章';
-      const excerpt = document.createElement('p'); excerpt.textContent = new DOMParser().parseFromString(item.excerpt || '', 'text/html').body.textContent;
-      link.append(title, excerpt); list.append(link);
+      const title = document.createElement('strong'); title.textContent = item.title || '文章';
+      const excerpt = document.createElement('p'); excerpt.textContent = item.excerpt || '';
+      link.appendChild(title); link.appendChild(excerpt); list.appendChild(link);
     }
   }
   async function search() {
     const current = ++revision;
     const query = input.value.trim();
+    pending?.abort();
+    list.replaceChildren();
     if (!query) { list.replaceChildren(); status.textContent = '输入关键词，开始查找文章。'; return; }
     status.textContent = '正在查找…';
-    const engine = await loadEngine();
-    let items: SearchItem[];
-    let fullText = Boolean(engine);
+    const controller = new AbortController();
+    pending = controller;
     try {
-      if (engine) { const result = await engine.search(query); items = await Promise.all(result.results.slice(0, 8).map(item => item.data())); }
-      else throw new Error('metadata search');
+      const response = await fetch(`/api/v1/search?q=${encodeURIComponent(query)}`, { cache: 'no-store', credentials: 'same-origin', signal: controller.signal });
+      if (!response.ok) throw new Error('Search unavailable');
+      const result = await response.json() as { results: SearchItem[] };
+      if (!Array.isArray(result.results)) throw new Error('Invalid search results');
+      if (current !== revision || !dialog.open) return;
+      const items = result.results.slice(0, 20);
+      renderResults(items);
+      status.textContent = items.length ? `找到 ${items.length} 篇文章 · 全文检索` : '暂时没有找到相关内容，试试其他关键词。';
     } catch {
-      fullText = false; const keyword = query.toLowerCase();
-      items = fallback.filter(item => [item.title, item.category, item.excerpt, ...(item.tags || [])].join(' ').toLowerCase().includes(keyword)).slice(0, 8);
+      if (current !== revision || !dialog.open) return;
+      status.textContent = '暂时无法搜索，请稍后重试。';
+    } finally {
+      if (pending === controller) pending = undefined;
     }
-    if (current !== revision || !dialog.open) return;
-    renderResults(items); status.textContent = items.length ? `找到 ${items.length} 篇文章 · ${fullText ? '全文检索' : '标题、标签与摘要检索'}` : '暂时没有找到相关内容，试试其他关键词。';
   }
-  function openSearch() { previousFocus = document.activeElement as HTMLElement; dialog.showModal(); input.focus(); void loadEngine(); }
+  function openSearch() { previousFocus = document.activeElement as HTMLElement; dialog.showModal(); input.focus(); }
   document.getElementById('btn-open-search')?.addEventListener('click', openSearch);
   document.getElementById('search-close')?.addEventListener('click', () => dialog.close());
-  dialog.addEventListener('close', () => { revision++; clearTimeout(timer); input.value = ''; list.replaceChildren(); status.textContent = '输入关键词，开始查找文章。'; previousFocus?.focus(); });
+  dialog.addEventListener('close', () => { revision++; clearTimeout(timer); pending?.abort(); input.value = ''; list.replaceChildren(); status.textContent = '输入关键词，开始查找文章。'; previousFocus?.focus(); });
   dialog.addEventListener('click', event => { if (event.target === dialog) { const box = dialog.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) dialog.close(); } });
   window.addEventListener('keydown', event => {
     if (event.key === 'Escape' && dialog.open) { event.preventDefault(); dialog.close(); return; }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); dialog.open ? dialog.close() : openSearch(); }
   });
-  input.addEventListener('input', () => { revision++; clearTimeout(timer); timer = setTimeout(search, 160); });
+  input.addEventListener('input', () => { revision++; pending?.abort(); clearTimeout(timer); timer = setTimeout(search, 160); });
 </script>
 <style>
   dialog { width: min(600px, calc(100vw - 2rem)); max-height: min(600px, calc(100svh - 4rem)); overflow: auto; padding: 1.3rem; margin: 12vh auto auto; background: var(--bg-surface); color: var(--text-main); }

@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "huaoblog-app",
+  "account_id": "fc3766c02d25569ab3a3eb4d0cd6ae79",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "assets": { "directory": "./dist/client", "binding": "ASSETS", "run_worker_first": ["/api/*", "/images/posts/*"] },
+  "d1_databases": [{ "binding": "DB", "database_name": "huaoblog-content", "database_id": "946ed025-a3b9-4440-a775-2f2b2413cea5", "migrations_dir": "migrations" }],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "huaoblog-media" }],
+  "vars": { "SITE_URL": "https://huaoblog.cn", "CMS_AUTH_URL": "https://huaoblog-oauth.huaoqaq.workers.dev", "ADMIN_GITHUB_ID": "160737293" },
+  "observability": { "enabled": true, "logs": { "enabled": true, "invocation_logs": true, "head_sampling_rate": 0.1 } },
+  "triggers": { "crons": ["0 3 * * *"] }
+}

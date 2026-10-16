@@ -6,12 +6,20 @@
     "dev": "node scripts/dev.mjs",
     "dev:site": "astro dev --host 127.0.0.1 --port 4321 --ignore-lock",
     "content:local": "node scripts/content-server.mjs",
-    "start": "npm run dev",
-    "build": "astro build && pagefind --site dist",
+    "start": "node dist/server/entry.mjs",
+    "build": "npm run build:node",
+    "build:node": "node scripts/build.mjs node",
+    "build:cloudflare": "node scripts/build.mjs cloudflare",
+    "deploy:cloudflare": "npm run build:cloudflare && wrangler deploy",
+    "types:cloudflare": "wrangler types worker-configuration.d.ts",
     "check": "astro check",
     "test": "node --test tests/*.test.mjs",
+    "test:node": "node tests/runtime-node.integration.mjs",
     "preview": "astro preview --host 127.0.0.1 --port 4323 --ignore-lock",
-    "astro": "astro"
+    "astro": "astro",
+    "content:export-git": "node scripts/export-github-content.mjs",
+    "content:import": "node scripts/import-content.mjs",
+    "content:backup": "node scripts/backup-content.mjs"
   },
   "engines": {
     "node": ">=22.18.0"
@@ -20,7 +28,9 @@
     "katex": "$katex"
   },
   "dependencies": {
+    "@astrojs/cloudflare": "14.3.4",
     "@astrojs/markdown-remark": "7.3.2",
+    "@astrojs/node": "11.1.7",
     "@codemirror/view": "^6.43.14",
     "@milkdown/crepe": "^7.22.3",
     "@milkdown/kit": "^7.22.3",
@@ -44,9 +54,10 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@cloudflare/workers-types": "5.20261015.1",
     "@types/node": "^26.6.5",
     "@types/three": "^0.174.0",
-    "pagefind": "^1.3.0",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "wrangler": "4.151.0"
   }
 }

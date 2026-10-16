@@ -1758,6 +1758,12 @@ html[data-theme="light"] .tabs button[aria-selected="true"] {
 .console .milkdown .ProseMirror ol {
   padding-left: 22px;
 }
+.console .milkdown .milkdown-list-item-block li .label-wrapper {
+  color: var(--text-muted);
+}
+.console .milkdown .milkdown-list-item-block li .label-wrapper svg {
+  fill: currentColor;
+}
 .console .milkdown .ProseMirror table {
   margin: 20px 0;
 }
@@ -2254,6 +2260,48 @@ html[data-theme="light"] .tabs button[aria-selected="true"] {
 .profile-custom-action > summary { font-size: 12px; color: var(--text-muted); cursor: pointer; }
 .profile-custom-action > .field-hint { margin-top: 12px; margin-bottom: 10px; }
 #publication-notice { margin-bottom: 20px; }
+
+.recovery-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 0;
+}
+.recovery-row + .recovery-row { border-top: 1px solid var(--border-subtle); }
+.recovery-copy { min-width: 0; overflow-wrap: anywhere; }
+.recovery-copy p { color: var(--text-muted); font-size: 12px; margin-top: 4px !important; }
+.recovery-copy code { font-size: 11px; }
+.recovery-actions, .backup-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.recovery-actions { flex-shrink: 0; }
+.connection-actions { margin-top: 20px; }
+.backup-actions { margin-bottom: 12px; }
+.backup-validation { margin-top: 20px; }
+.backup-validation details, .history-snapshot { margin-top: 16px; }
+.backup-validation summary, .history-snapshot summary { cursor: pointer; color: var(--text-hero); }
+.backup-validation pre, .history-snapshot pre {
+  max-height: 420px;
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: var(--bg-base);
+  color: var(--text-main);
+  font: 12px/1.8 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.backup-records { margin-top: 24px; }
+.backup-records ul { margin: 12px 0 0; padding: 0; list-style: none; }
+.backup-records li { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 12px 0; border-top: 1px solid var(--border-subtle); font-size: 12px; }
+.backup-records li span { flex: 1; min-width: 160px; overflow-wrap: anywhere; }
+.backup-records small { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 640px) {
+  .recovery-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .recovery-actions { width: 100%; justify-content: flex-end; }
+  .backup-actions { align-items: stretch; flex-direction: column; }
+}
 
 @media (max-width: 640px) {
   .profile-catalog-grid { grid-template-columns: repeat(3,minmax(0,1fr)); padding: 10px; gap: 6px; }

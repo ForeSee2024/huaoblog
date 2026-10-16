@@ -3,7 +3,9 @@
 interface Props {
   currentPath?: string;
 }
-import { safeNavigationHref, settings, site } from '../../config/site';
+import { safeNavigationHref, siteFor } from '../../config/site';
+const settings = Astro.locals.siteSettings;
+const site = siteFor(settings);
 const { currentPath = '/' } = Astro.props;
 const normalizedCurrentPath = currentPath.replace(/\/$/, '') || '/';
 const routeIcons: Record<string, string> = {
