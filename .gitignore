@@ -23,6 +23,9 @@ pnpm-debug.log*
 
 # Local editorial evidence and content backups; never published
 .local/content-review/
+.local/runtime/
+.local/wrangler.log
+.local/migration/
 
 # macOS system files
 .DS_Store

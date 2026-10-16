@@ -5,6 +5,7 @@ import {
   toggle,
   section,
   safeImage,
+  notice,
 } from "./ui.js";
 import { pageHeading } from "./views.js";
 import { SYSTEM_CATALOG } from '../data/profile-catalog.js';
@@ -32,7 +33,7 @@ export function settingsPreview(settings, image = (value) => value, tab = "home"
   }
   return `<p>首页实时预览</p><div class="mini-home"><div class="mini-home-header"><img data-preview-path="${e(identity.avatar)}" src="${e(safeImage(image(identity.avatar)) || "/favicon.svg")}" alt="" /><span>${e(identity.brand)}</span></div><div class="mini-home-body"><small>${e(home.eyebrow)}</small><h3>${e(home.title)}</h3><p>${e(home.intro)}</p><span class="mini-home-button">${e(home.primaryLabel)}</span></div>${home.announcementEnabled ? `<div class="mini-home-announcement">${e(home.announcementTitle)} · ${e(home.announcement)}</div>` : ""}</div><p class="preview-caption">预览显示当前编辑内容。${settings.revision ? "保存后更新前台配置。" : "保存配置后，前台会使用这些设定。"}</p>`;
 }
-export function settingsView(settings, tab, local, image) {
+export function settingsView(settings, tab, local, image, { direct = false } = {}) {
   const tabs = [
     ["general", "站点信息"],
     ["home", "首页与导航"],
@@ -300,5 +301,6 @@ export function settingsView(settings, tab, local, image) {
       ),
     );
   }
-  return `${pageHeading("站点配置", "前台内容与外观，在这里统一维护。")}<div class="settings-tabs">${tabs.map(([id, label]) => `<a href="#/settings/${id}" class="${id === tab ? "active" : ""}" ${id === tab ? 'aria-current="page"' : ""}>${label}</a>`).join("")}</div><form id="settings-form"><div class="settings-layout"><div>${content}<div class="save-bar"><p id="settings-save-state">${local ? "保存后更新本地前台。" : "保存后自动等待检查并发布，网站随后更新。"}</p>${button(local ? "保存配置" : "保存并发布", "save-settings", "save", "primary")}</div></div><aside id="settings-preview" class="settings-preview">${settingsPreview(settings, image, tab)}</aside></div></form>`;
+  const pending = direct && settings.pendingPublication ? notice('正在查看之前保留的待发布配置，前台仍使用已发布版本。检查后点击“保存并发布”即可上线。') : '';
+  return `${pageHeading("站点配置", "前台内容与外观，在这里统一维护。", direct && settings.revision ? button('历史版本', 'settings-history', 'clock', 'quiet') : '')}${pending}<div class="settings-tabs">${tabs.map(([id, label]) => `<a href="#/settings/${id}" class="${id === tab ? "active" : ""}" ${id === tab ? 'aria-current="page"' : ""}>${label}</a>`).join("")}</div><form id="settings-form"><div class="settings-layout"><div>${content}<div class="save-bar"><p id="settings-save-state">${direct ? "保存并发布后，前台立即更新。" : local ? "保存后更新本地前台。" : "保存后自动等待检查并发布，网站随后更新。"}</p>${button(local && !direct ? "保存配置" : "保存并发布", "save-settings", "save", "primary")}</div></div><aside id="settings-preview" class="settings-preview">${settingsPreview(settings, image, tab)}</aside></div></form>`;
 }

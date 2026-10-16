@@ -1,6 +1,7 @@
 import { ContentError, MAX_IMAGE_BYTES, MAX_POST_BYTES, findMediaReferences, inspectMediaBytes, normalizePercentEncoding, parsePost, stringifyPost, validateMediaName, validatePost, validateSlug } from './content-model.js';
 import { serializeSettings, validateSettings } from './settings-model.js';
 import { mediaSelection, postKey, postSelection } from './bulk-model.js';
+import { createHttpRepository } from './http-repository.js';
 
 const API = 'https://api.github.com';
 const MAX_ENTRIES = 10000;
@@ -110,8 +111,9 @@ function localRepository(deps) {
   };
 }
 
-/** Local IO uses the loopback API; production changes are always staged on GitHub PR branches. */
+/** API mode writes directly; the original Git and loopback adapters remain for rollback. */
 export function createRepository(config, deps = {}) {
+  if (config.backend === 'api') return createHttpRepository(config, deps);
   if (config.local) return localRepository(deps);
   const fetcher = deps.fetch || globalThis.fetch.bind(globalThis);
   const browser = deps.window || globalThis.window;

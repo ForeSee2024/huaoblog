@@ -45,10 +45,13 @@ export interface SiteSettings {
 }
 
 export const settings = siteSettings as SiteSettings;
-export const site = {
-  ...settings.identity,
-  fonts: 'https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;900&display=swap',
-};
+export function siteFor(currentSettings: SiteSettings) {
+  return {
+    ...currentSettings.identity,
+    fonts: 'https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;900&display=swap',
+  };
+}
+export const site = siteFor(settings);
 export const categories = ['软件工程与系统', 'AI 与前沿科研', '极客安全与攻防', '计算机体系沉淀', '生活随笔与杂项'] as const;
 
 export function safeExternalHref(value: string): string | undefined {

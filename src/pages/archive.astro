@@ -3,8 +3,10 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Sidebar from '../components/layout/Sidebar.astro';
 import { getPublishedPosts } from '../utils/posts';
+import { siteFor } from '../config/site';
 
-const sortedPosts = await getPublishedPosts();
+const site = siteFor(Astro.locals.siteSettings);
+const sortedPosts = await getPublishedPosts(Astro.locals.services.store);
 
 // 按年份分组
 const postsByYear = sortedPosts.reduce((acc, post) => {
@@ -16,10 +18,10 @@ const postsByYear = sortedPosts.reduce((acc, post) => {
 
 const years = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
 ---
-<BaseLayout title="文章归档 | HuaOvO · 胡敖的技术笔记">
+<BaseLayout title={`文章归档 | ${site.name}`}>
   <div class="flex flex-col lg:flex-row gap-8 items-start">
     
-    <Sidebar totalPosts={sortedPosts.length} />
+    <Sidebar />
 
     <main class="w-full lg:flex-1 flex flex-col gap-6 min-w-0 order-1 lg:order-2">
       

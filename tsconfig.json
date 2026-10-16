@@ -6,7 +6,8 @@
     "allowJs": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "#content-runtime": ["src/server/runtime-node.js"]
     }
   }
 }

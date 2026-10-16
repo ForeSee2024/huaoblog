@@ -14,6 +14,13 @@ async function session() {
 }
 const callback = (state, cookie) => worker.fetch(new Request(`https://auth.example/callback?code=test-code&state=${encodeURIComponent(state)}`, { headers: { Cookie: cookie } }), env);
 
+test('database mode can request identity-only OAuth without repository write scope', async () => {
+  const response = await worker.fetch(new Request('https://auth.example/auth?origin=https://blog.example'), { ...env, GITHUB_OAUTH_SCOPE: 'read:user' });
+  assert.equal(new URL(response.headers.get('Location')).searchParams.get('scope'), 'read:user');
+  const identity = await worker.fetch(new Request('https://auth.example/auth?origin=https://blog.example&identity=1'), env);
+  assert.equal(new URL(identity.headers.get('Location')).searchParams.get('scope'), 'read:user');
+});
+
 test('an unknown origin is rejected before starting OAuth', async () => {
   const response = await worker.fetch(new Request('https://auth.example/auth?origin=https://evil.example'), env);
   assert.equal(response.status, 403);

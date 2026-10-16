@@ -1,9 +1,10 @@
 ---
 // 常驻侧边栏：个人名片、分类、标签与系列。
 import { getPublishedPosts } from '../../utils/posts';
-import { safeExternalHref, safeImageSrc, site } from '../../config/site';
+import { safeExternalHref, safeImageSrc, siteFor } from '../../config/site';
 
-const allPosts = await getPublishedPosts();
+const site = siteFor(Astro.locals.siteSettings);
+const allPosts = await getPublishedPosts(Astro.locals.services.store);
 const totalPosts = allPosts.length;
 
 // 动态统计五大板块分类文章数
