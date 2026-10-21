@@ -6,6 +6,7 @@
   "compatibility_date": "2026-10-15",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
+  "placement": { "mode": "smart" },
   "assets": { "directory": "./dist/client", "binding": "ASSETS", "run_worker_first": ["/api/*", "/images/posts/*"] },
   "d1_databases": [{ "binding": "DB", "database_name": "huaoblog-content", "database_id": "946ed025-a3b9-4440-a775-2f2b2413cea5", "migrations_dir": "migrations" }],
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "huaoblog-media" }],

@@ -1,6 +1,6 @@
 # Cloudflare 部署与维护
 
-正式域名 `https://huaoblog.cn`，仓库 `ForeSee2024/huaoblog`。当前内容服务采用 Astro Workers、D1 与私有 R2；Node/SQLite/文件系统部署见 [SELF_HOSTING.md](SELF_HOSTING.md)。
+正式域名 `https://huaoblog.cn`，仓库 `ForeSee2024/huaoblog`。2026-10-16 已完成正式域名切换与读写验收。当前内容服务采用 Astro Workers、D1 与私有 R2；Node/SQLite/文件系统部署见 [SELF_HOSTING.md](SELF_HOSTING.md)。
 
 ## 当前资源
 
@@ -17,9 +17,9 @@
 | 管理员 GitHub ID | `160737293` |
 | 登录网关 | `huaoblog-oauth.huaoqaq.workers.dev` |
 
-`wrangler.jsonc` 保存部署名称、资源绑定、公开环境变量和每日备份 Cron。R2 保持私有，不能开放为公共图片桶；媒体公开状态由应用检查。OAuth Secret 只保留在独立网关，不写 Git、博客变量或内容包。
+`wrangler.jsonc` 保存部署名称、资源绑定、公开环境变量和每日备份 Cron，并启用 Smart Placement，让 Cloudflare 根据实际流量选择更接近后端的执行位置；静态资源仍优先就近返回。是否取得收益由平台流量分析决定，不保证固定延迟。[官方说明](https://developers.cloudflare.com/workers/configuration/placement/)R2 保持私有，不能开放为公共图片桶；媒体公开状态由应用检查。OAuth Secret 只保留在独立网关，不写 Git、博客变量或内容包。
 
-域名注册与续费在阿里云，DNS 托管在 Cloudflare。NS 为 `algin.ns.cloudflare.com`、`emely.ns.cloudflare.com`。根域名与 www 原有 CNAME 指向 `huaoblog.pages.dev` 并开启代理，保留 Pages 作为回退来源。正式切换使用区域 Worker Route `huaoblog.cn/*` 指向 `huaoblog-app`；路由由区域 API 管理，维护代码时不要无意删除。www 和旧域名继续通过既有 Redirect Rules 跳转主域名并保留路径、查询参数。
+域名注册与续费在阿里云，DNS 托管在 Cloudflare。NS 为 `algin.ns.cloudflare.com`、`emely.ns.cloudflare.com`。根域名与 www 原有 CNAME 指向 `huaoblog.pages.dev` 并开启代理，保留 Pages 作为回退来源。正式切换使用区域 Worker Route `huaoblog.cn/*` 指向 `huaoblog-app`；当前路由 ID 为 `59791eebcaa146749d7d2354fed8ac78`。路由由区域 API 管理，维护代码时不要无意删除。www 和旧域名继续通过既有 Redirect Rules 跳转主域名并保留路径、查询参数。
 
 ## 程序升级
 
@@ -37,9 +37,9 @@ npx wrangler deploy
 
 首次数据库恢复必须先完成迁移，确认空库，再导入完整归档。常规代码升级只应用新增数据库迁移，不能重新导入首次迁移包。Wrangler 使用已授权的官方登录；缺少本次无关的默认权限警告不代表要扩大权限。
 
-两种构建共用 `dist/`，不可并行构建。Cloudflare 构建不再产出 Pages 静态站点；合并本次迁移代码前必须关闭旧 Pages 的生产自动部署和分支预览，保留当前可用版本供回退。后续 Worker 程序升级使用上述命令；推送 Git 仅触发质量检查，不代表 Worker 已更新。
+两种构建共用 `dist/`，不可并行构建。Cloudflare 构建不再产出 Pages 静态站点；旧 Pages 的生产自动部署和分支预览已关闭，保留版本 `08b13e2f-aa36-4c06-b142-2528031f42a7` 供回退。后续 Worker 程序升级使用上述命令；推送 Git 仅触发质量检查，不代表 Worker 已更新。
 
-CI 必需检查仍为 `Type Check & Production Build`，保留禁止强推与删除。不要为内容发布解除分支保护。
+CI 必需检查仍为 `Type Check & Production Build`，保留禁止强推与删除。构建机固定为 Ubuntu 24.04，GitHub 官方 checkout 7.0.1、setup-node 7.1.0 固定提交并使用受支持的 Node 24 运行时。不要为内容发布解除分支保护。
 
 ## 登录
 
