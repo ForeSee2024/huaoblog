@@ -19,8 +19,12 @@ import { publishWhenReady, isDeletionPublication } from './publication.js';
 import { SYSTEM_CATALOG, TOOL_CATALOG, MAX_PROFILE_TOOLS } from '../data/profile-catalog.js';
 import { profileMatches, toggleProfileItem, moveProfileItem } from './profile-selection.js';
 import { profileSelectedItems } from './profile-view.js';
+import { loadEditorPost } from './editor-state.js';
+import { recoveryView, historyView, directDeletionResult } from './recovery-view.js';
 
 const config = JSON.parse(document.body.dataset.connection);
+const direct = config.backend === 'api';
+const legacyGit = !direct && !config.local;
 const initialSettings = JSON.parse(document.body.dataset.settings);
 const categories = JSON.parse(document.body.dataset.categories);
 const repository = createRepository(config, { onProgress: reportOperation });
@@ -48,6 +52,9 @@ let filters = { search: "", state: "all", category: "", tag: "" },
   mediaSearch = "",
   saving = false;
 const selectedPosts = new Set(), selectedMedia = new Set();
+const writeActions = new Set(['new-post', 'save-post', 'publish-post', 'save-settings', 'delete-post', 'delete-media', 'upload-media', 'delete-posts-batch', 'delete-media-batch', 'restore-trash', 'restore-version']);
+let trashData = { posts: [], media: [] }, historyContext = null, backupValidation = null, viewRevision = 0;
+const backupEvents = [];
 const copy = (value) => structuredClone(value);
 const publicPath = (media) =>
   media.publicUrl || (media.path || "").replace(/^public/, "") || media.url;
@@ -59,7 +66,9 @@ const titles = {
   taxonomy: "分类与标签",
   media: "媒体资源",
   settings: "站点配置",
-  connection: "发布与连接",
+  connection: direct ? "内容服务" : "发布与连接",
+  recovery: "恢复与备份",
+  history: "历史版本",
 };
 const previewTasks = new Map();
 const previewQueue = [];
@@ -245,6 +254,16 @@ function finishOperation() {
 function selectionItems(kind) {
   return kind === 'posts' ? filterPosts(data.posts, filters) : data.media.filter(item => item.name.toLowerCase().includes(mediaSearch.toLowerCase()));
 }
+function canWrite() {
+  return !direct || (data.connection?.authenticated === true && data.connection?.writable === true);
+}
+function syncWriteAccess() {
+  if (!direct) return;
+  main.querySelectorAll('#article-form,#settings-form').forEach(form => { form.inert = saving || !canWrite(); });
+  main.querySelectorAll('[data-action]').forEach(control => {
+    if (writeActions.has(control.dataset.action)) control.disabled = saving || !canWrite() || control.dataset.locked === 'true';
+  });
+}
 function syncSelectionControls() {
   for (const kind of ['posts', 'media']) {
     const selected = kind === 'posts' ? selectedPosts : selectedMedia;
@@ -252,18 +271,18 @@ function syncSelectionControls() {
     const items = selectionItems(kind).filter(item => !item.pendingDeletion), valid = new Set(items.map(key));
     for (const value of selected) if (!valid.has(value)) selected.delete(value);
     const all = main.querySelector(`[data-select-all="${kind}"]`);
-    if (all) { all.checked = Boolean(items.length && selected.size === items.length); all.indeterminate = selected.size > 0 && selected.size < items.length; all.disabled = saving || !items.length; }
+    if (all) { all.checked = Boolean(items.length && selected.size === items.length); all.indeterminate = selected.size > 0 && selected.size < items.length; all.disabled = saving || !canWrite() || !items.length; }
     const count = document.getElementById(`${kind}-selection-count`);
     if (count) count.textContent = `已选择 ${selected.size} 项`;
     for (const action of [`clear-${kind}-selection`, `delete-${kind}-batch`]) {
       const button = main.querySelector(`[data-action="${action}"]`);
-      if (button) button.disabled = saving || !selected.size;
+      if (button) button.disabled = saving || !canWrite() || !selected.size;
     }
     const selector = kind === 'posts' ? '[data-select-post]' : '[data-select-media]';
     main.querySelectorAll(selector).forEach(input => {
       const id = kind === 'posts' ? input.dataset.selectPost : input.dataset.selectMedia;
       input.checked = selected.has(id);
-      input.disabled = saving || input.dataset.locked === 'true';
+      input.disabled = saving || !canWrite() || input.dataset.locked === 'true';
       input.closest('.table-row,.media-item')?.classList.toggle('selected', input.checked);
     });
   }
@@ -273,16 +292,22 @@ async function deleteItems(kind, items) {
   const articles = kind === 'posts';
   const names = items.map(item => articles ? `${item.data.title || item.slug}（${item.status === 'draft' ? '草稿' : '已发表'}）` : item.name);
   const summary = `<ul class="batch-summary">${names.slice(0, 8).map(name => `<li>${e(name)}</li>`).join('')}</ul>${names.length > 8 ? `<p class="field-hint">另有 ${names.length - 8} 项，共 ${names.length} 项。</p>` : ''}`;
-  const detail = config.local ? '所选内容将从本地工作区移除。' : articles ? '草稿会从工作区撤回，已发表版本保留。已发表文章将在检查通过后自动删除并发布，网站随后更新。' : '正在使用的图片会受到保护。已上线图片将在检查通过后自动删除并发布；待发布图片从工作区撤回。';
-  if (!await ask(`删除 ${items.length} ${articles ? '篇内容' : '张图片'}？`, `<p class="dialog-copy">${detail}</p>${summary}`, config.local ? '确认删除' : '删除并发布', true)) return;
+  const detail = direct ? articles ? '所选文章版本将移入回收站。删除已发表版本后，前台立即更新；未选择的版本保留。' : '所选图片将移入回收站。仍被文章或配置引用的图片不能删除。' : config.local ? '所选内容将从本地工作区移除。' : articles ? '草稿会从工作区撤回，已发表版本保留。已发表文章将在检查通过后自动删除并发布，网站随后更新。' : '正在使用的图片会受到保护。已上线图片将在检查通过后自动删除并发布；待发布图片从工作区撤回。';
+  if (!await ask(`删除 ${items.length} ${articles ? '篇内容' : '张图片'}？`, `<p class="dialog-copy">${detail}</p>${summary}`, direct ? '移入回收站' : config.local ? '确认删除' : '删除并发布', true)) return;
   const result = await (articles ? repository.deletePosts(items) : repository.deleteMediaBatch(items));
-  await readWorkspace(result.state);
+  await readWorkspace(result.refreshRequired ? undefined : result.state);
   const selected = articles ? selectedPosts : selectedMedia;
   selected.clear();
   for (const item of result.failed || []) selected.add(articles ? postKey(item) : item.name);
   await render(currentRoute);
+  if (direct) {
+    const outcome = directDeletionResult(result);
+    if (outcome.error) showError(new Error(outcome.message));
+    else toast(outcome.message);
+    return;
+  }
   let published = false, publicationError;
-  for (const release of (result.releases || []).filter(isDeletionPublication)) {
+  for (const release of (legacyGit ? result.releases || [] : []).filter(isDeletionPublication)) {
     try {
       const publication = await publishWhenReady(repository, release, {onProgress:reportOperation});
       await readWorkspace(publication.state);
@@ -313,6 +338,7 @@ function showError(error) {
   document.getElementById("operation-error")?.remove();
   const element = document.createElement("div");
   element.id = "operation-error";
+  element.setAttribute('role', 'alert');
   element.innerHTML = notice(message, "error");
   main.prepend(element);
 }
@@ -364,6 +390,7 @@ function setSaving(value) {
       ?.replaceChildren(document.createTextNode("正在保存…"));
   }
   else finishOperation();
+  syncWriteAccess();
   syncSelectionControls();
 }
 
@@ -415,20 +442,26 @@ async function readWorkspace(knownState) {
       releases: loaded.releases || [],
     };
     loadError =
-      !config.local && !data.connection.authenticated
+      (direct || !config.local) && !data.connection.authenticated
         ? config.ready
-          ? "使用 GitHub 登录后，读取你的文章与待发布变更。"
+          ? direct ? '使用 GitHub 登录后，管理文章、图片和站点配置。' : "使用 GitHub 登录后，读取你的文章与待发布变更。"
           : "请在部署环境配置内容仓库、授权服务和站点地址。"
         : "";
     document.getElementById("connection-chip").innerHTML =
-      `<span class="status-dot"></span>${config.local ? "本地已连接" : e(data.connection.user?.login || (data.connection.authenticated ? "GitHub 已连接" : "等待登录"))}`;
-    document.getElementById("console-footer-state").textContent = config.local
+      `<span class="status-dot"></span>${direct ? e(data.connection.user?.login || (data.connection.authenticated ? '内容已连接' : '等待登录')) : config.local ? "本地已连接" : e(data.connection.user?.login || (data.connection.authenticated ? "GitHub 已连接" : "等待登录"))}`;
+    document.getElementById("console-footer-state").textContent = direct
+      ? data.connection.authenticated ? '内容已同步' : '等待管理员登录'
+      : config.local
       ? "本地内容已同步"
       : data.connection.authenticated
         ? "GitHub 内容已同步"
         : "等待 GitHub 授权";
   } catch (error) {
     loadError = error.message || "工作区连接失败。";
+    if (direct && [401, 403].includes(error.status)) {
+      data = { ...data, posts: [], media: [], settings: initialSettings, releases: [], connection: { mode: 'database', authenticated: false, writable: false } };
+      selectedPosts.clear(); selectedMedia.clear();
+    }
     document.getElementById("connection-chip").innerHTML =
       icon("alert") + "等待连接";
   }
@@ -438,12 +471,14 @@ async function readWorkspace(knownState) {
   if (!saving) finishOperation();
 }
 async function render(route) {
+  const revision = ++viewRevision;
   const navWasOpen = document.body.classList.contains("nav-visible");
   editorGeneration++;
   if (editor) {
     await editor.destroy();
     editor = null;
   }
+  if (revision !== viewRevision) return;
   const previous = currentRoute;
   currentRoute = route;
   const segments = route.split("/");
@@ -472,12 +507,29 @@ async function render(route) {
   if (page === "overview")
     main.innerHTML =
       (loadError ? notice(loadError, "error") : "") +
-      overview(data, config.local);
+      overview(data, config.local, { direct });
   else if (page === "posts") main.innerHTML = postsView(data, filters, selectedPosts);
   else if (page === "taxonomy") main.innerHTML = taxonomyView(data, categories);
   else if (page === "media") main.innerHTML = mediaView(data, mediaSearch, selectedMedia);
   else if (page === "connection")
     main.innerHTML = connectionView(data, config, loadError);
+  else if (page === 'recovery' && direct) {
+    if (data.connection.authenticated) trashData = await repository.getTrash();
+    else trashData = { posts: [], media: [] };
+    if (revision !== viewRevision) return;
+    main.innerHTML = recoveryView(trashData, { writable: canWrite(), backupValidation, backupEvents });
+  } else if (page === 'history' && direct) {
+    const kind = segments[1], id = segments[2];
+    const result = await repository.getHistory(kind, id);
+    let current = kind === 'settings' ? data.settings : data.posts.find(item => item.slug === id);
+    if (!current && kind === 'post') {
+      trashData = await repository.getTrash();
+      current = trashData.posts.find(item => item.slug === id);
+    }
+    if (revision !== viewRevision) return;
+    historyContext = { kind, id, versions: result.versions || [], expectedRevision: current?.revision, writable: canWrite() };
+    main.innerHTML = historyView(historyContext);
+  }
   else if (page === "settings") {
     if (!editingSettings || !previous.startsWith("settings/"))
       editingSettings = copy(validateSettings(data.settings));
@@ -486,8 +538,10 @@ async function render(route) {
       segments[1] || "general",
       config.local,
       resolveImage,
+      { direct },
     );
   } else if (page === "editor") {
+    activePost = null;
     const slug = segments[1],
       version = segments[2] || "draft";
     if (slug === "new") {
@@ -506,12 +560,12 @@ async function render(route) {
         },
         body: "",
       };
-    } else
-      activePost = copy(
-        data.posts.find(
-          (post) => post.slug === slug && post.status === version,
-        ) || data.posts.find((post) => post.slug === slug),
-      );
+    } else {
+      main.innerHTML = '<div class="loading-state" role="status"><span class="loading-spinner"></span><p>正在读取完整正文…</p></div>';
+      const post = await loadEditorPost(repository, data.posts, slug, version);
+      if (revision !== viewRevision) return;
+      activePost = post;
+    }
     if (!activePost) {
       main.innerHTML =
         notice("没有找到这篇文章，请刷新内容列表。", "error") +
@@ -523,9 +577,11 @@ async function render(route) {
       categories,
       config.local,
       resolveImage,
+      { direct },
     );
     editorMode = "rich";
     await mountEditor();
+    if (revision !== viewRevision) return;
     try {
       const cached = JSON.parse(localStorage.getItem(recoveryKey()) || "null");
       if (
@@ -559,6 +615,12 @@ async function render(route) {
   main.querySelectorAll('#article-form,#settings-form').forEach(form => {
     form.inert = saving;
   });
+  if (direct && loadError && !['overview', 'connection'].includes(page)) {
+    const access = document.createElement('div');
+    access.innerHTML = notice(loadError, 'error') + (config.ready && !data.connection.authenticated ? button('使用 GitHub 登录', 'login', 'github', 'primary') : '');
+    main.prepend(access);
+  }
+  syncWriteAccess();
   syncSelectionControls();
   observeMedia();
   if (navWasOpen) main.focus();
@@ -768,11 +830,11 @@ async function format(command) {
   await insertMarkdown(formats[command] || "");
 }
 
-async function chooseUpload() {
+async function chooseUpload(accept = 'image/png,image/jpeg,image/webp,image/gif,image/avif') {
   return new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/png,image/jpeg,image/webp,image/gif,image/avif";
+    input.accept = accept;
     input.hidden = true;
     input.addEventListener(
       "change",
@@ -809,7 +871,7 @@ async function upload() {
     else data.media[index] = result.media;
   }
   if (
-    result.release &&
+    legacyGit && result.release &&
     !data.releases.some((release) => release.id === result.release.id)
   )
     data.releases.push(result.release);
@@ -864,9 +926,9 @@ async function saveArticle(publish = false) {
   if (
     publish &&
     !(await ask(
-      config.local ? "发布这篇文章？" : "提交这篇文章发布？",
-      `<p class="dialog-copy">${config.local ? "文章将显示在本地前台，发布后仍可继续编辑。" : "将创建待发布变更。检查通过并合并后，Cloudflare 构建站点。"}</p><strong>${e(post.data.title)}</strong>`,
-      config.local ? "确认发布" : "提交发布",
+      direct || config.local ? "发布这篇文章？" : "提交这篇文章发布？",
+      `<p class="dialog-copy">${direct ? '发布后，前台立即显示这个版本。此前保存的版本仍可从历史记录恢复。' : config.local ? "文章将显示在本地前台，发布后仍可继续编辑。" : "将创建待发布变更。检查通过并合并后，Cloudflare 构建站点。"}</p><strong>${e(post.data.title)}</strong>`,
+      direct || config.local ? "确认发布" : "提交发布",
     ))
   )
     return;
@@ -880,7 +942,9 @@ async function saveArticle(publish = false) {
   await render(`editor/${saved.slug}/${saved.status}`);
   toast(
     publish
-      ? config.local
+      ? direct
+        ? '文章已发布，前台已更新'
+        : config.local
         ? "文章已发布到本地前台"
         : "文章已提交，前往“发布与连接”检查并发布"
       : "草稿已保存",
@@ -903,7 +967,7 @@ async function saveConfiguration() {
   await readWorkspace(result.state);
   editingSettings = copy(result.settings || data.settings);
   await render(currentRoute);
-  if (!config.local && result.release?.state === 'review') {
+  if (legacyGit && result.release?.state === 'review') {
     try {
       const publication = await publishWhenReady(repository,result.release,{onProgress:reportOperation});
       await readWorkspace(publication.state);
@@ -917,7 +981,65 @@ async function saveConfiguration() {
       await render(currentRoute);
       throw new Error(`配置已保存，发布尚未完成：${error.message} 请前往“发布与连接”继续。`);
     }
-  } else toast(config.local ? "配置已保存，前台已更新" : "配置已保存");
+  } else toast(direct ? '配置已发布，前台已更新' : config.local ? "配置已保存，前台已更新" : "配置已保存");
+}
+
+async function restoreTrashItem(target) {
+  const kind = target.dataset.kind;
+  const item = kind === 'post'
+    ? trashData.posts.find(post => post.slug === target.dataset.slug && post.status === target.dataset.status)
+    : trashData.media.find(media => media.name === target.dataset.name);
+  if (!item) throw new Error('回收站内容已变化，请刷新后重试。');
+  const title = kind === 'post' ? item.data?.title || item.slug : item.name;
+  const detail = kind === 'post' && item.status === 'published' ? '恢复后，这篇文章将立即回到前台。' : kind === 'post' ? '恢复后，草稿可在后台继续编辑。' : '恢复后，图片会重新显示在媒体库。';
+  if (!await ask('恢复这项内容？', `<p class="dialog-copy">${detail}</p><strong>${e(title)}</strong>`, '恢复内容')) return;
+  const result = await repository.restoreTrash(kind, item);
+  await readWorkspace(result.state);
+  await render('recovery');
+  toast('内容已恢复');
+}
+async function restoreHistoryVersion(selectedRevision) {
+  const context = historyContext;
+  if (!context?.expectedRevision || !context.versions.some(version => version.revision === selectedRevision)) throw new Error('历史记录或当前版本已变化，请刷新后重试。');
+  if (!await ask('恢复到这个历史版本？', `<p class="dialog-copy">${context.kind === 'post' ? '将还原该时刻的已发表版本和草稿，前台随公开版本立即更新。' : '将还原该时刻的公开配置和未发布配置，公开配置立即生效。'}当前版本会保留在历史记录中。</p>`, '恢复此版本', true)) return;
+  const result = await repository.restoreRevision(context.kind, context.id, selectedRevision, context.expectedRevision);
+  await readWorkspace(result.state);
+  await render(currentRoute);
+  toast('历史版本已恢复，前台已更新');
+}
+async function backupOperation(action) {
+  const label = action === 'export-backup' ? '导出' : '校验';
+  let file;
+  if (action === 'validate-backup') {
+    file = await chooseUpload('.tar,application/x-tar');
+    if (!file) return;
+    backupValidation = null;
+  }
+  try {
+    let message;
+    if (action === 'export-backup') {
+      reportOperation('正在生成包含图片文件的完整备份…');
+      const backup = await repository.exportBackup();
+      const url = URL.createObjectURL(backup.blob), link = document.createElement('a');
+      link.href = url; link.download = backup.filename;
+      document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      message = `完整备份已生成并开始下载：${backup.filename}`;
+    } else {
+      reportOperation('正在校验备份内容与文件哈希…');
+      backupValidation = await repository.validateBackup(file);
+      message = backupValidation.message || (backupValidation.importable ? '备份预检通过，可导入空数据库。' : `预检已完成，当前不可导入${backupValidation.reason ? `：${backupValidation.reason}` : '，请查看预检详情'}。`);
+    }
+    backupEvents.unshift({ action: label, status: 'completed', message, createdAt: new Date().toISOString() });
+    backupEvents.splice(20);
+    await render('recovery');
+    toast(message, action === 'validate-backup' && !backupValidation.importable);
+  } catch (error) {
+    backupEvents.unshift({ action: label, status: 'failed', message: error.message || '操作未完成', createdAt: new Date().toISOString() });
+    backupEvents.splice(20);
+    await render('recovery');
+    throw error;
+  }
 }
 
 main.addEventListener("input", (event) => {
@@ -1013,6 +1135,7 @@ main.addEventListener("click", async (event) => {
   const target = event.target.closest("[data-action]");
   if (!target || saving) return;
   const action = target.dataset.action;
+  if (direct && writeActions.has(action) && !canWrite()) { showError(new Error('请先以管理员身份登录，再修改内容。')); return; }
   if (action === 'save-settings' && !settingsFormIsValid()) return;
   const mutation = [
     "save-post",
@@ -1023,6 +1146,7 @@ main.addEventListener("click", async (event) => {
     "publish-release",
     "upload-media",
     "delete-posts-batch", "delete-media-batch", "refresh", "login", "logout",
+    'restore-trash', 'restore-version', 'export-backup', 'validate-backup',
   ].includes(action);
   if (mutation) {
     setSaving(true);
@@ -1065,6 +1189,11 @@ main.addEventListener("click", async (event) => {
     else if (action === "save-post") await saveArticle();
     else if (action === "publish-post") await saveArticle(true);
     else if (action === "save-settings") await saveConfiguration();
+    else if (action === 'post-history' && direct) await go(`history/post/${target.dataset.slug}`);
+    else if (action === 'settings-history' && direct) await go('history/settings/site');
+    else if (action === 'restore-trash' && direct) await restoreTrashItem(target);
+    else if (action === 'restore-version' && direct) await restoreHistoryVersion(target.dataset.revision);
+    else if (['export-backup', 'validate-backup'].includes(action) && direct) await backupOperation(action);
     else if (action === "upload-media") {
       if (await upload()) await render(currentRoute);
     } else if (action === "copy-media") {
@@ -1187,6 +1316,7 @@ main.addEventListener("click", async (event) => {
         categories,
         config.local,
         resolveImage,
+        { direct },
       );
       editorMode = "rich";
       await mountEditor();
@@ -1204,9 +1334,13 @@ main.addEventListener("click", async (event) => {
       await readWorkspace();
       await render(currentRoute);
       if (loadError) throw new Error(loadError);
-      toast("GitHub 已连接");
+      toast(direct ? '管理员会话已连接' : "GitHub 已连接");
     } else if (action === "logout") {
-      repository.logout();
+      await repository.logout();
+      trashData = { posts: [], media: [] };
+      historyContext = null;
+      backupValidation = null;
+      backupEvents.length = 0;
       data = {
         posts: [],
         media: [],
@@ -1217,7 +1351,7 @@ main.addEventListener("click", async (event) => {
       await readWorkspace();
       await render(currentRoute);
       toast("已退出登录");
-    } else if (action === "publish-release") {
+    } else if (action === "publish-release" && legacyGit) {
       const release = data.releases.find(
         (release) => String(release.id) === target.dataset.id,
       );
@@ -1305,6 +1439,7 @@ main.addEventListener("click", async (event) => {
     if (mutation) {
       setSaving(false);
       target.disabled = false;
+      syncWriteAccess();
       syncSelectionControls();
       if (dirty) {
         document
@@ -1362,7 +1497,7 @@ document.addEventListener("keydown", (event) => {
     (activePost || editingSettings)
   ) {
     event.preventDefault();
-    if (saving) return;
+    if (saving || !canWrite()) return;
     if (!activePost && !settingsFormIsValid()) return;
     setSaving(true);
     (activePost ? saveArticle() : saveConfiguration())

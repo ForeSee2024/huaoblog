@@ -1,6 +1,7 @@
 ---
 // PostCard.astro: 文章卡片组件
 import type { BlogPost } from '../../utils/posts';
+import { safeImageSrc } from '../../config/site';
 
 interface Props {
   post: BlogPost;
@@ -8,16 +9,17 @@ interface Props {
 
 const { post } = Astro.props;
 const { title, description, pubDate, category, tags, views, coverImage, extraMeta, featured } = post.data;
+const cover = safeImageSrc(coverImage || '');
 
 // 格式化日期为 YYYY-MM-DD
 const dateStr = pubDate.toISOString().split('T')[0];
 ---
 <article class="cyber-card flex flex-col md:flex-row overflow-hidden group">
   <!-- 封面缩略图 -->
-  {coverImage && (
+  {cover && (
     <div class="relative w-full md:w-64 h-48 md:h-auto overflow-hidden flex-shrink-0 bg-[var(--bg-surface-elevated)]">
       <img 
-        src={coverImage} 
+        src={cover}
         alt={title} 
         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         loading="lazy"

@@ -1,99 +1,65 @@
 # HuaOvO
 
-胡敖（Huao）的技术博客与内容管理后台。前台静态部署到 Cloudflare Pages，后台在浏览器管理文章、草稿、媒体和前台配置；生产内容通过 GitHub 分支与 PR 发布。
+胡敖（Huao）的个人博客与内容管理后台。文章、图片和前台配置直接保存到内容服务，发布与删除无需 GitHub PR 或重新构建。
 
-## 技术栈
+## 运行与存储
 
-- Astro 7、TypeScript、Tailwind CSS 4：静态前台与管理入口。
-- Milkdown Crepe 7.22：富文本、Markdown、数学公式、表格和代码编辑，仅进入编辑区后加载。
-- remark / rehype、KaTeX：前后台共享安全渲染与文章排版。
-- GitHub REST API、Cloudflare OAuth Worker：生产登录、内容版本和发布门禁。
-- Node 本地内容服务：仅开发使用，读取和保存当前项目文件。
-- Pagefind：构建文章全文索引；Three.js：按前台配置及访客动效偏好加载。
+| 部署方式 | 网页与接口 | 内容数据库 | 图片与备份 |
+| --- | --- | --- | --- |
+| 当前 Cloudflare 部署 | Astro + Workers | D1 | 私有 R2，通过应用检查访问权限 |
+| 自有服务器 | Astro Node standalone | SQLite | 独立持久目录 |
 
-## 本地运行
+业务代码共用存储接口；部署相关逻辑位于各自的适配器。完整 TAR 备份包含 Markdown、公开及待发布配置、媒体原文件、历史、删除状态和 SHA-256 清单，可在两种部署之间恢复。GitHub 保存程序源码并提供管理员身份验证，日常写作不写仓库。
 
-使用 Node 24（`.nvmrc`）：
+前端使用 Astro 7、TypeScript、Tailwind CSS 4；写作使用按需加载的 Milkdown Crepe，支持富文本、Markdown、表格、代码与 KaTeX 公式。正文在服务器通过统一的安全渲染流程生成，搜索只返回已发表内容。
+
+## 本地开发
+
+使用 Node.js 24（`.nvmrc`）：
 
 ```sh
 npm ci
 npm run dev
 ```
 
-博客：http://127.0.0.1:4321/ 。管理后台：http://127.0.0.1:4321/admin/ 。开发命令同时启动 Astro 和 `127.0.0.1:8081` 内容服务，无需登录；Ctrl+C 关闭两个服务。本地服务校验来源、路径、文件类型和版本，仅用于当前项目开发。
+博客：<http://127.0.0.1:4321/>；后台：<http://127.0.0.1:4321/admin/>。开发命令只监听本机，使用 SQLite 和文件对象目录；本机开发免登录不会在 Cloudflare 或正式域名生效。空数据库需要先导入内容备份；构建不会自动发布 Git 中的旧文章。
 
-只运行前台：`npm run dev:site`；单独运行内容服务：`npm run content:local`。
-
-## 后台功能
-
-| 入口 | 操作 |
-| --- | --- |
-| 内容总览 | 真实文章、草稿、媒体和友链数量，最近文章、常用操作 |
-| 文章管理 | 搜索、状态筛选、新建、修订、保存草稿、提交发布、移除内容 |
-| 分类与标签 | 已发表文章的分类、标签与系列统计，跳转筛选管理 |
-| 媒体资源 | 上传、选择封面与头像、插入正文、复制地址，保护正在引用的图片 |
-| 站点设置 | 品牌、作者、头像、简介、网页标题、搜索描述、社交链接 |
-| 首页与导航 | 标题、介绍、按钮、公告、首页文章数量、导航顺序和显隐 |
-| 外观主题 | 默认明暗模式、四种强调色、前台动态背景 |
-| 关于与友链 | 关于页封面与正文、系统和技能图标选择、GitHub 展示，友链名称/网址/简介/头像 |
-| 页脚设置 | 页脚文案、备案号和查询链接 |
-| 发布与连接 | GitHub 连接、待发布变更、检查并合并、Cloudflare 部署信息 |
-
-文章编辑支持富文本、Markdown 和前台样式预览。`/` 打开插入菜单，工具栏可插入图片、链接和公式，`⌘/Ctrl+S` 保存草稿。数学公式使用 `$...$` 和独立 `$$`。保存保留描述性图片 alt、公式转义和代码围栏。Milkdown 会将 `latex` 语言代码块视作公式并规范化为 `$$`；需要把 LaTeX 当普通代码展示时使用 `text` 语言围栏。
-
-本地保存草稿到 `src/content/drafts/`，不会替换已发表文章。点击发布才写入 `src/content/posts/`。未保存文章提供浏览器恢复，离开有提醒；冲突会要求刷新，避免覆盖其他窗口修改。日期仅用于显示和排序，不提供定时发布。
-
-前台配置唯一数据源是 `src/data/site.json`。本地保存后前台自动更新；生产点击“保存并发布”会保存变更、自动等待检查并合并，Cloudflare 构建后更新前台。关于页内置 16 种系统、116 种常用技能和应用，可直接搜索、点选品牌图标，自动填写名称；仅实际选择写入个人配置。访客自行选择的主题优先于站点默认主题。五个分类保持固定，以免修改分类名字使历史文章失效。
-
-## 生产发布流程
-
-1. 用 GitHub 登录后台，账号需要仓库内容写入和 PR 合并权限。
-2. 保存文章建立草稿分支；提交发布把变更加入审核队列。配置和媒体使用各自的变更分支。
-3. 在“发布与连接”点击“检查并发布”：校验当前版本及所有检查，通过后合并到 `main`；主分支保护继续生效。
-4. Cloudflare 从合并提交构建。**已合并表示仓库已更新，实际部署成功与日志在 Cloudflare 控制台确认。**
-
-配置保存和已发表内容的删除确认，会自动继续上述检查和合并流程。等待超时、检查失败或版本冲突时保留待发布变更，可在“发布与连接”重新核对后继续。仅当更新发布分支保留全部已选内容及最新主分支内容时才接受自动同步。
-
-上传的待发布图片会进入引用它的内容变更；发布前检查图片存在。生产鉴权凭据只保留在浏览器会话中，退出登录清除；OAuth Client Secret 只存 Worker Secret。
-
-手工导入文章时使用 Markdown YAML 元数据；`src/content/posts/` 中的 `draft: true` 会被生产构建拒绝。使用后台会将草稿保存在独立目录，生产构建不会收录它们。
-
-## Cloudflare Pages 与 GitHub
-
-当前站点已上线到 [huaoblog.cn](https://huaoblog.cn/)，后台地址为 [huaoblog.cn/admin/](https://huaoblog.cn/admin/)。GitHub 自动部署连接、OAuth 加密密钥和实际后台登录均已完成，无需补做上线配置。日常写作与发布见 [使用与上线操作清单](docs/上线操作清单.md)，完整配置与域名迁移说明见 [部署配置](docs/DEPLOYMENT.md)。
-
-推送到 GitHub 并连接 Pages 项目：
-
-| 设置 | 值 |
-| --- | --- |
-| 生产分支 | `main` |
-| 构建命令 | `npm run check && npm test && npm run build` |
-| 输出目录 | `dist` |
-| Node 环境变量 | `NODE_VERSION=24` |
-
-生产环境公开配置（参见 `.env.example`）：
-
-```text
-SITE_URL=https://实际正式域名
-CMS_REPO=GitHub用户名/仓库名
-CMS_AUTH_URL=https://实际OAuthWorker地址
+```sh
+npm run content:import -- --archive /absolute/path/backup.tar --data-dir .local/runtime
 ```
 
-缺少配置时前台仍可构建，后台明确显示待配置状态。公开地址由 `src/config/admin.ts` 注入后台，不含任何 Secret。创建 OAuth App、精确站点白名单与部署 Worker 的说明见 `worker/README.md`。
+正式 Node 启动与数据目录设置见 [自有服务器部署](docs/SELF_HOSTING.md)。
 
-对 `main` 开启分支保护，至少要求 `Type Check & Production Build` 检查成功；后台还会检查现有检查是否完成。CI 校验内容和类型并构建搜索索引。生产不要设置 `SHOW_DRAFTS=true`；需要保密的分支预览同时使用私有仓库与 Cloudflare Access。
+## 后台能力
 
-## 验证与维护
+- 内容总览、文章列表、富文本与 Markdown 编辑、草稿、发布、批量删除。
+- 媒体上传、封面与头像选择、正文插图、引用保护。
+- 品牌、作者、首页、导航、主题、关于页、友链与页脚配置。
+- 关于页内置 16 种系统、116 种常用技能与应用，搜索并直接点选图标。
+- 内容版本检查、历史恢复、回收站、完整备份导出与校验。
+
+草稿仅管理员可见。点击发布或保存前台配置后，新请求直接读取已提交内容；已打开页面需要刷新。删除为软删除，可从回收站恢复。文章日期仅用于显示和排序，不是定时发布。
+
+后台登录使用 GitHub 身份交换与本站 HttpOnly Cookie。只允许配置的管理员 GitHub 用户 ID；GitHub Token 不写入数据库、浏览器存储或内容备份。新后台登录只请求 `read:user`，不再需要仓库写权限。
+
+## 验证
 
 ```sh
 npm test
 npm run check
-npm run build
-npm run preview
+npm run test:node
+npm run build:cloudflare
+HUAOVO_TEST_BINDINGS=1 node --test tests/content-store.test.mjs tests/blob-store.test.mjs tests/storage-review.test.mjs
 ```
 
-构建产物预览：http://127.0.0.1:4323/ 。测试涵盖实际文件草稿/发布、配置冲突、图片引用保护、上传限制、GitHub 分支与 PR、检查门禁、OAuth、Markdown 安全和编辑器内容往返。真实账号的 GitHub PR 合并、Cloudflare 从 Git 构建部署、后台 OAuth 登录及内容同步已验证。
+普通测试覆盖内容服务、权限、版本冲突、前台渲染、编辑器和归档恢复；Node 集成测试构建并启动真实服务，验证发布、隐私、删除、重启持久化及媒体静态绕过；绑定测试通过本地 workerd 验证 D1/R2 适配器。两种构建共用 `dist/`，不要并行运行构建命令。
 
-后台样式：`src/styles/console.css`；共享主题：`src/styles/tokens.css`；正文排版：`src/styles/prose.css`；文章：`src/content/posts/`；草稿：`src/content/drafts/`；图片：`public/images/posts/`。管理入口无索引，生产前台不依赖 Node 服务、数据库或 SSR。
+## 使用与维护
 
-目前首批 7 篇文章是个人项目与学习记录的初稿，可在后台继续修改、补充图片和真实结果；资料与文章入口见 [内容修改指南](docs/CONTENT_GUIDE.md)。原示例文章已移除，并为旧地址保留跳转。
+- [使用操作文件](docs/上线操作清单.md)：日常写作、配置、图标选择、删除恢复和备份。
+- [内容修改指南](docs/CONTENT_GUIDE.md)：具体配置入口和内容规则。
+- [Cloudflare 部署](docs/DEPLOYMENT.md)：资源、迁移、域名切换和回退。
+- [迁移与备份](docs/MIGRATION.md)：从 Git 导出、恢复到空库、往返校验。
+- [自有服务器](docs/SELF_HOSTING.md)：Node、Docker、持久数据、独立 OAuth 网关。
+
+早期静态 Pages/Git PR 方案作为历史资料保留；当前架构以以上文档及 `docs/superpowers/specs/2026-10-15-portable-content-design.md` 为准。

@@ -1,7 +1,9 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Sidebar from '../components/layout/Sidebar.astro';
-import { safeExternalHref, safeImageSrc, settings, site } from '../config/site';
+import { safeExternalHref, safeImageSrc, siteFor } from '../config/site';
+const settings = Astro.locals.siteSettings;
+const site = siteFor(settings);
 const home = Astro.site?.href;
 const friends = settings.friends.flatMap(friend => {
   const url = safeExternalHref(friend.url);

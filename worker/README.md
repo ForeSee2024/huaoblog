@@ -1,37 +1,29 @@
-# HuaOvO 管理后台的 GitHub 登录网关
+# HuaOvO GitHub 登录网关
 
-此 Worker 只处理 管理后台的 GitHub OAuth。文章与图片保存在 GitHub 仓库，博客由 Cloudflare Pages 静态发布。
+此网关只处理 GitHub OAuth。内容存储和后台操作由博客自己的 API、D1/R2 或 SQLite/文件适配器负责。
 
-## 配置和部署
+现有 Cloudflare 部署为 `huaoblog-oauth`。GitHub App 的主页是 `https://huaoblog.cn/admin/`，Callback 为 `https://huaoblog-oauth.huaoqaq.workers.dev/callback`。`GITHUB_CLIENT_ID`、`GITHUB_CLIENT_SECRET` 保留为加密 Secret；普通代码部署不会要求重新生成。
 
-1. 创建 GitHub OAuth App，名称可用 `HuaOvO Blog CMS`。Homepage URL 填正式博客的 `/admin/` 地址；Callback URL 填最终 Worker 域名的 `/callback`，例如 `https://你的Worker.workers.dev/callback`。
-2. 将 `wrangler.toml` 的 `ALLOWED_ORIGINS` 改为实际博客 Origin，例如 `https://blog.你的域名`。Origin 不带 `/admin/` 路径或结尾斜线；多个域名用逗号分隔，不支持通配符。需要在预览域名登录时，精确添加该域名。日常本地编辑使用文件代理，无需为它开放正式 OAuth。
-3. 在本目录执行以下命令，按提示注入 OAuth App 的凭据，然后部署：
+## Cloudflare 配置
 
-   ```sh
-   npx wrangler secret put GITHUB_CLIENT_ID
-   npx wrangler secret put GITHUB_CLIENT_SECRET
-   npx wrangler deploy
-   ```
+`wrangler.toml` 的 `ALLOWED_ORIGINS` 只列出实际允许的 HTTPS Origin；不带路径，不使用通配符。博客通过 `CMS_AUTH_URL` 指向网关。新后台在 `/auth` 附带 `identity=1`，请求 `read:user`；旧静态后台兼容路径仍可请求旧版所需的 `repo` 权限，不用于新的日常内容写入。
 
-4. 在 Pages 构建环境填写公开配置并重新部署博客：
+已有凭据时，从仓库根目录部署：
 
-   ```text
-   SITE_URL=https://你的正式博客域名
-   CMS_REPO=GitHub用户名/仓库名
-   CMS_AUTH_URL=https://你的Worker.workers.dev
-   ```
+```sh
+npx wrangler deploy --config worker/wrangler.toml
+```
 
-公开后台连接配置由 `src/config/admin.ts` 在构建时注入管理入口，无需手工编辑静态文件。Client Secret 只保存在 Worker Secret 中。
+首次部署到独立账户时，按 Cloudflare 官方 Secret 提示配置两个 GitHub 凭据，不能写进配置文件或 Git。博客进程不需要 Client Secret。
 
-## 会话与错误处理
+## 安全与会话
 
-`/auth` 验证允许的 Origin，将随机 nonce 与该 Origin 一起保存在短时 HttpOnly、Secure、SameSite=Lax Cookie 中。`/callback` 对完整 state 做常量时间比对，并在换取 Token 时指定同一 Callback URL。
+网关验证精确 Origin，使用短时 HttpOnly、Secure、SameSite=Lax Cookie 保存随机 state，并对回调 state 做常量时间比对。Token 交换不跟随重定向；回传脚本用 CSP、JSON 安全序列化和 Origin/source 检查，只发送给发起登录的页面。
 
-回传脚本只向原始 Origin 发送结果，同时验证 `event.source` 是打开弹窗的页面；取消授权、GitHub 错误和无效会话均返回明确错误。响应禁止缓存并使用 CSP，第三方错误字符串通过 JSON 安全序列化，不能成为执行脚本。
+新后台把临时 GitHub Token 换成本站会话，随后所有操作仅使用本站 Cookie；只允许配置的管理员 ID。Token 不进入浏览器存储、内容数据库或备份。
 
-## 启用后的验收
+## Node 网关与验收
 
-运行根目录的 `npm test` 可以检查会话篡改、错误 Origin、错误消息来源和 GitHub 错误路径。真实联调还需确认：登录弹窗能够关闭；文章与图片保存到工作流分支；`main` 分支保护要求 `Type Check & Production Build` 通过；发布合并后 Pages 成功构建且搜索索引更新。
+`node-server.mjs` 支持独立服务器，并固定使用 `read:user`。环境、HTTPS、Callback 切换和反向代理步骤见 [SELF_HOSTING.md](../docs/SELF_HOSTING.md)。
 
-更换 Worker 域名时，同时更新 GitHub OAuth App 的 Callback URL 与 Pages 的 `CMS_AUTH_URL`。更换博客域名时，同时更新 `SITE_URL`、OAuth App 的 Homepage URL 与 `ALLOWED_ORIGINS`。
+根目录 `npm test` 覆盖 Origin/state 篡改、弹窗消息来源、取消授权和 Node 网关 HTTP 冒烟测试。部署后还需实际从后台打开弹窗，完成 GitHub 回调与本站会话交换，并验证草稿保存和发布。

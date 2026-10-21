@@ -1,20 +1,20 @@
 ---
-// [slug].astro: 动态文章路由 (仅对已发布文章生成静态页面)
-import { getPublishedPosts } from '../../utils/posts';
+// 文章按请求读取当前已发布版本，草稿和删除记录不对外展示。
+import { getPublishedPost } from '../../utils/posts';
 import PostLayout from '../../layouts/PostLayout.astro';
-import { render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { renderMarkdown } from '../../server/render-markdown.js';
 
-export async function getStaticPaths() {
-  const posts = await getPublishedPosts();
-  return posts.map(post => ({
-    params: { slug: post.slug },
-    props: { post },
-  }));
-}
-
-const { post } = Astro.props;
-const { Content, headings } = await render(post);
+const post = await getPublishedPost(Astro.locals.services.store, Astro.params.slug || '');
+if (!post) Astro.response.status = 404;
+const { html, headings } = post ? renderMarkdown(post.body || '') : { html: '', headings: [] };
 ---
-<PostLayout post={post} headings={headings}>
-  <Content />
-</PostLayout>
+{post ? <PostLayout post={post} headings={headings}>
+  <Fragment set:html={html} />
+</PostLayout> : <BaseLayout title="文章不存在">
+  <main class="cyber-card p-8 md:p-10">
+    <h1 class="text-2xl font-bold text-[var(--text-hero)] mb-3">文章不存在</h1>
+    <p class="text-sm text-[var(--text-muted)] mb-5">这篇文章暂未发布，或已被移除。</p>
+    <a href="/posts" class="text-sm text-[var(--accent)]">返回文章列表 →</a>
+  </main>
+</BaseLayout>}

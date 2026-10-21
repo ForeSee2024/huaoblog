@@ -62,7 +62,7 @@ export default {
       const fullState = `${crypto.randomUUID()}.${btoa(origin)}`;
       const authorization = new URL('https://github.com/login/oauth/authorize');
       authorization.searchParams.set('client_id', env.GITHUB_CLIENT_ID);
-      authorization.searchParams.set('scope', 'repo');
+      authorization.searchParams.set('scope', env.GITHUB_OAUTH_SCOPE === 'read:user' || url.searchParams.get('identity') === '1' ? 'read:user' : 'repo');
       authorization.searchParams.set('state', fullState);
       authorization.searchParams.set('redirect_uri', new URL('/callback', url.origin).href);
       return new Response(null, { status: 302, headers: {
@@ -83,7 +83,7 @@ export default {
       if (!code) return new Response('Missing authorization code.', { status: 400 });
       try {
         const response = await fetch('https://github.com/login/oauth/access_token', {
-          method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'HuaOvO-Decap-OAuth' },
+          method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'HuaOvO-Decap-OAuth' },
           body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET, code, redirect_uri: new URL('/callback', url.origin).href }),
         });
         const data = await response.json();

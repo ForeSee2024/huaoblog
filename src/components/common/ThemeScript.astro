@@ -1,6 +1,6 @@
 ---
 // ThemeScript.astro: 零闪烁系统级主题自适应探测与响应脚本
-import { settings } from '../../config/site';
+const settings = Astro.locals.siteSettings;
 const { theme: defaultTheme, accent: defaultAccent } = settings.appearance;
 ---
 <script is:inline define:vars={{ defaultTheme, defaultAccent }}>

@@ -1,0 +1,10 @@
+.git
+node_modules
+dist
+.astro
+.wrangler
+.worktrees
+.local
+.env*
+!.env.example
+test-results

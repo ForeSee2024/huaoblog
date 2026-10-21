@@ -1,0 +1,18 @@
+services:
+  blog:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        SITE_URL: ${SITE_URL:-https://huaoblog.cn}
+    environment:
+      SITE_URL: ${SITE_URL:-https://huaoblog.cn}
+      ADMIN_GITHUB_ID: ${ADMIN_GITHUB_ID:-160737293}
+      CMS_AUTH_URL: ${CMS_AUTH_URL:-https://huaoblog-oauth.huaoqaq.workers.dev}
+    ports:
+      - "127.0.0.1:4321:4321"
+    volumes:
+      - blog-data:/data
+    restart: unless-stopped
+volumes:
+  blog-data:

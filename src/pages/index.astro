@@ -5,9 +5,11 @@ import Sidebar from '../components/layout/Sidebar.astro';
 import PostCard from '../components/post/PostCard.astro';
 import { getPublishedPosts } from '../utils/posts';
 import { sortFeedPosts } from '../utils/post-filters';
-import { settings, site } from '../config/site';
+import { siteFor } from '../config/site';
 
-const sortedPosts = sortFeedPosts(await getPublishedPosts());
+const settings = Astro.locals.siteSettings;
+const site = siteFor(settings);
+const sortedPosts = sortFeedPosts(await getPublishedPosts(Astro.locals.services.store));
 const homePosts = sortedPosts.slice(0, settings.home.postsPerPage);
 ---
 <BaseLayout>

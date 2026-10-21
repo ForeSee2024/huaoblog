@@ -1,0 +1,10 @@
+huaoblog.cn {
+  reverse_proxy 127.0.0.1:4321
+}
+www.huaoblog.cn {
+  redir https://huaoblog.cn{uri} permanent
+}
+# For a completely independent login gateway, configure another HTTPS hostname:
+# auth.your-domain.cn {
+#   reverse_proxy 127.0.0.1:8790
+# }

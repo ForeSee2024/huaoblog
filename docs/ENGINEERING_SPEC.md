@@ -1,3 +1,5 @@
+> 历史架构说明：本文中的静态 Pages、Git PR 内容发布流程已由可迁移内容服务取代。当前实现以 [部署配置](DEPLOYMENT.md)、[迁移指南](MIGRATION.md) 和 [新内容服务设计](superpowers/specs/2026-10-15-portable-content-design.md) 为准。
+
 > **2026-10-13 后台重设计说明**：本文件保留最初 Decap 方案作为历史设计基线。当前实现已按用户新要求替换为独立管理后台与 Milkdown 编辑器，并加入可保存的前台配置。静态 Astro + GitHub PR + Cloudflare Pages / OAuth Worker 架构保持；当前运行方式与验收范围以 [README](../README.md) 和 [后台设计说明](./ADMIN_CONSOLE.md) 为准。
 
 # 个人博客系统全栈工程化方案与生产级蓝图 (Production Blueprint)

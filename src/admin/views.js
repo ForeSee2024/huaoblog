@@ -20,7 +20,7 @@ export const pageHeading = (title, description, actions = "", eyebrow = "") =>
 const editAttrs = (post) =>
   `data-slug="${e(post.slug)}" data-status="${e(post.status)}"`;
 
-export function overview(data, local) {
+export function overview(data, local, { direct = false } = {}) {
   const counts = summarizeWorkspace(data);
   const latest = [...data.posts]
     .sort((a, b) =>
@@ -46,8 +46,8 @@ export function overview(data, local) {
         `<button type="button" class="quick-action" data-action="${action}">${icon(glyph)}<span><strong>${title}</strong><small>${copy}</small></span>${icon("chevron")}</button>`,
     )
     .join("")}</div></section>
-  <section class="side-section"><h2>我的站点</h2><div class="site-mini"><div class="site-mini-brand"><img src="${e(safeImage(data.settings.identity.avatar) || "/favicon.svg")}" alt="" />${e(data.settings.identity.brand)}</div><p>${e(data.settings.identity.description)}</p><div class="site-mini-foot"><span>${local ? "本地预览" : "静态博客"}</span><a class="text-link" href="/" target="_blank" rel="noopener noreferrer">查看站点${icon("external")}</a></div></div></section>
-  <section><h2 style="margin-bottom:10px">发布工作流</h2><p class="section-copy">${local ? "保存草稿后继续编辑，确认内容与预览后发布。站点配置保存后，本地前台会自动更新。" : "草稿与配置提交到 GitHub 分支，通过检查后合并；Cloudflare 随后构建站点。"}</p><a class="text-link" style="margin-top:12px" href="#/connection">查看发布与连接${icon("chevron")}</a></section></aside></div>`;
+  <section class="side-section"><h2>我的站点</h2><div class="site-mini"><div class="site-mini-brand"><img src="${e(safeImage(data.settings.identity.avatar) || "/favicon.svg")}" alt="" />${e(data.settings.identity.brand)}</div><p>${e(data.settings.identity.description)}</p><div class="site-mini-foot"><span>${local ? "本地预览" : direct ? "内容已连接" : "静态博客"}</span><a class="text-link" href="/" target="_blank" rel="noopener noreferrer">查看站点${icon("external")}</a></div></div></section>
+  <section><h2 style="margin-bottom:10px">发布工作流</h2><p class="section-copy">${direct ? "草稿仅在后台可见。发布文章或保存配置后，前台立即更新；删除内容可从回收站恢复。" : local ? "保存草稿后继续编辑，确认内容与预览后发布。站点配置保存后，本地前台会自动更新。" : "草稿与配置提交到 GitHub 分支，通过检查后合并；Cloudflare 随后构建站点。"}</p><a class="text-link" style="margin-top:12px" href="#/connection">查看${direct ? '内容服务' : '发布与连接'}${icon("chevron")}</a></section></aside></div>`;
 }
 export function bulkToolbar(kind, items, selected, key) {
   const available = items.filter(item => !item.pendingDeletion);
@@ -79,7 +79,7 @@ export function postsView(data, filters, selected = new Set()) {
     .join(
       "",
     )}</div><label class="search-field">${icon("search")}<input id="post-search" type="search" placeholder="搜索标题、摘要或标签…" aria-label="搜索文章" value="${e(filters.search)}" /></label></div>
-  ${filters.category || filters.tag ? notice(`正在筛选：${filters.category || filters.tag}`) + button("清除筛选", "reset-filter", "", "quiet") : ""}<div id="posts-bulk">${bulkToolbar('posts', filterPosts(data.posts, filters), selected, postKey)}</div><div class="post-table" id="post-table">${postTable(filterPosts(data.posts, filters), selected)}</div><div class="table-footer"><span id="post-result-count">共 ${filterPosts(data.posts, filters).length} 篇内容</span><span>草稿与待删除变更分别管理</span></div>`;
+  ${filters.category || filters.tag ? notice(`正在筛选：${filters.category || filters.tag}`) + button("清除筛选", "reset-filter", "", "quiet") : ""}<div id="posts-bulk">${bulkToolbar('posts', filterPosts(data.posts, filters), selected, postKey)}</div><div class="post-table" id="post-table">${postTable(filterPosts(data.posts, filters), selected)}</div><div class="table-footer"><span id="post-result-count">共 ${filterPosts(data.posts, filters).length} 篇内容</span><span>${data.connection?.mode === 'database' ? '草稿仅在后台可见，删除内容可从回收站恢复' : '草稿与待删除变更分别管理'}</span></div>`;
 }
 export function taxonomyView(data, categories) {
   const counts = collectTaxonomy(data.posts);
@@ -125,9 +125,16 @@ export function mediaCards(media, selected = new Set()) {
       );
 }
 export function connectionView(data, config, loadError = "") {
+  if (config.backend === 'api') return directConnectionView(data, config, loadError);
   const repoUrl = config.repo ? `https://github.com/${config.repo}` : "";
   return `${pageHeading("发布与连接", "检查内容发布进度，以及 GitHub 与 Cloudflare 的连接配置。", button("刷新状态", "refresh", "refresh", "secondary"))}${loadError ? notice(loadError, "error") : ""}
   <div class="connection-grid"><section class="settings-section"><div class="connection-detail">${icon(config.local ? "folder" : "github")}<div><h2>${config.local ? "本地内容工作区" : "GitHub 内容仓库"}</h2><p>${config.local ? "内容保存在当前项目，本地预览自动更新" : config.repo || "尚未配置内容仓库"}</p></div></div><dl class="config-list"><div><dt>当前模式</dt><dd>${config.local ? "本地编辑" : "生产管理"}</dd></div><div><dt>内容状态</dt><dd>${loadError ? "连接未完成" : "已连接"}</dd></div><div><dt>生产分支</dt><dd><code>${e(config.branch)}</code></dd></div><div><dt>GitHub 仓库</dt><dd>${repoUrl ? `<a class="text-link" href="${e(repoUrl)}" target="_blank" rel="noopener noreferrer">${e(config.repo)}${icon("external")}</a>` : "未配置 CMS_REPO"}</dd></div><div><dt>授权服务</dt><dd>${config.ready && !config.local ? e(config.authUrl) : "上线时配置 CMS_AUTH_URL"}</dd></div></dl><div style="margin-top:20px">${!config.local && config.ready ? button(data.connection?.authenticated ? "退出登录" : "使用 GitHub 登录", data.connection?.authenticated ? "logout" : "login", data.connection?.authenticated ? "logout" : "github", "primary") : config.local ? '<p class="section-copy">本地工作区无需登录。生产环境通过 GitHub 授权，凭据不写入站点配置。</p>' : notice("配置 CMS_REPO、CMS_AUTH_URL、SITE_URL 并重新构建后，即可使用 GitHub 登录。")}</div></section>
   <section class="settings-section"><div class="connection-detail">${icon("cloud")}<div><h2>Cloudflare Pages</h2><p>${config.local ? "等待生产部署配置" : "由仓库提交触发构建"}</p></div></div><dl class="config-list"><div><dt>站点地址</dt><dd>${e(config.siteUrl || "未配置 SITE_URL")}</dd></div><div><dt>构建命令</dt><dd><code>npm run check && npm test && npm run build</code></dd></div><div><dt>输出目录</dt><dd><code>dist</code></dd></div><div><dt>Node 版本</dt><dd><code>24</code></dd></div><div><dt>实时部署状态</dt><dd>在 Cloudflare 控制台确认</dd></div></dl><a class="text-link" style="margin-top:20px" href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer">打开 Cloudflare 控制台${icon("external")}</a><p class="field-hint">域名与密钥在部署服务中配置；这里显示内容和连接状态。</p></section></div>
   <section><div class="section-bar"><h2>待发布变更</h2><small>${data.releases.length} 项</small></div>${data.releases.length ? data.releases.map((release) => `<div class="release-row"><div><h3>${e(release.title)}</h3><p>${e(release.branch)} · ${release.state === "merged" ? "已合并，等待部署确认" : release.state === "draft" ? "草稿分支" : "等待检查与合并"}</p></div><div class="release-actions"><a class="button secondary" href="${e(release.url)}" target="_blank" rel="noopener noreferrer">查看变更${icon("external")}</a>${release.state === "review" ? button("检查并发布", "publish-release", "cloud", "primary", `data-id="${e(release.id)}"`) : ""}</div></div>`).join("") : empty("当前没有待发布变更", config.local ? "本地点击发布会更新当前前台；部署后，待审核的 GitHub 变更会显示在这里。" : "保存文章或配置后，可以在这里检查并发布变更。", "", "", "check")}</section>`;
+}
+
+function directConnectionView(data, config, loadError) {
+  const connection = data.connection || {}, authenticated = connection.authenticated === true;
+  const login = config.ready ? button(authenticated ? '退出登录' : '使用 GitHub 登录', authenticated ? 'logout' : 'login', authenticated ? 'logout' : 'github', 'primary') : notice('请检查授权服务与站点地址配置。', 'error');
+  return `${pageHeading('内容服务', '发布文章、删除内容和保存配置后，前台立即更新。', button('刷新状态', 'refresh', 'refresh'))}${loadError ? notice(loadError, 'error') : ''}<div class="connection-grid"><section class="settings-section"><div class="connection-detail">${icon('folder')}<div><h2>内容数据库</h2><p>${e(connection.label || (authenticated ? '管理会话已连接' : '等待管理员登录'))}</p></div></div><dl class="config-list"><div><dt>内容状态</dt><dd>${authenticated ? connection.writable ? '可编辑' : '只读' : '尚未登录'}</dd></div><div><dt>管理员</dt><dd>${e(connection.user?.login || (authenticated ? '本站管理员' : '等待 GitHub 授权'))}</dd></div><div><dt>站点地址</dt><dd>${e(config.siteUrl)}</dd></div></dl><div class="connection-actions">${login}</div><p class="field-hint">管理会话保存在本站安全 Cookie 中，退出登录后失效。</p></section><section class="settings-section"><div class="connection-detail">${icon('clock')}<div><h2>恢复与备份</h2><p>保留修改前的版本和已删除内容。</p></div></div><p class="section-copy">在文章和站点配置中查看历史版本；在回收站找回内容，或下载包含图片文件的完整备份。</p><div class="connection-actions"><a class="button secondary" href="#/recovery">打开恢复与备份${icon('chevron')}</a></div></section></div>`;
 }
