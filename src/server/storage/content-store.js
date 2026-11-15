@@ -5,6 +5,7 @@ import { createMediaMethods, mediaView } from './media.js';
 import { createRecoveryMethods } from './recovery.js';
 import { createSnapshotMethods } from './snapshots.js';
 import { createSearchMethods } from './search.js';
+import { createAnalyticsMethods } from './analytics.js';
 export { CONTENT_SCHEMA } from './schema.js';
 export { validateSnapshot } from './snapshots.js';
 
@@ -17,6 +18,7 @@ export function createContentStore(database, options = {}) {
     ...createRecoveryMethods(persistence),
     ...createSnapshotMethods(persistence),
     ...createSearchMethods(persistence),
+    ...createAnalyticsMethods(persistence),
     async getWorkspace() {
       const rows = await database.all("SELECT json_remove(payload_json, '$.published.body', '$.draft.body') AS payload_json FROM content_documents WHERE kind = 'post' ORDER BY id");
       const [settings, media] = await Promise.all([persistence.read('settings', 'site'), persistence.list('media')]);

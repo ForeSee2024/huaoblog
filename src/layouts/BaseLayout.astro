@@ -12,16 +12,23 @@ import { safeExternalHref, siteFor } from '../config/site';
 interface Props {
   title?: string;
   description?: string;
+  analyticsTarget?: { type: 'post' | 'page'; key: string } | false;
 }
 
 const settings = Astro.locals.siteSettings;
 const site = siteFor(settings);
 const {
   title = site.name,
-  description = site.description
+  description = site.description,
+  analyticsTarget,
 } = Astro.props;
 
 const currentPath = Astro.url.pathname;
+const normalizedPath = currentPath.replace(/\/+$/, '') || '/';
+const knownPublicPages = new Set(['/', '/posts', '/archive', '/about', '/friends']);
+const analytics = analyticsTarget === false
+  ? null
+  : analyticsTarget || (knownPublicPages.has(normalizedPath) ? { type: 'page', key: normalizedPath } : null);
 const canonical = Astro.site ? new URL(currentPath, Astro.site) : undefined;
 const renderThree = settings.appearance.backgroundEffect;
 const icpHref = safeExternalHref(settings.footer.icpUrl);
@@ -50,7 +57,11 @@ const icpHref = safeExternalHref(settings.footer.icpUrl);
   <link href={site.fonts} rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
-<body class="selection:bg-[var(--accent)] selection:text-[var(--accent-contrast)]">
+<body
+  class="selection:bg-[var(--accent)] selection:text-[var(--accent-contrast)]"
+  data-analytics-type={analytics?.type}
+  data-analytics-key={analytics?.key}
+>
   
   <!-- 辅助工程网格层与 Three.js 3D 拓扑波浪画布 -->
   <div class="bg-grid-layer"></div>
@@ -77,5 +88,6 @@ const icpHref = safeExternalHref(settings.footer.icpUrl);
     {settings.footer.icp && <p class="mt-2">{icpHref ? <a href={icpHref} target="_blank" rel="noopener noreferrer" class="hover:text-[var(--accent)]">{settings.footer.icp}</a> : settings.footer.icp}</p>}
   </footer>
 
+  <script>import { startReadingTracker } from '../lib/reading-tracker.js'; startReadingTracker();</script>
 </body>
 </html>

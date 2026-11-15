@@ -11,7 +11,7 @@ const { html, headings } = post ? renderMarkdown(post.body || '') : { html: '', 
 ---
 {post ? <PostLayout post={post} headings={headings}>
   <Fragment set:html={html} />
-</PostLayout> : <BaseLayout title="文章不存在">
+</PostLayout> : <BaseLayout title="文章不存在" analyticsTarget={false}>
   <main class="cyber-card p-8 md:p-10">
     <h1 class="text-2xl font-bold text-[var(--text-hero)] mb-3">文章不存在</h1>
     <p class="text-sm text-[var(--text-muted)] mb-5">这篇文章暂未发布，或已被移除。</p>

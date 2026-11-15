@@ -184,6 +184,7 @@ export function createHttpRepository(config, deps = {}) {
       return request('/backups/validate', { method: 'POST', body: uploadFile(file) });
     },
     getSession: () => request('/session'),
+    getAnalytics: (days = 30) => request(`/analytics?days=${[7, 30, 90].includes(Number(days)) ? Number(days) : 30}`),
     login,
     async logout() { cancelLogin?.(); await mutationQueue; return request('/session', { method: 'DELETE' }); },
   };
