@@ -1,35 +1,48 @@
 ---
-// Toast.astro: 全局轻量气泡通知容器
+// Toast.astro: 全局安全轻量气泡通知容器
 ---
-<div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 pointer-events-none" id="toast-container"></div>
+<div class="fixed bottom-16 sm:bottom-6 right-4 sm:right-6 z-50 flex flex-col gap-2.5 pointer-events-none" id="toast-container" aria-live="polite"></div>
 
 <script>
-  // 挂载全局 showToast 工具方法
-  (window as any).showToast = function(title: string, desc: string, iconClass = "fa-solid fa-bell") {
+  (window as any).showToast = function (title: string, desc = '', iconClass = 'fa-solid fa-circle-check') {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
     const toast = document.createElement('div');
-    toast.className = 'cyber-card pointer-events-auto flex items-center gap-3 px-4 py-3 min-w-[280px] bg-[var(--bg-surface)] border border-[var(--border-card)] shadow-2xl transition-all duration-300 transform translate-y-4 opacity-0';
-    toast.innerHTML = `
-      <div class="text-lg text-[var(--accent)]"><i class="${iconClass}"></i></div>
-      <div>
-        <div class="text-xs font-bold text-[var(--text-hero)]">${title}</div>
-        <div class="text-[11px] text-[var(--text-dim)]">${desc}</div>
-      </div>
-    `;
+    toast.className = 'cyber-card pointer-events-auto flex items-center gap-3 px-4 py-3 min-w-[260px] max-w-[360px] bg-[var(--bg-surface)] border border-[var(--border-card)] shadow-2xl transition-all duration-300 transform translate-y-3 opacity-0';
 
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'w-8 h-8 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] flex items-center justify-center flex-shrink-0 text-sm';
+    const iconEl = document.createElement('i');
+    iconEl.className = /^[a-z0-9\s-]+$/i.test(iconClass) ? iconClass : 'fa-solid fa-bell';
+    iconEl.setAttribute('aria-hidden', 'true');
+    iconWrap.appendChild(iconEl);
+
+    const textWrap = document.createElement('div');
+    textWrap.className = 'min-w-0 flex-1';
+    const titleEl = document.createElement('div');
+    titleEl.className = 'text-xs font-bold text-[var(--text-hero)] truncate';
+    titleEl.textContent = title;
+    textWrap.appendChild(titleEl);
+
+    if (desc) {
+      const descEl = document.createElement('div');
+      descEl.className = 'text-[11px] text-[var(--text-muted)] mt-0.5 line-clamp-2';
+      descEl.textContent = desc;
+      textWrap.appendChild(descEl);
+    }
+
+    toast.appendChild(iconWrap);
+    toast.appendChild(textWrap);
     container.appendChild(toast);
 
-    // 入场动效
     requestAnimationFrame(() => {
-      toast.classList.remove('translate-y-4', 'opacity-0');
+      toast.classList.remove('translate-y-3', 'opacity-0');
     });
 
-    // 定时离场
     setTimeout(() => {
-      toast.classList.add('translate-y-4', 'opacity-0');
-      setTimeout(() => toast.remove(), 300);
-    }, 3200);
+      toast.classList.add('translate-y-3', 'opacity-0');
+      setTimeout(() => toast.remove(), 280);
+    }, 2800);
   };
 </script>

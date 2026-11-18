@@ -1,9 +1,9 @@
 export function filterPosts(
   posts,
-  { search = "", state = "all", category = "", tag = "" } = {},
+  { search = "", state = "all", category = "", tag = "", sort = "" } = {},
 ) {
   const query = search.trim().toLocaleLowerCase();
-  return posts.filter(
+  const matched = posts.filter(
     (post) =>
       (state === "all" || state === post.status) &&
       (!category || post.data.category === category) &&
@@ -19,6 +19,18 @@ export function filterPosts(
           .toLocaleLowerCase()
           .includes(query)),
   );
+  if (!sort) return matched;
+  const sorters = {
+    newest: (a, b) =>
+      String(b.data.pubDate || "").localeCompare(String(a.data.pubDate || "")) ||
+      String(a.slug).localeCompare(String(b.slug)),
+    oldest: (a, b) =>
+      String(a.data.pubDate || "").localeCompare(String(b.data.pubDate || "")) ||
+      String(a.slug).localeCompare(String(b.slug)),
+    title: (a, b) =>
+      String(a.data.title || a.slug).localeCompare(String(b.data.title || b.slug), "zh-CN"),
+  };
+  return sorters[sort] ? [...matched].sort(sorters[sort]) : matched;
 }
 export function collectTaxonomy(posts) {
   const categories = {},
@@ -34,6 +46,17 @@ export function collectTaxonomy(posts) {
       series[post.data.series] = (series[post.data.series] || 0) + 1;
   }
   return { categories, tags, series };
+}
+export function collectAllKnownTags(posts = []) {
+  const freq = new Map();
+  for (const post of posts) {
+    for (const tag of post.data?.tags || []) {
+      if (tag) freq.set(tag, (freq.get(tag) || 0) + 1);
+    }
+  }
+  return [...freq.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-CN"))
+    .map(([tag]) => tag);
 }
 export function summarizeWorkspace({ posts = [], media = [], settings = {} }) {
   return {

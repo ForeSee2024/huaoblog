@@ -22,22 +22,27 @@ const editAttrs = (post) =>
 
 export function overview(data, local, { direct = false } = {}) {
   const counts = summarizeWorkspace(data);
-  const latest = [...data.posts]
-    .sort((a, b) =>
-      String(b.data.pubDate || "").localeCompare(String(a.data.pubDate || "")),
-    )
-    .slice(0, 5);
+  const sorted = [...data.posts].sort((a, b) =>
+    String(b.data.pubDate || "").localeCompare(String(a.data.pubDate || "")),
+  );
+  const latest = sorted.slice(0, 6);
+  const recentDraft = sorted.find((post) => post.status === "draft");
   const metrics = [
     ["已发表文章", counts.published, "前台可阅读的内容", "posts"],
     ["待完成草稿", counts.drafts, "继续上次的创作", "edit"],
     ["媒体资源", counts.media, "图片与文章素材", "image"],
     ["友情链接", counts.friends, "与朋友保持连接", "globe"],
   ];
-  return `${pageHeading("内容总览", "欢迎回来，胡敖。这里是你的内容与站点工作区。", button("新建文章", "new-post", "plus", "primary"), "HUAOVO / OVERVIEW")}
+  const draftBanner = recentDraft
+    ? `<div class="continue-draft-card"><div><span class="eyebrow">CONTINUE WRITING</span><strong>${e(recentDraft.data.title || "未命名草稿")}</strong><p>${e(recentDraft.data.description || `上次日期：${date(recentDraft.data.pubDate)} · 点击继续编辑未发布的草稿`)}</p></div><button type="button" class="button primary" data-action="edit-post" ${editAttrs(recentDraft)}>${icon("edit")}继续写作</button></div>`
+    : "";
+
+  return `${pageHeading("内容总览", "欢迎回来，胡敖。这里是你的内容创作与站点管理工作台。", button("新建文章", "new-post", "plus", "primary"), "HUAOVO / OVERVIEW")}
   <div class="metric-strip">${metrics.map(([label, value, hint, glyph]) => `<div class="metric"><label>${icon(glyph)}${label}</label><strong>${value}</strong><small>${hint}</small></div>`).join("")}</div>
-  <div class="overview-grid"><section><div class="section-bar"><h2>最近的文章</h2><a href="#/posts" class="button quiet">管理全部${icon("chevron")}</a></div>${latest.length ? latest.map((post, index) => `<div class="recent-row"><span class="post-index">${String(index + 1).padStart(2, "0")}</span><div class="recent-copy"><button type="button" data-action="edit-post" ${editAttrs(post)}>${e(post.data.title || "未命名草稿")}</button><p>${e(post.data.description || "还没有填写摘要，继续完善这篇文章。")}</p><div class="row-meta"><span>${e(post.data.category || "未设置分类")}</span><span class="meta-dot">/</span><span>${e(date(post.data.pubDate))}</span>${post.data.featured ? `<span class="badge published">精选</span>` : ""}</div></div>${status(post)}</div>`).join("") : empty("开始你的第一篇文章", "把一次实践、一段思考，整理成可以再次阅读的记录。", "new-post", "新建文章")}
+  ${draftBanner}
+  <div class="overview-grid"><section><div class="section-bar"><h2>最近的文章</h2><a href="#/posts" class="button quiet">管理全部${icon("chevron")}</a></div>${latest.length ? latest.map((post, index) => `<div class="recent-row"><span class="post-index">${String(index + 1).padStart(2, "0")}</span><div class="recent-copy"><button type="button" data-action="edit-post" ${editAttrs(post)}>${e(post.data.title || "未命名草稿")}</button><p>${e(post.data.description || "还没有填写摘要，继续完善这篇文章。")}</p><div class="row-meta"><span>${e(post.data.category || "未设置分类")}</span><span class="meta-dot">/</span><span>${e(date(post.data.pubDate))}</span>${post.data.featured ? `<span class="badge published">精选</span>` : ""}</div></div><div class="recent-row-end">${status(post)}${post.status === "published" ? `<a class="icon-button" href="/posts/${encodeURIComponent(post.slug)}" target="_blank" rel="noopener noreferrer" title="在前台打开文章" aria-label="在前台查看 ${e(post.data.title)}">${icon("external")}</a>` : ""}</div></div>`).join("") : empty("开始你的第一篇文章", "把一次实践、一段思考，整理成可以再次阅读的记录。", "new-post", "新建文章")}
   </section><aside class="overview-aside"><section class="side-section"><h2>常用操作</h2><div class="quick-actions">${[
-    ["new-post", "edit", "开始写作", "创建新文章或保存草稿"],
+    ["new-post", "edit", "开始写作", "进入支持分栏与专注模式的编辑器"],
     ...(direct ? [["go-analytics", "chart", "查看访问统计", "阅读排行、趋势与完读率"]] : []),
     ["go-home", "home", "调整首页", "文案、公告与导航"],
     ["upload-media", "upload", "上传图片", "管理封面和正文素材"],
@@ -63,10 +68,17 @@ export function postTable(posts, selected = new Set()) {
       "new-post",
       "新建文章",
     );
-  return `<div class="table-header"><span></span><span>文章</span><span class="table-category">分类</span><span>文章日期</span><span>状态</span><span>操作</span></div>${posts.map((post) => `<div class="table-row ${selected.has(postKey(post)) ? 'selected' : ''}"><input type="checkbox" class="selection-checkbox" data-select-post="${e(postKey(post))}" aria-label="选择${post.status === 'draft' ? '草稿' : '文章'} ${e(post.data.title || post.slug)}" ${selected.has(postKey(post)) ? 'checked' : ''} ${post.pendingDeletion ? 'disabled data-locked="true"' : ''} /><div class="table-content"><button type="button" class="table-title" data-action="edit-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''}>${e(post.data.title || "未命名草稿")}</button><p class="table-description">${e(post.data.description || post.slug)}</p></div><div class="table-category">${e(post.data.category || "未设置")}</div><div class="table-date">${e(date(post.data.pubDate))}</div><div class="table-state">${post.pendingDeletion ? '<span class="badge pending">待删除</span>' : status(post)}</div><div class="table-actions"><button type="button" class="icon-button" data-action="edit-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''} aria-label="编辑 ${e(post.data.title || "草稿")}">${icon("edit")}</button><button type="button" class="icon-button" data-action="delete-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''} aria-label="${post.status === "draft" ? "删除草稿" : "移除文章"} ${e(post.data.title || "")}">${icon("delete")}</button></div></div>`).join("")}`;
+  return `<div class="table-header"><span></span><span>文章</span><span class="table-category">分类</span><span>文章日期</span><span>状态</span><span>操作</span></div>${posts.map((post) => `<div class="table-row ${selected.has(postKey(post)) ? 'selected' : ''}"><input type="checkbox" class="selection-checkbox" data-select-post="${e(postKey(post))}" aria-label="选择${post.status === 'draft' ? '草稿' : '文章'} ${e(post.data.title || post.slug)}" ${selected.has(postKey(post)) ? 'checked' : ''} ${post.pendingDeletion ? 'disabled data-locked="true"' : ''} /><div class="table-content"><div class="table-title-line"><button type="button" class="table-title" data-action="edit-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''}>${e(post.data.title || "未命名草稿")}</button>${post.data.featured ? '<span class="badge published">精选</span>' : ''}</div><p class="table-description">${e(post.data.description || post.slug)}</p></div><div class="table-category">${e(post.data.category || "未设置")}</div><div class="table-date">${e(date(post.data.pubDate))}</div><div class="table-state">${post.pendingDeletion ? '<span class="badge pending">待删除</span>' : status(post)}</div><div class="table-actions">${post.status === 'published' && !post.pendingDeletion ? `<a class="icon-button" href="/posts/${encodeURIComponent(post.slug)}" target="_blank" rel="noopener noreferrer" title="在前台查看" aria-label="在前台查看 ${e(post.data.title || post.slug)}">${icon("external")}</a><button type="button" class="icon-button" data-action="copy-post-url" data-slug="${e(post.slug)}" title="复制文章链接" aria-label="复制 ${e(post.data.title || post.slug)} 链接">${icon("link")}</button>` : ''}<button type="button" class="icon-button" data-action="edit-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''} title="编辑" aria-label="编辑 ${e(post.data.title || "草稿")}">${icon("edit")}</button><button type="button" class="icon-button" data-action="delete-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''} title="${post.status === "draft" ? "删除草稿" : "移入回收站"}" aria-label="${post.status === "draft" ? "删除草稿" : "移除文章"} ${e(post.data.title || "")}">${icon("delete")}</button></div></div>`).join("")}`;
 }
 export function postsView(data, filters, selected = new Set()) {
   const counts = summarizeWorkspace(data);
+  const sortValue = filters.sort || "newest";
+  const filtered = filterPosts(data.posts, { ...filters, sort: sortValue });
+  const sortChoices = [
+    ["newest", "按日期最新"],
+    ["oldest", "按日期最早"],
+    ["title", "按标题名称"],
+  ];
   return `${pageHeading("文章管理", "管理已发表内容、草稿和文章更新。", button("新建文章", "new-post", "plus", "primary"))}
   <div class="filter-toolbar"><div class="tabs" role="tablist" aria-label="文章状态">${[
     ["all", "全部", data.posts.length],
@@ -79,8 +91,8 @@ export function postsView(data, filters, selected = new Set()) {
     )
     .join(
       "",
-    )}</div><label class="search-field">${icon("search")}<input id="post-search" type="search" placeholder="搜索标题、摘要或标签…" aria-label="搜索文章" value="${e(filters.search)}" /></label></div>
-  ${filters.category || filters.tag ? notice(`正在筛选：${filters.category || filters.tag}`) + button("清除筛选", "reset-filter", "", "quiet") : ""}<div id="posts-bulk">${bulkToolbar('posts', filterPosts(data.posts, filters), selected, postKey)}</div><div class="post-table" id="post-table">${postTable(filterPosts(data.posts, filters), selected)}</div><div class="table-footer"><span id="post-result-count">共 ${filterPosts(data.posts, filters).length} 篇内容</span><span>${data.connection?.mode === 'database' ? '草稿仅在后台可见，删除内容可从回收站恢复' : '草稿与待删除变更分别管理'}</span></div>`;
+    )}</div><div class="filter-toolbar-right"><label class="search-field">${icon("search")}<input id="post-search" type="search" placeholder="搜索标题、摘要或标签…" aria-label="搜索文章" value="${e(filters.search)}" /></label><label class="analytics-sort-label"><span class="sr-only">文章排序</span><select id="post-sort" aria-label="文章排序">${sortChoices.map(([val, text]) => `<option value="${val}" ${val === sortValue ? "selected" : ""}>${text}</option>`).join("")}</select></label></div></div>
+  ${filters.category || filters.tag ? `<div class="active-filter-banner">${notice(`正在筛选：${filters.category || `#${filters.tag}`}`)}${button("清除筛选", "reset-filter", "", "quiet")}</div>` : ""}<div id="posts-bulk">${bulkToolbar('posts', filtered, selected, postKey)}</div><div class="post-table" id="post-table">${postTable(filtered, selected)}</div><div class="table-footer"><span id="post-result-count">共 ${filtered.length} 篇内容</span><span>${data.connection?.mode === 'database' ? '草稿仅在后台可见，删除内容可从回收站恢复' : '草稿与待删除变更分别管理'}</span></div>`;
 }
 export function taxonomyView(data, categories) {
   const counts = collectTaxonomy(data.posts);
@@ -107,14 +119,19 @@ export function mediaView(data, search = "", selected = new Set()) {
   const media = data.media.filter((item) =>
     item.name.toLowerCase().includes(search.toLowerCase()),
   );
-  return `${pageHeading("媒体资源", "管理文章封面、正文图片和站点素材。", button("上传图片", "upload-media", "upload", "primary"))}<div class="filter-toolbar"><span class="section-copy">${data.media.length} 项资源</span><label class="search-field">${icon("search")}<input id="media-search" type="search" placeholder="搜索文件名称…" aria-label="搜索媒体" value="${e(search)}" /></label></div><div id="media-bulk">${bulkToolbar('media', media, selected, item => item.name)}</div><div id="media-grid" class="media-grid">${mediaCards(media, selected)}</div><p class="upload-note">支持 JPG、PNG、WebP、GIF、AVIF，单张不超过 10 MB。文章或站点仍在使用的图片不能删除。</p>`;
+  return `${pageHeading("媒体资源", "管理文章封面、正文图片和站点素材。", button("上传图片", "upload-media", "upload", "primary"))}
+  <div class="media-dropzone" id="media-dropzone" data-action="upload-media" role="button" tabindex="0" aria-label="点击或拖拽图片上传">
+    ${icon("upload")}
+    <div><strong>拖拽一张或多张图片到这里上传</strong><small>也可点击直接选择本地图片 · 支持 JPG、PNG、WebP、GIF、AVIF（单张 ≤ 10 MB）</small></div>
+  </div>
+  <div class="filter-toolbar"><span class="section-copy">${data.media.length} 项资源</span><label class="search-field">${icon("search")}<input id="media-search" type="search" placeholder="搜索文件名称…" aria-label="搜索媒体" value="${e(search)}" /></label></div><div id="media-bulk">${bulkToolbar('media', media, selected, item => item.name)}</div><div id="media-grid" class="media-grid">${mediaCards(media, selected)}</div><p class="upload-note">文章或站点仍在使用的图片受引用保护，不能直接删除。</p>`;
 }
 export function mediaCards(media, selected = new Set()) {
   return media.length
     ? media
         .map(
           (item) =>
-            `<article class="media-item ${selected.has(item.name) ? 'selected' : ''}"><label class="media-selection"><input type="checkbox" class="selection-checkbox" data-select-media="${e(item.name)}" aria-label="选择图片 ${e(item.name)}" ${selected.has(item.name) ? 'checked' : ''} ${item.pendingDeletion ? 'disabled data-locked="true"' : ''} /></label><div class="media-image"><img data-preview-media="${e(item.name)}" src="${e(safeImage(item.url))}" loading="lazy" alt="${e(item.name)}" /></div><div class="media-details"><strong title="${e(item.name)}">${e(item.name)}</strong><small>${size(item.size)} ${item.pendingDeletion ? '· 待删除' : ''}</small></div><div class="media-actions"><button type="button" class="icon-button" data-action="copy-media" data-name="${e(item.name)}" aria-label="复制 ${e(item.name)} 的地址">${icon("copy")}</button><button type="button" class="icon-button" data-action="delete-media" data-name="${e(item.name)}" ${item.pendingDeletion ? 'disabled' : ''} aria-label="删除图片 ${e(item.name)}">${icon("delete")}</button></div></article>`,
+            `<article class="media-item ${selected.has(item.name) ? 'selected' : ''}"><label class="media-selection"><input type="checkbox" class="selection-checkbox" data-select-media="${e(item.name)}" aria-label="选择图片 ${e(item.name)}" ${selected.has(item.name) ? 'checked' : ''} ${item.pendingDeletion ? 'disabled data-locked="true"' : ''} /></label><div class="media-image"><img data-preview-media="${e(item.name)}" src="${e(safeImage(item.url))}" loading="lazy" alt="${e(item.name)}" /></div><div class="media-details"><strong title="${e(item.name)}">${e(item.name)}</strong><small>${size(item.size)} ${item.pendingDeletion ? '· 待删除' : ''}</small></div><div class="media-actions"><button type="button" class="icon-button" data-action="copy-media" data-name="${e(item.name)}" title="复制图片地址" aria-label="复制 ${e(item.name)} 的地址">${icon("copy")}</button><button type="button" class="icon-button" data-action="delete-media" data-name="${e(item.name)}" ${item.pendingDeletion ? 'disabled' : ''} title="删除图片" aria-label="删除图片 ${e(item.name)}">${icon("delete")}</button></div></article>`,
         )
         .join("")
     : empty(

@@ -5,45 +5,109 @@ import PostCard from '../../components/post/PostCard.astro';
 import { getPublishedPosts } from '../../utils/posts';
 import { sortFeedPosts } from '../../utils/post-filters';
 import { categories, siteFor } from '../../config/site';
+
 const site = siteFor(Astro.locals.siteSettings);
 const posts = sortFeedPosts(await getPublishedPosts(Astro.locals.services.store));
+const catCounts: Record<string, number> = {};
+for (const post of posts) {
+  catCounts[post.data.category] = (catCounts[post.data.category] || 0) + 1;
+}
 ---
 <BaseLayout title={`技术博文 | ${site.name}`}>
   <div class="flex flex-col lg:flex-row gap-8 items-start">
     <Sidebar />
     <main class="w-full lg:flex-1 flex flex-col gap-6 min-w-0 order-1 lg:order-2">
-      <header class="cyber-card p-6">
-        <p class="text-xs font-mono text-[var(--accent)] mb-2">KNOWLEDGE / NOTES</p>
-        <h1 class="text-2xl font-extrabold text-[var(--text-hero)] mb-4">技术博文专栏</h1>
-        <div class="flex flex-wrap gap-2 text-xs" id="category-filter-bar" aria-label="按分类筛选文章">
-          {['全部', ...categories].map((name, index) => <button type="button" data-category={index === 0 ? '' : name} aria-pressed={index === 0 ? 'true' : 'false'} class="post-filter">{name}</button>)}
+      <header class="cyber-card p-6 md:p-7">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-5">
+          <div>
+            <p class="text-xs font-mono text-[var(--accent)] mb-2">KNOWLEDGE / NOTES</p>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-[var(--text-hero)]">技术博文专栏</h1>
+          </div>
+          <div class="relative w-full sm:w-64">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-[var(--text-dim)] pointer-events-none" aria-hidden="true"></i>
+            <label class="sr-only" for="posts-quick-search">页内筛选文章</label>
+            <input
+              id="posts-quick-search"
+              type="search"
+              placeholder="快速筛选标题、摘要或标签…"
+              autocomplete="off"
+              class="w-full pl-9 pr-3.5 py-2 rounded-full bg-[var(--bg-input)] border border-[var(--border-card)] focus:border-[var(--accent)] focus:outline-none text-xs text-[var(--text-hero)] placeholder:text-[var(--text-dim)] transition-colors"
+            />
+          </div>
         </div>
-        <div id="active-filters" class="flex flex-wrap gap-2 mt-4 text-xs"></div>
+
+        <div class="flex flex-wrap gap-2 text-xs" id="category-filter-bar" aria-label="按分类筛选文章">
+          {['全部', ...categories].map((name, index) => {
+            const count = index === 0 ? posts.length : (catCounts[name] || 0);
+            return (
+              <button
+                type="button"
+                data-category={index === 0 ? '' : name}
+                aria-pressed={index === 0 ? 'true' : 'false'}
+                class="post-filter"
+              >
+                <span>{name}</span>
+                <small class="post-filter-count">{count}</small>
+              </button>
+            );
+          })}
+        </div>
+        <div id="active-filters" class="flex flex-wrap gap-2 mt-3 text-xs empty:hidden"></div>
         <p id="filter-results-count" class="mt-4 text-xs text-[var(--text-muted)]" role="status">共 {posts.length} 篇文章</p>
       </header>
+
       <div class="flex flex-col gap-4" id="posts-container">
-        {posts.map(post => <div class="post-item-wrap" data-category={post.data.category} data-tags={JSON.stringify(post.data.tags)} data-series={post.data.series || ''}><PostCard post={post} /></div>)}
+        {posts.map(post => (
+          <div
+            class="post-item-wrap"
+            data-category={post.data.category}
+            data-tags={JSON.stringify(post.data.tags)}
+            data-series={post.data.series || ''}
+            data-search={`${post.data.title} ${post.data.description} ${(post.data.tags || []).join(' ')} ${post.data.series || ''}`.toLowerCase()}
+          >
+            <PostCard post={post} />
+          </div>
+        ))}
       </div>
+
       <div id="posts-empty" class="cyber-card p-10 text-center" hidden>
-        <p class="text-[var(--text-hero)] mb-2">暂时没有符合条件的文章</p>
-        <button type="button" id="clear-post-filters" class="text-sm text-[var(--accent)] underline">清除筛选，查看全部文章</button>
+        <p class="text-sm font-bold text-[var(--text-hero)] mb-2">暂时没有符合条件的文章</p>
+        <p class="text-xs text-[var(--text-muted)] mb-4">尝试切换其他分类或清空当前搜索词。</p>
+        <button type="button" id="clear-post-filters" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--accent-soft)] text-xs font-bold text-[var(--accent)] hover:opacity-90 cursor-pointer">
+          清除全部筛选
+        </button>
       </div>
     </main>
   </div>
 </BaseLayout>
+
 <script>
   import { matchesPostFilters } from '../../utils/post-filters';
   const buttons = [...document.querySelectorAll<HTMLButtonElement>('#category-filter-bar button')];
   const items = [...document.querySelectorAll<HTMLElement>('.post-item-wrap')];
   const active = document.getElementById('active-filters');
+  const searchInput = document.getElementById('posts-quick-search') as HTMLInputElement | null;
+
   function applyFilters() {
     const params = new URLSearchParams(location.search);
-    for (const button of buttons) button.setAttribute('aria-pressed', String((params.get('cat') || '') === button.dataset.category));
+    const keyword = (searchInput?.value || '').trim().toLowerCase();
+    for (const button of buttons) {
+      button.setAttribute('aria-pressed', String((params.get('cat') || '') === button.dataset.category));
+    }
     let count = 0;
     for (const item of items) {
-      const matches = matchesPostFilters({ category: item.dataset.category || '', tags: JSON.parse(item.dataset.tags || '[]'), series: item.dataset.series }, params);
-      item.hidden = !matches;
-      if (matches) count++;
+      const matchesMeta = matchesPostFilters(
+        {
+          category: item.dataset.category || '',
+          tags: JSON.parse(item.dataset.tags || '[]'),
+          series: item.dataset.series,
+        },
+        params,
+      );
+      const matchesQuery = !keyword || (item.dataset.search || '').includes(keyword);
+      const visible = matchesMeta && matchesQuery;
+      item.hidden = !visible;
+      if (visible) count++;
     }
     document.getElementById('filter-results-count')!.textContent = `共 ${count} 篇文章`;
     document.getElementById('posts-empty')!.hidden = count !== 0;
@@ -52,23 +116,61 @@ const posts = sortFeedPosts(await getPublishedPosts(Astro.locals.services.store)
       const value = params.get(key);
       if (!value || !active) continue;
       const button = document.createElement('button');
-      button.type = 'button'; button.className = 'post-filter'; button.textContent = `${label}：${value} · 清除`;
-      button.addEventListener('click', () => updateFilter(key, '')); active.appendChild(button);
+      button.type = 'button';
+      button.className = 'post-filter is-chip';
+      button.textContent = `${label}：${value} ×`;
+      button.addEventListener('click', () => updateFilter(key, ''));
+      active.appendChild(button);
     }
   }
+
   function updateFilter(key: string, value: string) {
     const url = new URL(location.href);
     value ? url.searchParams.set(key, value) : url.searchParams.delete(key);
-    history.pushState(null, '', url); applyFilters();
+    history.pushState(null, '', url);
+    applyFilters();
   }
+
   buttons.forEach(button => button.addEventListener('click', () => updateFilter('cat', button.dataset.category || '')));
+  searchInput?.addEventListener('input', applyFilters);
   document.getElementById('clear-post-filters')?.addEventListener('click', () => {
-    const url = new URL(location.href); ['cat', 'tag', 'series'].forEach(key => url.searchParams.delete(key)); history.pushState(null, '', url); applyFilters();
+    if (searchInput) searchInput.value = '';
+    const url = new URL(location.href);
+    ['cat', 'tag', 'series'].forEach(key => url.searchParams.delete(key));
+    history.pushState(null, '', url);
+    applyFilters();
   });
-  window.addEventListener('popstate', applyFilters); applyFilters();
+  window.addEventListener('popstate', applyFilters);
+  applyFilters();
 </script>
+
 <style>
-  .post-filter { min-height: 40px; border: 1px solid var(--border-card); border-radius: 99px; padding: .4rem .85rem; background: var(--bg-glass); color: var(--text-muted); font-weight: 600; cursor: pointer; transition: color 160ms, background 160ms; }
-  .post-filter[aria-pressed="true"] { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
-  .post-filter:hover { border-color: var(--accent); }
+  .post-filter {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid var(--border-card);
+    border-radius: 99px;
+    padding: 0.35rem 0.82rem;
+    background: var(--bg-glass);
+    color: var(--text-muted);
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 160ms, background 160ms, border-color 160ms;
+  }
+  .post-filter-count {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    opacity: 0.75;
+  }
+  .post-filter[aria-pressed="true"],
+  .post-filter.is-chip {
+    background: var(--accent);
+    color: var(--accent-contrast);
+    border-color: var(--accent);
+  }
+  .post-filter:hover {
+    border-color: var(--accent);
+  }
 </style>

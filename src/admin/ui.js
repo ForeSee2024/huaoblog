@@ -28,6 +28,7 @@ import {
   Save,
   Eye,
   Code2,
+  Code,
   Bold,
   Italic,
   Heading2,
@@ -46,6 +47,12 @@ import {
   Terminal,
   Monitor,
   BarChart3,
+  Columns2,
+  Maximize2,
+  Minimize2,
+  Table,
+  Minus,
+  Sparkles,
 } from "lucide";
 const icons = {
   overview: LayoutDashboard,
@@ -78,6 +85,7 @@ const icons = {
   save: Save,
   eye: Eye,
   code: Code2,
+  inlineCode: Code,
   bold: Bold,
   italic: Italic,
   heading: Heading2,
@@ -95,6 +103,12 @@ const icons = {
   notebook: NotebookPen,
   terminal: Terminal,
   monitor: Monitor,
+  split: Columns2,
+  maximize: Maximize2,
+  minimize: Minimize2,
+  table: Table,
+  divider: Minus,
+  sparkles: Sparkles,
 };
 export const escape = (value) =>
   String(value ?? "").replace(

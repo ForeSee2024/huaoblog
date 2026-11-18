@@ -1,10 +1,9 @@
 ---
-// ThreeWaveBg.astro: 3D 拓扑引力波浪曲面背景引擎 (支持移动端免加载降级与 prefers-reduced-motion 保护)
+// ThreeWaveBg.astro: 3D 拓扑引力波浪曲面背景引擎 (支持移动端免加载降级、后台标签页节能挂起与 prefers-reduced-motion 保护)
 ---
 <canvas id="three-bg-canvas" aria-hidden="true" class="hidden lg:block"></canvas>
 
 <script>
-  // 仅在宽屏桌面设备且未开启减少动效模式时按需导入并启动 Three.js
   const shouldEnable3D = () => {
     const isDesktop = window.innerWidth >= 1024;
     const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -12,7 +11,6 @@
   };
 
   if (typeof window !== 'undefined' && shouldEnable3D()) {
-    // 动态异步加载 Three.js，避免阻塞首屏关键资源
     import('three').then((THREE) => {
       let bgScene: any;
       let bgCamera: any;
@@ -20,7 +18,7 @@
       let wavePlaneMesh: any;
       let wavePointsMesh: any;
       let waveGeometry: any;
-      let is3dBgEnabled = true;
+      let rafId = 0;
       let waveTime = 0;
       let mouseWorldPos = { x: 0, y: 0 };
 
@@ -32,7 +30,7 @@
       function getThemeAccentHex(): number {
         const accent = document.documentElement.dataset.accent || 'cyberblue';
         const isDark = document.documentElement.dataset.theme === 'dark';
-        
+
         switch (accent) {
           case 'neoncyan':
             return isDark ? 0x34d399 : 0x059669;
@@ -59,29 +57,26 @@
         bgRenderer.setSize(window.innerWidth, window.innerHeight);
         bgRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-        // 统一使用现代 Three.js 标准 PlaneGeometry (非废弃的 PlaneBufferGeometry)
         waveGeometry = new THREE.PlaneGeometry(PLANE_WIDTH, PLANE_HEIGHT, GRID_X - 1, GRID_Y - 1);
-        
+
         const isDark = document.documentElement.dataset.theme === 'dark';
         const currentHex = getThemeAccentHex();
 
-        // 拓扑线框
         const wireMat = new THREE.MeshBasicMaterial({
           color: currentHex,
           wireframe: true,
           transparent: true,
-          opacity: isDark ? 0.38 : 0.55
+          opacity: isDark ? 0.36 : 0.5,
         });
         wavePlaneMesh = new THREE.Mesh(waveGeometry, wireMat);
         bgScene.add(wavePlaneMesh);
 
-        // 拓扑光点
         const pointMat = new THREE.PointsMaterial({
           color: currentHex,
-          size: isDark ? 3.0 : 3.6,
+          size: isDark ? 3.0 : 3.4,
           transparent: true,
-          opacity: isDark ? 0.75 : 0.65,
-          blending: isDark ? THREE.AdditiveBlending : THREE.NormalBlending
+          opacity: isDark ? 0.72 : 0.62,
+          blending: isDark ? THREE.AdditiveBlending : THREE.NormalBlending,
         });
         wavePointsMesh = new THREE.Points(waveGeometry, pointMat);
         bgScene.add(wavePointsMesh);
@@ -91,18 +86,18 @@
           const ny = -(e.clientY / window.innerHeight) * 2 + 1;
           mouseWorldPos.x = nx * 500;
           mouseWorldPos.y = ny * 350;
-        });
+        }, { passive: true });
 
         window.addEventListener('resize', () => {
           if (window.innerWidth < 1024) {
             canvas.style.display = 'none';
             return;
-          } else {
-            canvas.style.display = 'block';
           }
+          canvas.style.display = 'block';
           bgCamera.aspect = window.innerWidth / window.innerHeight;
           bgCamera.updateProjectionMatrix();
           bgRenderer.setSize(window.innerWidth, window.innerHeight);
+          scheduleFrame();
         });
 
         const updateColors = () => {
@@ -110,20 +105,20 @@
           const hex = getThemeAccentHex();
           const dark = document.documentElement.dataset.theme === 'dark';
           wavePlaneMesh.material.color.setHex(hex);
-          wavePlaneMesh.material.opacity = dark ? 0.38 : 0.55;
+          wavePlaneMesh.material.opacity = dark ? 0.36 : 0.5;
           wavePointsMesh.material.color.setHex(hex);
           wavePointsMesh.material.blending = dark ? THREE.AdditiveBlending : THREE.NormalBlending;
-          wavePointsMesh.material.opacity = dark ? 0.75 : 0.65;
+          wavePointsMesh.material.opacity = dark ? 0.72 : 0.62;
         };
 
         window.addEventListener('accent-changed', updateColors);
         window.addEventListener('theme-changed', updateColors);
 
         function animate() {
-          requestAnimationFrame(animate);
-          if (!is3dBgEnabled || !waveGeometry || window.innerWidth < 1024) return;
+          rafId = 0;
+          if (document.hidden || !waveGeometry || window.innerWidth < 1024) return;
 
-          waveTime += 0.02;
+          waveTime += 0.018;
           const pos = waveGeometry.attributes.position;
           const count = pos.count;
 
@@ -133,21 +128,37 @@
             const x = pos.getX(i);
             const y = pos.getY(i);
 
-            const wave1 = Math.sin(u * 9 + waveTime) * 36;
-            const wave2 = Math.cos(v * 7 + waveTime * 1.2) * 28;
-            const wave3 = Math.sin((u + v) * 5 + waveTime * 0.8) * 22;
+            const wave1 = Math.sin(u * 9 + waveTime) * 34;
+            const wave2 = Math.cos(v * 7 + waveTime * 1.2) * 26;
+            const wave3 = Math.sin((u + v) * 5 + waveTime * 0.8) * 20;
 
             const distToMouse = Math.hypot(x - mouseWorldPos.x, y - mouseWorldPos.y);
-            const ripple = Math.max(0, 1 - distToMouse / 450) * Math.sin(distToMouse * 0.05 - waveTime * 4) * 35;
+            const ripple = Math.max(0, 1 - distToMouse / 450) * Math.sin(distToMouse * 0.05 - waveTime * 4) * 32;
 
             pos.setZ(i, wave1 + wave2 + wave3 + ripple);
           }
 
           pos.needsUpdate = true;
           bgRenderer.render(bgScene, bgCamera);
+          scheduleFrame();
         }
 
-        animate();
+        function scheduleFrame() {
+          if (!rafId && !document.hidden && window.innerWidth >= 1024) {
+            rafId = requestAnimationFrame(animate);
+          }
+        }
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden && rafId) {
+            cancelAnimationFrame(rafId);
+            rafId = 0;
+          } else {
+            scheduleFrame();
+          }
+        });
+
+        scheduleFrame();
       }
 
       if ('requestIdleCallback' in window) {

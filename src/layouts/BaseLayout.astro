@@ -62,9 +62,11 @@ const icpHref = safeExternalHref(settings.footer.icpUrl);
   data-analytics-type={analytics?.type}
   data-analytics-key={analytics?.key}
 >
-  
-  <!-- 辅助工程网格层与 Three.js 3D 拓扑波浪画布 -->
-  <div class="bg-grid-layer"></div>
+  <a href="#page-main-workspace" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[80] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-[var(--accent)] focus:text-[var(--accent-contrast)] focus:font-bold focus:text-xs">跳到正文内容</a>
+
+  <!-- 极光环境层、纳米工程网格层与 Three.js 3D 拓扑波浪画布 -->
+  <div class="bg-aurora-layer" aria-hidden="true"></div>
+  <div class="bg-grid-layer" aria-hidden="true"></div>
   {renderThree && <ThreeWaveBg />}
 
   <!-- 顶部悬浮胶囊导航 -->
@@ -73,21 +75,37 @@ const icpHref = safeExternalHref(settings.footer.icpUrl);
   </div>
 
   <!-- 主体工作区容器 -->
-  <div class="relative z-10 pt-24 pb-16 min-h-screen max-w-7xl mx-auto px-4">
+  <div id="page-main-workspace" class="relative z-10 pt-24 pb-16 min-h-screen max-w-7xl mx-auto px-4">
     <slot />
   </div>
+
+  <!-- 悬浮回到顶部按钮 -->
+  <button type="button" id="btn-back-to-top" class="back-to-top-btn" aria-label="回到页面顶部" title="回到顶部">
+    <i class="fa-solid fa-arrow-up text-xs" aria-hidden="true"></i>
+  </button>
 
   <!-- 全局检索模态框与通知 Toast -->
   <SearchModal />
   <Toast />
 
   <!-- 极客页脚 -->
-  <footer data-pagefind-ignore class="relative z-10 text-center py-8 border-t border-[var(--border-subtle)] text-xs text-[var(--text-dim)]">
-    <p class="mb-1.5 font-medium">{site.name}{settings.footer.text && <> · {settings.footer.text}</>}</p>
-    <p>© {new Date().getFullYear()} {site.author} · <a href="/admin/" class="hover:text-[var(--accent)]">管理后台</a></p>
-    {settings.footer.icp && <p class="mt-2">{icpHref ? <a href={icpHref} target="_blank" rel="noopener noreferrer" class="hover:text-[var(--accent)]">{settings.footer.icp}</a> : settings.footer.icp}</p>}
+  <footer data-pagefind-ignore class="relative z-10 text-center py-9 border-t border-[var(--border-subtle)] text-xs text-[var(--text-dim)]">
+    <p class="mb-1.5 font-semibold text-[var(--text-muted)]">{site.name}{settings.footer.text && <> · {settings.footer.text}</>}</p>
+    <p>© {new Date().getFullYear()} {site.author} · <a href="/archive" class="hover:text-[var(--accent)] transition-colors">文章归档</a> · <a href="/admin/" class="hover:text-[var(--accent)] transition-colors">管理后台</a></p>
+    {settings.footer.icp && <p class="mt-2">{icpHref ? <a href={icpHref} target="_blank" rel="noopener noreferrer" class="hover:text-[var(--accent)] transition-colors">{settings.footer.icp}</a> : settings.footer.icp}</p>}
   </footer>
 
-  <script>import { startReadingTracker } from '../lib/reading-tracker.js'; startReadingTracker();</script>
+  <script>
+    import { startReadingTracker } from '../lib/reading-tracker.js';
+    startReadingTracker();
+
+    const topBtn = document.getElementById('btn-back-to-top');
+    if (topBtn) {
+      const toggleTopBtn = () => topBtn.classList.toggle('is-visible', window.scrollY > 420);
+      window.addEventListener('scroll', toggleTopBtn, { passive: true });
+      toggleTopBtn();
+      topBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    }
+  </script>
 </body>
 </html>
