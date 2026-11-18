@@ -38,6 +38,7 @@ export function overview(data, local, { direct = false } = {}) {
   <div class="overview-grid"><section><div class="section-bar"><h2>最近的文章</h2><a href="#/posts" class="button quiet">管理全部${icon("chevron")}</a></div>${latest.length ? latest.map((post, index) => `<div class="recent-row"><span class="post-index">${String(index + 1).padStart(2, "0")}</span><div class="recent-copy"><button type="button" data-action="edit-post" ${editAttrs(post)}>${e(post.data.title || "未命名草稿")}</button><p>${e(post.data.description || "还没有填写摘要，继续完善这篇文章。")}</p><div class="row-meta"><span>${e(post.data.category || "未设置分类")}</span><span class="meta-dot">/</span><span>${e(date(post.data.pubDate))}</span>${post.data.featured ? `<span class="badge published">精选</span>` : ""}</div></div>${status(post)}</div>`).join("") : empty("开始你的第一篇文章", "把一次实践、一段思考，整理成可以再次阅读的记录。", "new-post", "新建文章")}
   </section><aside class="overview-aside"><section class="side-section"><h2>常用操作</h2><div class="quick-actions">${[
     ["new-post", "edit", "开始写作", "创建新文章或保存草稿"],
+    ...(direct ? [["go-analytics", "chart", "查看访问统计", "阅读排行、趋势与完读率"]] : []),
     ["go-home", "home", "调整首页", "文案、公告与导航"],
     ["upload-media", "upload", "上传图片", "管理封面和正文素材"],
   ]

@@ -45,9 +45,11 @@ import {
   NotebookPen,
   Terminal,
   Monitor,
+  BarChart3,
 } from "lucide";
 const icons = {
   overview: LayoutDashboard,
+  chart: BarChart3,
   posts: FileText,
   tags: Tags,
   image: Image,

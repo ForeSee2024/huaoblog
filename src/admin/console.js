@@ -21,6 +21,7 @@ import { profileMatches, toggleProfileItem, moveProfileItem } from './profile-se
 import { profileSelectedItems } from './profile-view.js';
 import { loadEditorPost } from './editor-state.js';
 import { recoveryView, historyView, directDeletionResult } from './recovery-view.js';
+import { analyticsView, analyticsPostRows, analyticsDaySummary } from './analytics-view.js';
 
 const config = JSON.parse(document.body.dataset.connection);
 const direct = config.backend === 'api';
@@ -55,6 +56,45 @@ const selectedPosts = new Set(), selectedMedia = new Set();
 const writeActions = new Set(['new-post', 'save-post', 'publish-post', 'save-settings', 'delete-post', 'delete-media', 'upload-media', 'delete-posts-batch', 'delete-media-batch', 'restore-trash', 'restore-version']);
 let trashData = { posts: [], media: [] }, historyContext = null, backupValidation = null, viewRevision = 0;
 const backupEvents = [];
+const analyticsState = {
+  days: 30,
+  sort: 'totalViews',
+  search: '',
+  selectedDay: '',
+  data: null,
+  loading: false,
+  error: '',
+  requestId: 0,
+};
+async function loadAnalytics(forceRefresh = false, revision = viewRevision) {
+  if (!direct || !data.connection.authenticated) return;
+  const matching = analyticsState.data && Number(analyticsState.data.rangeDays) === Number(analyticsState.days)
+    ? analyticsState.data
+    : null;
+  if (!forceRefresh && matching) return;
+  const reqId = ++analyticsState.requestId;
+  analyticsState.loading = true;
+  analyticsState.error = '';
+  main.innerHTML = analyticsView(matching, analyticsState);
+  try {
+    const report = await repository.getAnalytics(analyticsState.days);
+    if (revision !== viewRevision || reqId !== analyticsState.requestId) return;
+    analyticsState.data = report;
+    analyticsState.error = '';
+    const days = report?.daily || [];
+    if (!days.some((item) => item.day === analyticsState.selectedDay)) {
+      analyticsState.selectedDay = days.at(-1)?.day || '';
+    }
+  } catch (error) {
+    if (revision !== viewRevision || reqId !== analyticsState.requestId) return;
+    analyticsState.error = error?.message || '读取访问统计失败';
+  } finally {
+    if (revision === viewRevision && reqId === analyticsState.requestId) {
+      analyticsState.loading = false;
+      main.innerHTML = analyticsView(analyticsState.data, analyticsState);
+    }
+  }
+}
 const copy = (value) => structuredClone(value);
 const publicPath = (media) =>
   media.publicUrl || (media.path || "").replace(/^public/, "") || media.url;
@@ -69,6 +109,7 @@ const titles = {
   connection: direct ? "内容服务" : "发布与连接",
   recovery: "恢复与备份",
   history: "历史版本",
+  analytics: "访问统计",
 };
 const previewTasks = new Map();
 const previewQueue = [];
@@ -513,6 +554,22 @@ async function render(route) {
   else if (page === "media") main.innerHTML = mediaView(data, mediaSearch, selectedMedia);
   else if (page === "connection")
     main.innerHTML = connectionView(data, config, loadError);
+  else if (page === "analytics") {
+    if (!direct) {
+      await go("overview");
+      return;
+    }
+    if (!data.connection.authenticated) {
+      main.innerHTML = analyticsView(null, {
+        ...analyticsState,
+        loading: false,
+        error: config.ready ? "" : (loadError || "内容服务尚未就绪。"),
+      });
+    } else {
+      await loadAnalytics(true, revision);
+      if (revision !== viewRevision) return;
+    }
+  }
   else if (page === 'recovery' && direct) {
     if (data.connection.authenticated) trashData = await repository.getTrash();
     else trashData = { posts: [], media: [] };
@@ -615,7 +672,7 @@ async function render(route) {
   main.querySelectorAll('#article-form,#settings-form').forEach(form => {
     form.inert = saving;
   });
-  if (direct && loadError && !['overview', 'connection'].includes(page)) {
+  if (direct && loadError && !['overview', 'connection', 'analytics'].includes(page)) {
     const access = document.createElement('div');
     access.innerHTML = notice(loadError, 'error') + (config.ready && !data.connection.authenticated ? button('使用 GitHub 登录', 'login', 'github', 'primary') : '');
     main.prepend(access);
@@ -1083,11 +1140,29 @@ main.addEventListener("input", (event) => {
     syncSelectionControls();
     observeMedia();
   }
+  if (event.target.id === "analytics-post-search") {
+    analyticsState.search = event.target.value;
+    renderAnalyticsTable();
+  }
 });
+function renderAnalyticsTable() {
+  const table = document.getElementById("analytics-post-table");
+  if (table && analyticsState.data) {
+    table.innerHTML = analyticsPostRows(analyticsState.data.posts, {
+      search: analyticsState.search,
+      sort: analyticsState.sort,
+    });
+  }
+}
 main.addEventListener("change", (event) => {
   if (saving) return;
   const target = event.target;
   if (target.dataset.profileSearch) return;
+  if (target.id === "analytics-post-sort") {
+    analyticsState.sort = target.value || "totalViews";
+    renderAnalyticsTable();
+    return;
+  }
   if (target.hasAttribute('data-profile-item')) {
     gatherSettings();
     try {
@@ -1156,6 +1231,27 @@ main.addEventListener("click", async (event) => {
     if (action === "new-post") await go("editor/new");
     else if (action === "go-home") await go("settings/home");
     else if (action === "go-posts") await go("posts");
+    else if (action === "go-analytics") await go("analytics");
+    else if (action === "analytics-range") {
+      const days = Number(target.dataset.days);
+      if ([7, 30, 90].includes(days) && days !== analyticsState.days) {
+        analyticsState.days = days;
+        analyticsState.selectedDay = "";
+        await loadAnalytics(true, viewRevision);
+      }
+    } else if (action === "refresh-analytics") {
+      if (!analyticsState.loading) await loadAnalytics(true, viewRevision);
+    } else if (action === "analytics-day") {
+      const day = target.dataset.day || "";
+      if (!day || !analyticsState.data) return;
+      analyticsState.selectedDay = day;
+      main.querySelectorAll(".analytics-bar-col").forEach((node) => {
+        node.classList.toggle("active", node.dataset.day === day);
+      });
+      const detail = document.getElementById("analytics-day-detail");
+      const active = (analyticsState.data.daily || []).find((item) => item.day === day);
+      if (detail && active) detail.innerHTML = analyticsDaySummary(active);
+    }
     else if (action === "edit-post")
       await go(`editor/${target.dataset.slug}/${target.dataset.status}`);
     else if (action === "filter-state") {
@@ -1341,6 +1437,11 @@ main.addEventListener("click", async (event) => {
       historyContext = null;
       backupValidation = null;
       backupEvents.length = 0;
+      analyticsState.requestId += 1;
+      analyticsState.data = null;
+      analyticsState.loading = false;
+      analyticsState.error = '';
+      analyticsState.selectedDay = '';
       data = {
         posts: [],
         media: [],

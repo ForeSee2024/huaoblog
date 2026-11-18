@@ -3,16 +3,25 @@ import { ContentError, MAX_IMAGE_BYTES, inspectMediaBytes, validateMediaName, va
 import { createAuth, sha256 } from './auth.js';
 import { readFileUpload, readJson } from './body.js';
 import { exportBackup, readBackup, restoreBackup } from './backup.js';
+import { beijingDay, isBotUserAgent } from './storage/analytics.js';
 
 const MAX_BROWSER_BACKUP = 32 * 1024 * 1024;
 const json = (data, status = 200, extra = {}) => Response.json(data, { status, headers: { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', ...extra } });
 const batch = (items, label) => { if (!Array.isArray(items) || !items.length || items.length > 3) throw new ContentError(`${label}每次请求应为 1 至 3 项，后台会自动分批处理。`); return items; };
 const connection = (user, config) => ({ mode: 'database', direct: true, configured: true, connected: Boolean(user), authenticated: Boolean(user), writable: Boolean(user), label: user ? '内容服务已连接' : '等待登录', detail: user ? `${config.deployment === 'cloudflare' ? 'Cloudflare D1 / R2' : 'SQLite / 本地文件'} · 修改直接生效` : '使用站点管理员的 GitHub 账号登录。' });
-const knownRoutes = new Map([['content', ['GET']], ['session', ['GET', 'POST', 'DELETE']], ['posts', ['POST']], ['posts/delete', ['POST']], ['settings', ['PUT']], ['media', ['POST']], ['media/delete', ['POST']], ['trash', ['GET']], ['trash/restore', ['POST']], ['history', ['GET']], ['history/restore', ['POST']], ['backups/export', ['GET']], ['backups/validate', ['POST']], ['backups/import', ['POST']], ['search', ['GET']]]);
+const knownRoutes = new Map([['content', ['GET']], ['session', ['GET', 'POST', 'DELETE']], ['posts', ['POST']], ['posts/delete', ['POST']], ['settings', ['PUT']], ['media', ['POST']], ['media/delete', ['POST']], ['trash', ['GET']], ['trash/restore', ['POST']], ['history', ['GET']], ['history/restore', ['POST']], ['backups/export', ['GET']], ['backups/validate', ['POST']], ['backups/import', ['POST']], ['search', ['GET']], ['analytics', ['GET']], ['analytics/collect', ['POST']]]);
+
+function assertCollectOrigin(request) {
+  const url = new URL(request.url);
+  if (request.headers.get('Origin') !== url.origin || request.headers.get('Sec-Fetch-Site') === 'cross-site') throw new ContentError('请求来源无效。', 403, 'origin');
+  const loopback = ['127.0.0.1', '[::1]', 'localhost'].includes(url.hostname);
+  if (url.protocol !== 'https:' && !loopback) throw new ContentError('统计上报需要 HTTPS。', 403, 'origin');
+}
 
 export function createContentHandler(runtime, deps = {}) {
   const { store, database, blobs, config } = runtime;
   const auth = deps.auth || createAuth(database, config, deps);
+  const now = deps.now || Date.now;
   const state = async user => ({ ...(await store.getWorkspace()), connection: connection(user, config), storage: { deployment: config.deployment, direct: true } });
   return async function handle(request) {
     const requestId = crypto.randomUUID();
@@ -25,7 +34,10 @@ export function createContentHandler(runtime, deps = {}) {
       if (!methods) return json({ error: '接口不存在。', code: 'not_found' }, 404);
       if (!methods.includes(request.method)) return json({ error: '此接口不支持该请求方法。', code: 'method' }, 405, { Allow: methods.join(', ') });
       const write = !['GET', 'HEAD'].includes(request.method);
-      if (write) auth.assertSameOrigin(request);
+      if (write) {
+        if (path === 'analytics/collect') assertCollectOrigin(request);
+        else auth.assertSameOrigin(request);
+      }
       const user = await auth.authenticate(request);
       if (path === 'session') {
         if (request.method === 'GET') return json({ connection: connection(user, config) });
@@ -38,12 +50,33 @@ export function createContentHandler(runtime, deps = {}) {
         if (query.length > 80) throw new ContentError('搜索词最多 80 个字符。');
         return json({ results: query ? await store.searchPublishedPosts(query, { limit: 20 }) : [] });
       }
+      if (path === 'analytics/collect') {
+        const silent = () => new Response(null, { status: 204, headers: { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
+        if (user && !user.local) return silent();
+        if (isBotUserAgent(request.headers.get('user-agent'))) return silent();
+        const payload = await readJson(request, 2048);
+        const timestamp = now();
+        const visitorHash = await store.resolveVisitorHash(request, beijingDay(timestamp));
+        if (payload.type === 'view') {
+          await store.recordAnalyticsView({ targetType: payload.targetType, targetKey: payload.targetKey, visitorHash, now: timestamp });
+          return silent();
+        }
+        if (payload.type === 'engage') {
+          await store.recordAnalyticsEngagement({ targetType: payload.targetType, targetKey: payload.targetKey, visitorHash, durationDelta: payload.durationDelta, completed: payload.completed, now: timestamp });
+          return silent();
+        }
+        throw new ContentError('统计事件类型无效。', 400, 'invalid_event');
+      }
       if (path === 'content') {
         if (user) return json(await state(user));
         return json({ connection: connection(null, config), settings: await store.getPublishedSettings() || defaults, posts: [], media: [], releases: [] });
       }
       if (!user) throw new ContentError('请先登录博客管理后台。', 401, 'authentication');
       const actor = user.id;
+      if (path === 'analytics') {
+        const days = Number(url.searchParams.get('days') || 30);
+        return json(await store.getAnalyticsReport({ days, now: now() }));
+      }
       if (postPath) {
         let slug; try { slug = validateSlug(decodeURIComponent(postPath[1])); } catch { throw new ContentError('文章不存在。', 404, 'not_found'); }
         const status = url.searchParams.get('status') || 'published';

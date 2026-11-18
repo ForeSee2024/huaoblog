@@ -285,6 +285,47 @@ try {
     assert.equal((await api(publicOrigin, `search?q=${needle}`)).results.length, 1);
   });
 
+  await stage('analytics records anonymous visits and reading completion while rejecting unauthenticated reads and drafts', async () => {
+    const homeHtml = await page(publicOrigin, '/');
+    assert.match(homeHtml, /data-analytics-type="page"/);
+    assert.ok(homeHtml.includes('data-analytics-key="/"'));
+    const postHtml = await page(publicOrigin, `/posts/${slug}/`);
+    assert.match(postHtml, /data-analytics-type="post"/);
+    assert.ok(postHtml.includes(`data-analytics-key="${slug}"`));
+    const missingRes = await fetch(`${publicOrigin}/posts/missing-post-404-analytics/`);
+    assert.equal(missingRes.status, 404);
+    assert.doesNotMatch(await missingRes.text(), /data-analytics-type=/);
+
+    await api(publicOrigin, 'analytics?days=7', { status: 401 });
+    const collect = async (payload) => {
+      const response = await fetch(`${publicOrigin}/api/v1/analytics/collect`, {
+        method: 'POST',
+        headers: {
+          Origin: publicOrigin,
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 IntegrationTest',
+        },
+        body: JSON.stringify(payload),
+      });
+      assert.equal(response.status, 204);
+    };
+    await collect({ type: 'view', targetType: 'page', targetKey: '/' });
+    await collect({ type: 'view', targetType: 'post', targetKey: slug });
+    await collect({ type: 'engage', targetType: 'post', targetKey: slug, durationDelta: 42, completed: true });
+    await collect({ type: 'view', targetType: 'post', targetKey: 'escaped-body' });
+
+    const report = await api(origin, 'analytics?days=7');
+    assert.equal(report.summary.totalViews, 2);
+    assert.equal(report.summary.totalVisitors, 1);
+    assert.equal(report.summary.totalCompletedReads, 1);
+    assert.equal(report.summary.avgReadSeconds, 42);
+    assert.ok(!report.posts.some(item => item.slug === 'escaped-body'));
+    const entry = report.posts.find(item => item.slug === slug);
+    assert.equal(entry.totalViews, 1);
+    assert.equal(entry.completedReads, 1);
+    assert.equal(report.pages.find(item => item.path === '/').totalViews, 1);
+  });
+
   await stage('restarting production Node preserves settings, full articles, drafts and image objects', async () => {
     const before = await api(origin, 'content');
     await Promise.all([stop(primary), stop(anonymous)]);
@@ -296,6 +337,9 @@ try {
     assert.equal((await api(origin, 'posts/escaped-body?status=draft')).post.body, escaped);
     await expectImage(publicOrigin, image.publicUrl, 200);
     assert.equal((await fetchAt(publicOrigin, '/images/posts/Scorify-a2cb09b9.jpg')).status, 404);
+    const analyticsAfterRestart = await api(origin, 'analytics?days=7');
+    assert.equal(analyticsAfterRestart.summary.totalViews, 2);
+    assert.equal(analyticsAfterRestart.summary.totalCompletedReads, 1);
   });
 
   process.stdout.write(`Node production HTTP integration passed: ${completed} stages.\n`);

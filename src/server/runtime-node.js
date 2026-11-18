@@ -7,6 +7,7 @@ import { runtimeConfig } from './runtime-config.js';
 import contentSchema from '../../migrations/001_content.sql?raw';
 import sessionSchema from '../../migrations/002_sessions.sql?raw';
 import operationsSchema from '../../migrations/003_operations.sql?raw';
+import analyticsSchema from '../../migrations/004_analytics.sql?raw';
 
 let initialized;
 export async function getRuntime() {
@@ -19,8 +20,8 @@ async function initialize() {
   const database = createNodeDatabase(resolve(dataDir, 'content.sqlite'));
   await database.exec('PRAGMA journal_mode = WAL; CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);');
   const current = await database.all('SELECT MAX(version) AS version FROM schema_migrations');
-  if ((current[0]?.version || 0) > 3) throw new Error('Database schema is newer than this application.');
-  for (const [index, sql] of [contentSchema, sessionSchema, operationsSchema].entries()) {
+  if ((current[0]?.version || 0) > 4) throw new Error('Database schema is newer than this application.');
+  for (const [index, sql] of [contentSchema, sessionSchema, operationsSchema, analyticsSchema].entries()) {
     const version = index + 1;
     if (!(await database.all('SELECT version FROM schema_migrations WHERE version = ?', [version])).length) {
       await database.exec(sql);

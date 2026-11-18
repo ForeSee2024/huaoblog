@@ -10,7 +10,7 @@ const siteSettings = Astro.locals.siteSettings || defaultSettings;
 const site = siteFor(siteSettings);
 const connection = createAdminConfiguration(import.meta.env, import.meta.env.DEV, Astro.locals.services?.config);
 const groups = [
-  { label: '工作区', items: [{ id: 'overview', label: '内容总览', icon: 'overview' }, { id: 'posts', label: '文章管理', icon: 'posts' }, { id: 'taxonomy', label: '分类与标签', icon: 'tags' }, { id: 'media', label: '媒体资源', icon: 'image' }] },
+  { label: '工作区', items: [{ id: 'overview', label: '内容总览', icon: 'overview' }, { id: 'posts', label: '文章管理', icon: 'posts' }, { id: 'taxonomy', label: '分类与标签', icon: 'tags' }, { id: 'media', label: '媒体资源', icon: 'image' }, ...(connection.direct ? [{ id: 'analytics', label: '访问统计', icon: 'chart' }] : [])] },
   { label: '站点管理', items: [{ id: 'settings/general', label: '站点设置', icon: 'settings' }, { id: 'settings/home', label: '首页与导航', icon: 'home' }, { id: 'settings/appearance', label: '外观主题', icon: 'palette' }, { id: 'settings/about', label: '关于与友链', icon: 'globe' }] },
   { label: connection.direct ? '内容服务' : '发布', items: [{ id: 'connection', label: connection.direct ? '内容与连接' : '发布与连接', icon: 'cloud' }, ...(connection.direct ? [{ id: 'recovery', label: '恢复与备份', icon: 'clock' }] : [])] },
 ];
