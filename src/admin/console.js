@@ -12,8 +12,8 @@ import {
   connectionView,
 } from "./views.js";
 import { settingsView, settingsPreview } from "./settings-view.js";
-import { editorView } from "./editor-view.js";
-import { filterPosts, parseTags } from "./view-model.js";
+import { editorView, renderOutlineItems } from "./editor-view.js";
+import { filterPosts, parseTags, collectAllKnownTags } from "./view-model.js";
 import { postKey } from './bulk-model.js';
 import { publishWhenReady, isDeletionPublication } from './publication.js';
 import { SYSTEM_CATALOG, TOOL_CATALOG, MAX_PROFILE_TOOLS } from '../data/profile-catalog.js';
@@ -22,6 +22,7 @@ import { profileSelectedItems } from './profile-view.js';
 import { loadEditorPost } from './editor-state.js';
 import { recoveryView, historyView, directDeletionResult } from './recovery-view.js';
 import { analyticsView, analyticsPostRows, analyticsDaySummary } from './analytics-view.js';
+import { estimateReadingStats, extractMarkdownHeadings, suggestSlugFromTitle } from '../utils/reading-time.js';
 
 const config = JSON.parse(document.body.dataset.connection);
 const direct = config.backend === 'api';
@@ -46,12 +47,31 @@ let currentRoute = "",
   editor = null,
   editorMode = "rich",
   editorGeneration = 0,
+  zenMode = false,
+  splitPreviewTimer = 0,
+  markdownPreviewFn = null,
   recovery = null,
   toastTimer,
   recoveryTimer;
-let filters = { search: "", state: "all", category: "", tag: "" },
+let filters = { search: "", state: "all", category: "", tag: "", sort: "newest" },
   mediaSearch = "",
   saving = false;
+
+function getPreferredEditorMode() {
+  try {
+    const saved = localStorage.getItem("huaovo-editor-mode");
+    if (saved && ["rich", "split", "markdown"].includes(saved)) return saved;
+  } catch {}
+  return "rich";
+}
+function setZenMode(enabled) {
+  zenMode = Boolean(enabled);
+  document.body.classList.toggle("editor-zen", zenMode);
+  const btn = document.getElementById("btn-zen-toggle");
+  if (btn) {
+    btn.innerHTML = `${icon(zenMode ? "minimize" : "maximize")}<span>${zenMode ? "退出专注" : "专注模式"}</span>`;
+  }
+}
 const selectedPosts = new Set(), selectedMedia = new Set();
 const writeActions = new Set(['new-post', 'save-post', 'publish-post', 'save-settings', 'delete-post', 'delete-media', 'upload-media', 'delete-posts-batch', 'delete-media-batch', 'restore-trash', 'restore-version']);
 let trashData = { posts: [], media: [] }, historyContext = null, backupValidation = null, viewRevision = 0;
@@ -293,7 +313,9 @@ function finishOperation() {
   if (element.dataset.operation) { element.hidden = true; delete element.dataset.operation; }
 }
 function selectionItems(kind) {
-  return kind === 'posts' ? filterPosts(data.posts, filters) : data.media.filter(item => item.name.toLowerCase().includes(mediaSearch.toLowerCase()));
+  return kind === 'posts'
+    ? filterPosts(data.posts, { ...filters, sort: filters.sort || 'newest' })
+    : data.media.filter(item => item.name.toLowerCase().includes(mediaSearch.toLowerCase()));
 }
 function canWrite() {
   return !direct || (data.connection?.authenticated === true && data.connection?.writable === true);
@@ -385,9 +407,11 @@ function showError(error) {
 }
 function markDirty() {
   dirty = true;
-  document
-    .getElementById("editor-save-state")
-    ?.replaceChildren(document.createTextNode("有未保存的修改"));
+  const editorState = document.getElementById("editor-save-state");
+  if (editorState) {
+    editorState.textContent = "有未保存的修改";
+    editorState.classList.add("is-dirty");
+  }
   document
     .getElementById("settings-save-state")
     ?.replaceChildren(document.createTextNode("有未保存的配置"));
@@ -406,6 +430,12 @@ function storeRecovery() {
       recoveryKey(),
       JSON.stringify({ post: gatherPost(), savedAt: Date.now() }),
     );
+    const editorState = document.getElementById("editor-save-state");
+    if (editorState && dirty) {
+      const timeStr = new Date().toTimeString().slice(0, 5);
+      editorState.textContent = `未保存 · 本地已暂存 ${timeStr}`;
+      editorState.classList.add("is-dirty");
+    }
   } catch {}
 }
 function clearRecovery() {
@@ -543,7 +573,12 @@ async function render(route) {
       : link.removeAttribute("aria-current");
   });
   openNav(false);
-  if (page !== "editor") activePost = null;
+  if (page !== "editor") {
+    activePost = null;
+    if (zenMode) setZenMode(false);
+  }
+  const topbarNewPost = document.getElementById("topbar-new-post");
+  if (topbarNewPost) topbarNewPost.hidden = page === "editor";
   if (page !== "settings") editingSettings = null;
   if (page === "overview")
     main.innerHTML =
@@ -551,7 +586,10 @@ async function render(route) {
       overview(data, config.local, { direct });
   else if (page === "posts") main.innerHTML = postsView(data, filters, selectedPosts);
   else if (page === "taxonomy") main.innerHTML = taxonomyView(data, categories);
-  else if (page === "media") main.innerHTML = mediaView(data, mediaSearch, selectedMedia);
+  else if (page === "media") {
+    main.innerHTML = mediaView(data, mediaSearch, selectedMedia);
+    bindMediaDropzone();
+  }
   else if (page === "connection")
     main.innerHTML = connectionView(data, config, loadError);
   else if (page === "analytics") {
@@ -629,14 +667,14 @@ async function render(route) {
         button("返回文章", "go-posts");
       return;
     }
+    editorMode = getPreferredEditorMode();
     main.innerHTML = editorView(
       activePost,
       categories,
       config.local,
       resolveImage,
-      { direct },
+      { direct, knownTags: collectAllKnownTags(data.posts), zen: zenMode, mode: editorMode },
     );
-    editorMode = "rich";
     await mountEditor();
     if (revision !== viewRevision) return;
     try {
@@ -707,9 +745,10 @@ function gatherPost() {
     },
   };
   if (!activePost.revision) activePost.slug = value("slug");
+  const sourceEl = document.getElementById("markdown-source");
   activePost.body =
-    editorMode === "markdown"
-      ? document.getElementById("markdown-source").value
+    (editorMode === "markdown" || editorMode === "split") && sourceEl
+      ? sourceEl.value
       : editor
         ? editor.getMarkdown()
         : activePost.body;
@@ -777,32 +816,167 @@ function updateSettingsPreview() {
   observeMedia();
 }
 function updateCharacterCount() {
-  const count = (activePost?.body || "").replace(/\s/g, "").length;
+  const body = activePost?.body || "";
+  const stats = estimateReadingStats(body);
+  const headings = extractMarkdownHeadings(body);
+  const summaryText = `${stats.words.toLocaleString()} 字 · ${stats.label}${headings.length ? ` · ${headings.length} 节` : ""}`;
   document
     .getElementById("article-character-count")
-    ?.replaceChildren(
-      document.createTextNode(`${count.toLocaleString()} 字符`),
-    );
+    ?.replaceChildren(document.createTextNode(summaryText));
+
+  const titleHint = document.getElementById("title-length-hint");
+  if (titleHint) titleHint.textContent = `标题 ${(activePost?.data?.title || "").length}/100`;
+  const descHint = document.getElementById("desc-length-hint");
+  if (descHint) descHint.textContent = `摘要 ${(activePost?.data?.description || "").length}/260`;
+
+  const outline = document.getElementById("editor-outline-panel");
+  if (outline) outline.innerHTML = renderOutlineItems(body);
 }
 function resizeTitle() {
-  const title = document.getElementById("article-title");
-  if (title) {
-    title.style.height = "auto";
-    title.style.height = `${title.scrollHeight}px`;
+  for (const id of ["article-title", "article-description"]) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
   }
+}
+async function ensureMarkdownPreview() {
+  if (!markdownPreviewFn) {
+    const mod = await import("../lib/markdown-preview.js");
+    markdownPreviewFn = mod.renderMarkdownPreview;
+  }
+  return markdownPreviewFn;
+}
+async function refreshSplitPreview() {
+  const pane = document.getElementById("split-preview-pane");
+  if (!pane || !activePost) return;
+  const preview = await ensureMarkdownPreview();
+  if (!pane.isConnected) return;
+  pane.innerHTML = `<div class="post-body article-prose">${preview(activePost.body, resolveImage, true)}</div>`;
+  observeMedia(pane);
+}
+function scheduleSplitPreview() {
+  if (editorMode !== "split") return;
+  clearTimeout(splitPreviewTimer);
+  splitPreviewTimer = setTimeout(refreshSplitPreview, 100);
+}
+async function uploadInlineImagesToTextarea(source, files) {
+  if (!canWrite()) {
+    showError(new Error("请先以管理员身份登录，再上传图片。"));
+    return;
+  }
+  for (const file of files) {
+    const alt = file.name.replace(/\.[^.]+$/, "").replace(/[\[\]\n]/g, "") || "图片";
+    const token = Math.random().toString(36).slice(2, 8);
+    const placeholder = `\n![正在上传 ${alt}…](#uploading-${token})\n`;
+    source.setRangeText(placeholder, source.selectionStart, source.selectionEnd, "end");
+    activePost.body = source.value;
+    markDirty();
+    updateCharacterCount();
+    try {
+      toast(`正在上传 ${file.name}…`);
+      const result = await repository.uploadMedia(file);
+      if (result.media) {
+        const idx = data.media.findIndex((item) => item.name === result.media.name);
+        if (idx < 0) data.media.unshift(result.media);
+        else data.media[idx] = result.media;
+      }
+      const finalMarkdown = `\n![${alt}](${publicPath(result.media)})\n`;
+      source.value = source.value.replace(placeholder, finalMarkdown);
+      activePost.body = source.value;
+      markDirty();
+      updateCharacterCount();
+      scheduleSplitPreview();
+      toast("图片已上传并插入正文");
+    } catch (error) {
+      source.value = source.value.replace(placeholder, "");
+      activePost.body = source.value;
+      updateCharacterCount();
+      scheduleSplitPreview();
+      showError(error);
+    }
+  }
+}
+function bindMarkdownSourceEnhancements(source) {
+  if (!source) return;
+  source.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+    event.preventDefault();
+    const start = source.selectionStart;
+    const end = source.selectionEnd;
+    const val = source.value;
+    if (start === end && !event.shiftKey) {
+      source.setRangeText("  ", start, end, "end");
+    } else {
+      const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+      const lineEndIdx = val.indexOf("\n", end);
+      const lineEnd = lineEndIdx === -1 ? val.length : lineEndIdx;
+      const block = val.slice(lineStart, lineEnd);
+      const updated = block
+        .split("\n")
+        .map((line) => (event.shiftKey ? line.replace(/^ {1,2}/, "") : `  ${line}`))
+        .join("\n");
+      source.setRangeText(updated, lineStart, lineEnd, "select");
+    }
+    activePost.body = source.value;
+    markDirty();
+    updateCharacterCount();
+    scheduleSplitPreview();
+  });
+
+  source.addEventListener("paste", (event) => {
+    const images = Array.from(event.clipboardData?.files || []).filter((f) => f.type.startsWith("image/"));
+    if (!images.length) return;
+    event.preventDefault();
+    uploadInlineImagesToTextarea(source, images);
+  });
+
+  source.addEventListener("dragover", (event) => {
+    if (Array.from(event.dataTransfer?.types || []).includes("Files")) {
+      event.preventDefault();
+      source.classList.add("is-dragover");
+    }
+  });
+  source.addEventListener("dragleave", () => source.classList.remove("is-dragover"));
+  source.addEventListener("drop", (event) => {
+    source.classList.remove("is-dragover");
+    const images = Array.from(event.dataTransfer?.files || []).filter((f) => f.type.startsWith("image/"));
+    if (!images.length) return;
+    event.preventDefault();
+    uploadInlineImagesToTextarea(source, images);
+  });
 }
 async function mountEditor() {
   const host = document.getElementById("editor-canvas"),
     generation = ++editorGeneration;
   if (!host) return;
   if (editorMode === "markdown") {
-    host.innerHTML = `<label class="sr-only" for="markdown-source">Markdown 正文</label><textarea id="markdown-source" class="markdown-source" spellcheck="false">${e(activePost.body)}</textarea>`;
+    host.innerHTML = `<label class="sr-only" for="markdown-source">Markdown 正文</label><textarea id="markdown-source" class="markdown-source" spellcheck="false" placeholder="使用 Markdown 编写正文，支持 Tab 缩进与直接粘贴/拖入图片自动上传…">${e(activePost.body)}</textarea>`;
+    bindMarkdownSourceEnhancements(document.getElementById("markdown-source"));
+    return;
+  }
+  if (editorMode === "split") {
+    host.innerHTML = `<div class="editor-split-pane"><div class="editor-split-left"><label class="sr-only" for="markdown-source">Markdown 正文</label><textarea id="markdown-source" class="markdown-source split-markdown-source" spellcheck="false" placeholder="在左侧编写 Markdown，右侧实时同步排版与公式预览…">${e(activePost.body)}</textarea></div><div class="editor-split-right" id="split-preview-scroll"><article class="article-preview split-article-preview" id="split-preview-pane"></article></div></div>`;
+    const source = document.getElementById("markdown-source");
+    const previewScroll = document.getElementById("split-preview-scroll");
+    bindMarkdownSourceEnhancements(source);
+    source?.addEventListener("scroll", () => {
+      if (!previewScroll) return;
+      const maxSource = source.scrollHeight - source.clientHeight;
+      const maxPreview = previewScroll.scrollHeight - previewScroll.clientHeight;
+      if (maxSource > 0 && maxPreview > 0) {
+        previewScroll.scrollTop = (source.scrollTop / maxSource) * maxPreview;
+      }
+    }, { passive: true });
+    await refreshSplitPreview();
     return;
   }
   if (editorMode === "preview") {
-    const { renderMarkdownPreview } = await import('../lib/markdown-preview.js');
+    const renderMarkdownPreview = await ensureMarkdownPreview();
     if (generation !== editorGeneration || !host.isConnected) return;
-    host.innerHTML = `<article class="article-preview"><header class="post-intro"><div class="post-intro-content"><div class="post-meta"><span class="post-category">${e(activePost.data.category)}</span><span>${e(activePost.data.pubDate)}</span></div><h1 class="post-heading">${e(activePost.data.title || "未命名文章")}</h1><p class="post-summary">${e(activePost.data.description)}</p></div></header>${activePost.data.coverImage ? `<img class="post-cover" data-preview-path="${e(activePost.data.coverImage)}" src="${e(safeImage(resolveImage(activePost.data.coverImage)))}" alt="文章封面" />` : ""}<div class="post-body article-prose">${renderMarkdownPreview(activePost.body, resolveImage, true)}</div></article>`;
+    const stats = estimateReadingStats(activePost.body || "");
+    host.innerHTML = `<article class="article-preview"><header class="post-intro"><div class="post-intro-content"><div class="post-meta"><span class="post-category">${e(activePost.data.category)}</span><span>${e(activePost.data.pubDate)}</span><span>${e(stats.label)}</span></div><h1 class="post-heading">${e(activePost.data.title || "未命名文章")}</h1><p class="post-summary">${e(activePost.data.description)}</p></div></header>${activePost.data.coverImage ? `<img class="post-cover" data-preview-path="${e(activePost.data.coverImage)}" src="${e(safeImage(resolveImage(activePost.data.coverImage)))}" alt="文章封面" />` : ""}<div class="post-body article-prose">${renderMarkdownPreview(activePost.body, resolveImage, true)}</div></article>`;
     return;
   }
   host.innerHTML = "";
@@ -839,6 +1013,9 @@ async function changeMode(mode) {
     editor = null;
   }
   editorMode = mode;
+  if (["rich", "split", "markdown"].includes(mode)) {
+    try { localStorage.setItem("huaovo-editor-mode", mode); } catch {}
+  }
   main
     .querySelectorAll("[data-mode]")
     .forEach((tab) =>
@@ -848,17 +1025,20 @@ async function changeMode(mode) {
   observeMedia();
 }
 async function insertMarkdown(markdown) {
-  if (editorMode === "preview") await changeMode("markdown");
-  if (editorMode === "markdown") {
+  if (editorMode === "preview") await changeMode(getPreferredEditorMode());
+  if (editorMode === "markdown" || editorMode === "split") {
     const source = document.getElementById("markdown-source");
-    source.setRangeText(
-      markdown,
-      source.selectionStart,
-      source.selectionEnd,
-      "end",
-    );
-    activePost.body = source.value;
-    source.focus();
+    if (source) {
+      source.setRangeText(
+        markdown,
+        source.selectionStart,
+        source.selectionEnd,
+        "end",
+      );
+      activePost.body = source.value;
+      source.focus();
+      scheduleSplitPreview();
+    }
   } else await editor?.insertMarkdown(markdown);
   markDirty();
   updateCharacterCount();
@@ -867,10 +1047,15 @@ async function insertMarkdown(markdown) {
 async function format(command) {
   if (editorMode === "preview") return;
   if (editorMode === "rich") {
+    if (command === "inline-code") {
+      await insertMarkdown("`code`");
+      return;
+    }
     editor?.command(command);
     return;
   }
   const source = document.getElementById("markdown-source");
+  if (!source) return;
   const selected = source.value.slice(
     source.selectionStart,
     source.selectionEnd,
@@ -879,6 +1064,7 @@ async function format(command) {
     bold: `**${selected || "粗体文字"}**`,
     italic: `*${selected || "强调文字"}*`,
     heading: `\n## ${selected || "小标题"}\n`,
+    "inline-code": `\`${selected || "code"}\``,
     quote: `\n> ${selected || "引用文字"}\n`,
     list: `\n- ${selected || "列表条目"}\n`,
     ordered: `\n1. ${selected || "列表条目"}\n`,
@@ -887,18 +1073,19 @@ async function format(command) {
   await insertMarkdown(formats[command] || "");
 }
 
-async function chooseUpload(accept = 'image/png,image/jpeg,image/webp,image/gif,image/avif') {
+async function chooseUpload(accept = 'image/png,image/jpeg,image/webp,image/gif,image/avif', multiple = false) {
   return new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = accept;
+    input.multiple = Boolean(multiple);
     input.hidden = true;
     input.addEventListener(
       "change",
       () => {
-        const file = input.files?.[0];
+        const files = input.files ? Array.from(input.files) : [];
         input.remove();
-        resolve(file);
+        resolve(multiple ? files : (files[0] || null));
       },
       { once: true },
     );
@@ -906,7 +1093,7 @@ async function chooseUpload(accept = 'image/png,image/jpeg,image/webp,image/gif,
       "cancel",
       () => {
         input.remove();
-        resolve(null);
+        resolve(multiple ? [] : null);
       },
       { once: true },
     );
@@ -914,33 +1101,72 @@ async function chooseUpload(accept = 'image/png,image/jpeg,image/webp,image/gif,
     input.click();
   });
 }
-async function upload() {
-  const file = await chooseUpload();
-  if (!file) return null;
-  toast("正在上传图片…");
-  const result = await repository.uploadMedia(file);
-  if (result.state) await readWorkspace(result.state);
-  if (result.media) {
-    const index = data.media.findIndex(
-      (media) => media.name === result.media.name,
-    );
-    if (index < 0) data.media.unshift(result.media);
-    else data.media[index] = result.media;
+async function upload(providedFiles = null) {
+  const files = providedFiles
+    ? Array.from(providedFiles).filter((f) => f.type.startsWith("image/"))
+    : await chooseUpload('image/png,image/jpeg,image/webp,image/gif,image/avif', true);
+  if (!files || !files.length) return null;
+  let lastMedia = null;
+  for (let i = 0; i < files.length; i += 1) {
+    const file = files[i];
+    toast(files.length > 1 ? `正在上传图片 (${i + 1}/${files.length})…` : "正在上传图片…");
+    const result = await repository.uploadMedia(file);
+    if (result.state) await readWorkspace(result.state);
+    if (result.media) {
+      lastMedia = result.media;
+      const index = data.media.findIndex(
+        (media) => media.name === result.media.name,
+      );
+      if (index < 0) data.media.unshift(result.media);
+      else data.media[index] = result.media;
+    }
+    if (
+      legacyGit && result.release &&
+      !data.releases.some((release) => release.id === result.release.id)
+    )
+      data.releases.push(result.release);
   }
-  if (
-    legacyGit && result.release &&
-    !data.releases.some((release) => release.id === result.release.id)
-  )
-    data.releases.push(result.release);
-  toast("图片已保存到媒体库");
-  return result.media;
+  toast(files.length > 1 ? `已上传 ${files.length} 张图片到媒体库` : "图片已保存到媒体库");
+  return lastMedia;
+}
+function bindMediaDropzone() {
+  const zone = document.getElementById("media-dropzone");
+  if (!zone) return;
+  zone.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    zone.classList.add("is-dragover");
+  });
+  zone.addEventListener("dragleave", () => zone.classList.remove("is-dragover"));
+  zone.addEventListener("drop", async (event) => {
+    event.preventDefault();
+    zone.classList.remove("is-dragover");
+    if (saving || (direct && !canWrite())) return;
+    const files = Array.from(event.dataTransfer?.files || []).filter((f) => f.type.startsWith("image/"));
+    if (!files.length) return;
+    setSaving(true);
+    try {
+      if (await upload(files)) await render(currentRoute);
+    } catch (error) {
+      showError(error);
+    } finally {
+      setSaving(false);
+    }
+  });
 }
 function chooseMedia(title) {
   return new Promise((resolve) => {
     dialog.classList.add("wide");
     dialog.setAttribute('role', 'dialog');
-    dialog.innerHTML = `<div class="dialog-header"><h2 id="dialog-title">${e(title)}</h2><button type="button" class="icon-button" data-picker="close" aria-label="关闭媒体选择">${icon("close")}</button></div><p class="dialog-copy">选择已有素材，或上传一张新图片。</p><button type="button" class="button primary" data-picker="upload">${icon("upload")}上传新图片</button><div class="dialog-media-grid">${data.media.filter(media => !media.pendingDeletion).map((media) => `<button type="button" class="dialog-media-item" data-picker="select" data-name="${e(media.name)}"><img data-preview-media="${e(media.name)}" src="${e(safeImage(media.url))}" alt="" /><span>${e(media.name)}</span></button>`).join("")}</div>`;
+    const items = data.media.filter(media => !media.pendingDeletion);
+    dialog.innerHTML = `<div class="dialog-header"><h2 id="dialog-title">${e(title)}</h2><button type="button" class="icon-button" data-picker="close" aria-label="关闭媒体选择">${icon("close")}</button></div><div class="dialog-media-toolbar"><button type="button" class="button primary" data-picker="upload">${icon("upload")}上传新图片</button><label class="search-field">${icon("search")}<input id="dialog-media-search" type="search" placeholder="筛选图片文件名…" autocomplete="off" /></label></div><div class="dialog-media-grid" id="dialog-media-grid">${items.length ? items.map((media) => `<button type="button" class="dialog-media-item" data-picker="select" data-name="${e(media.name)}"><img data-preview-media="${e(media.name)}" src="${e(safeImage(media.url))}" alt="" /><span>${e(media.name)}</span></button>`).join("") : '<p class="section-copy" style="grid-column:1/-1;padding:24px 0">媒体库暂无图片，点击左上角“上传新图片”即可使用。</p>'}</div>`;
     dialog.setAttribute("aria-labelledby", "dialog-title");
+    const searchEl = dialog.querySelector("#dialog-media-search");
+    searchEl?.addEventListener("input", () => {
+      const q = searchEl.value.trim().toLowerCase();
+      dialog.querySelectorAll(".dialog-media-item").forEach((card) => {
+        card.hidden = Boolean(q) && !String(card.dataset.name || "").toLowerCase().includes(q);
+      });
+    });
     let settled = false;
     const finish = (value) => {
       if (settled) return;
@@ -964,8 +1190,11 @@ function chooseMedia(title) {
       if (target.dataset.picker === "upload") {
         try {
           target.disabled = true;
-          const media = await upload();
-          if (media) finish(media);
+          const selectedFile = await chooseUpload();
+          if (selectedFile) {
+            const media = await upload([selectedFile]);
+            if (media) finish(media);
+          }
         } catch (error) {
           toast(error.message, true);
         } finally {
@@ -1099,6 +1328,61 @@ async function backupOperation(action) {
   }
 }
 
+function syncQuickTagChips() {
+  const activeSet = new Set(activePost?.data?.tags || []);
+  document.querySelectorAll("#editor-quick-tags .quick-tag-chip").forEach((chip) => {
+    chip.classList.toggle("active", activeSet.has(chip.dataset.tag));
+  });
+}
+
+async function promptMathFormula() {
+  let katexLib = null;
+  const content = `<form>${field("LaTeX 公式", "formula", "E = mc^2", { type: "textarea", required: true, rows: 3 })}${field(
+    "显示方式",
+    "mode",
+    "block",
+    {
+      choices: [
+        ["block", "独立公式块 ($$ ... $$)"],
+        ["inline", "行内公式 ($ ... $)"],
+      ],
+    },
+  )}<div class="math-preview-wrap"><small>实时排版预览</small><div id="math-live-preview" class="math-live-preview">正在加载公式引擎…</div></div></form>`;
+
+  const pendingAsk = ask("插入数学公式", content, "插入公式");
+  const formulaInput = dialog.querySelector('[name="formula"]');
+  const modeSelect = dialog.querySelector('[name="mode"]');
+  const previewBox = dialog.querySelector("#math-live-preview");
+
+  const renderMath = async () => {
+    if (!previewBox || !dialog.open) return;
+    const raw = String(formulaInput?.value || "").trim();
+    if (!raw) {
+      previewBox.textContent = "输入 LaTeX 表达式即可实时预览…";
+      return;
+    }
+    try {
+      if (!katexLib) {
+        const mod = await import("katex");
+        katexLib = mod.default || mod;
+      }
+      if (!dialog.open) return;
+      previewBox.innerHTML = katexLib.renderToString(raw, {
+        displayMode: modeSelect?.value !== "inline",
+        throwOnError: false,
+        trust: false,
+      });
+    } catch {
+      previewBox.textContent = raw;
+    }
+  };
+  formulaInput?.addEventListener("input", renderMath);
+  modeSelect?.addEventListener("change", renderMath);
+  renderMath();
+
+  return pendingAsk;
+}
+
 main.addEventListener("input", (event) => {
   if (saving) return;
   if (event.target.dataset.profileSearch) { filterProfileCatalog(event.target.dataset.profileSearch,event.target.value); return; }
@@ -1107,6 +1391,15 @@ main.addEventListener("input", (event) => {
     gatherPost();
     markDirty();
     updateCharacterCount();
+    if (event.target.id === "article-title" || event.target.id === "article-description") {
+      resizeTitle();
+    }
+    if (event.target.id === "markdown-source") {
+      scheduleSplitPreview();
+    }
+    if (event.target.name === "tags") {
+      syncQuickTagChips();
+    }
   }
   if (event.target.closest("#settings-form")) {
     gatherSettings();
@@ -1121,11 +1414,12 @@ main.addEventListener("input", (event) => {
   if (event.target.id === "post-search") {
     selectedPosts.clear();
     filters.search = event.target.value;
+    const filtered = filterPosts(data.posts, { ...filters, sort: filters.sort || "newest" });
     document.getElementById("post-table").innerHTML = postTable(
-      filterPosts(data.posts, filters), selectedPosts,
+      filtered, selectedPosts,
     );
     document.getElementById("post-result-count").textContent =
-      `共 ${filterPosts(data.posts, filters).length} 篇内容`;
+      `共 ${filtered.length} 篇内容`;
     syncSelectionControls();
   }
   if (event.target.id === "media-search") {
@@ -1158,6 +1452,15 @@ main.addEventListener("change", (event) => {
   if (saving) return;
   const target = event.target;
   if (target.dataset.profileSearch) return;
+  if (target.id === "post-sort") {
+    selectedPosts.clear();
+    filters.sort = target.value || "newest";
+    const filtered = filterPosts(data.posts, { ...filters, sort: filters.sort });
+    document.getElementById("post-table").innerHTML = postTable(filtered, selectedPosts);
+    document.getElementById("post-result-count").textContent = `共 ${filtered.length} 篇内容`;
+    syncSelectionControls();
+    return;
+  }
   if (target.id === "analytics-post-sort") {
     analyticsState.sort = target.value || "totalViews";
     renderAnalyticsTable();
@@ -1260,7 +1563,7 @@ main.addEventListener("click", async (event) => {
       await render("posts");
     } else if (action === "reset-filter") {
       selectedPosts.clear();
-      filters = { search: "", state: "all", category: "", tag: "" };
+      filters = { search: "", state: "all", category: "", tag: "", sort: filters.sort || "newest" };
       await render("posts");
     } else if (action === "filter-category") {
       selectedPosts.clear();
@@ -1269,6 +1572,7 @@ main.addEventListener("click", async (event) => {
         state: "all",
         category: target.dataset.category,
         tag: "",
+        sort: filters.sort || "newest",
       };
       await go("posts");
     } else if (action === "filter-tag") {
@@ -1278,8 +1582,51 @@ main.addEventListener("click", async (event) => {
         state: "all",
         category: "",
         tag: target.dataset.tag,
+        sort: filters.sort || "newest",
       };
       await go("posts");
+    } else if (action === "toggle-zen") {
+      setZenMode(!zenMode);
+    } else if (action === "suggest-slug") {
+      if (activePost && !activePost.revision) {
+        gatherPost();
+        const nextSlug = suggestSlugFromTitle(activePost.data.title, activePost.data.pubDate);
+        const slugInput = main.querySelector('[name="slug"]');
+        if (slugInput) slugInput.value = nextSlug;
+        activePost.slug = nextSlug;
+        markDirty();
+        toast("已根据文章标题生成路径");
+      }
+    } else if (action === "toggle-editor-tag") {
+      const tag = target.dataset.tag;
+      const tagInput = main.querySelector('[name="tags"]');
+      if (tag && tagInput && activePost) {
+        const current = parseTags(tagInput.value);
+        let updated;
+        if (current.includes(tag)) {
+          updated = current.filter((item) => item !== tag);
+        } else {
+          if (current.length >= 20) {
+            toast("最多可设置 20 个标签", true);
+            return;
+          }
+          updated = [...current, tag];
+        }
+        tagInput.value = updated.join(", ");
+        gatherPost();
+        syncQuickTagChips();
+        markDirty();
+      }
+    } else if (action === "insert-table") {
+      await insertMarkdown("\n| 列标题 1 | 列标题 2 | 列标题 3 |\n| --- | --- | --- |\n| 内容 A | 内容 B | 内容 C |\n");
+    } else if (action === "insert-divider") {
+      await insertMarkdown("\n---\n");
+    } else if (action === "copy-post-url") {
+      const slug = target.dataset.slug || "";
+      if (slug) {
+        await navigator.clipboard.writeText(`${location.origin}/posts/${encodeURIComponent(slug)}`);
+        toast("文章线上链接已复制");
+      }
     } else if (action === "editor-mode") await changeMode(target.dataset.mode);
     else if (action === "format") await format(target.dataset.command);
     else if (action === "save-post") await saveArticle();
@@ -1364,21 +1711,7 @@ main.addEventListener("click", async (event) => {
       target.hidden = true;
       markDirty();
     } else if (action === "insert-math") {
-      const result = await ask(
-        "插入数学公式",
-        `<form>${field("LaTeX 公式", "formula", "E = mc^2", { type: "textarea", required: true, rows: 4 })}${field(
-          "显示方式",
-          "mode",
-          "block",
-          {
-            choices: [
-              ["block", "独立公式"],
-              ["inline", "行内公式"],
-            ],
-          },
-        )}</form>`,
-        "插入公式",
-      );
+      const result = await promptMathFormula();
       if (result)
         await insertMarkdown(
           result.get("mode") === "inline"
@@ -1407,15 +1740,17 @@ main.addEventListener("click", async (event) => {
         await editor.destroy();
         editor = null;
       }
+      editorMode = getPreferredEditorMode();
       main.innerHTML = editorView(
         restored,
         categories,
         config.local,
         resolveImage,
-        { direct },
+        { direct, knownTags: collectAllKnownTags(data.posts), zen: zenMode, mode: editorMode },
       );
-      editorMode = "rich";
       await mountEditor();
+      updateCharacterCount();
+      resizeTitle();
       markDirty();
       toast("已恢复编辑内容，请保存草稿");
     } else if (action === "discard-recovery") {
@@ -1592,6 +1927,20 @@ window.addEventListener("hashchange", async () => {
   }
 });
 document.addEventListener("keydown", (event) => {
+  if (event.altKey && event.key.toLowerCase() === "z" && activePost && !dialog.open) {
+    event.preventDefault();
+    setZenMode(!zenMode);
+    return;
+  }
+  if (
+    event.key === "Escape" &&
+    zenMode &&
+    !dialog.open &&
+    !document.body.classList.contains("nav-visible")
+  ) {
+    setZenMode(false);
+    return;
+  }
   if (
     (event.metaKey || event.ctrlKey) &&
     event.key.toLowerCase() === "s" &&
@@ -1606,11 +1955,30 @@ document.addEventListener("keydown", (event) => {
       .finally(() => {
         setSaving(false);
       });
+    return;
+  }
+  if ((event.metaKey || event.ctrlKey) && document.activeElement?.id === "markdown-source") {
+    const k = event.key.toLowerCase();
+    if (k === "b") {
+      event.preventDefault();
+      format("bold");
+      return;
+    }
+    if (k === "i") {
+      event.preventDefault();
+      format("italic");
+      return;
+    }
   }
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
+    if (dialog.open) return;
+    if (activePost && document.activeElement?.closest("#editor-canvas")) {
+      main.querySelector('[data-action="insert-link"]')?.click();
+      return;
+    }
     if (currentRoute === "posts")
-      document.getElementById("post-search").focus();
+      document.getElementById("post-search")?.focus();
     else
       go("posts").then(() =>
         setTimeout(() => document.getElementById("post-search")?.focus(), 0),

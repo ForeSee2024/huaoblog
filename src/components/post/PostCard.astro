@@ -1,5 +1,5 @@
 ---
-// PostCard.astro: 文章卡片组件
+// PostCard.astro: 文章卡片组件 (不展示前台阅读计数，突出内容层次、分类与标签快筛)
 import type { BlogPost } from '../../utils/posts';
 import { safeImageSrc } from '../../config/site';
 
@@ -8,44 +8,46 @@ interface Props {
 }
 
 const { post } = Astro.props;
-const { title, description, pubDate, category, tags, views, coverImage, extraMeta, featured } = post.data;
+const { title, description, pubDate, category, tags, coverImage, extraMeta, featured, series } = post.data;
 const cover = safeImageSrc(coverImage || '');
-
-// 格式化日期为 YYYY-MM-DD
 const dateStr = pubDate.toISOString().split('T')[0];
 ---
-<article class="cyber-card flex flex-col md:flex-row overflow-hidden group">
+<article class="cyber-card cyber-card-interactive flex flex-col md:flex-row overflow-hidden group">
   <!-- 封面缩略图 -->
   {cover && (
-    <div class="relative w-full md:w-64 h-48 md:h-auto overflow-hidden flex-shrink-0 bg-[var(--bg-surface-elevated)]">
-      <img 
+    <a href={`/posts/${post.slug}`} tabindex="-1" aria-hidden="true" class="relative w-full md:w-64 h-48 md:h-auto overflow-hidden flex-shrink-0 bg-[var(--bg-surface-elevated)] block">
+      <img
         src={cover}
-        alt={title} 
+        alt={title}
         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         loading="lazy"
       />
-      <div class="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-[var(--bg-card)] via-transparent to-transparent opacity-60"></div>
-    </div>
+      <div class="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-[var(--bg-card)] via-transparent to-transparent opacity-55"></div>
+    </a>
   )}
 
   <!-- 卡片内容体 -->
-  <div class="p-5 md:p-6 flex flex-col justify-between flex-grow">
+  <div class="p-5 md:p-6 flex flex-col justify-between flex-grow min-w-0">
     <div>
       <!-- 元数据药丸栏 -->
-      <div class="flex flex-wrap items-center gap-2 mb-2 text-xs">
-        {featured && <span class="text-[var(--accent)] font-semibold"><i class="fa-solid fa-thumbtack mr-1" aria-hidden="true"></i>精选置顶</span>}
-        <span class="px-2.5 py-0.5 rounded-md font-bold bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--border-subtle)]">
-          {category}
-        </span>
-        <span class="text-[var(--text-dim)] flex items-center gap-1 font-mono">
-          <i class="fa-regular fa-calendar text-[10px]"></i>
-          {dateStr}
-        </span>
-        {views && (
-          <span class="text-[var(--text-dim)] flex items-center gap-1 font-mono">
-            <i class="fa-solid fa-eye text-[10px]"></i>
-            {views}
+      <div class="flex flex-wrap items-center gap-2 mb-2.5 text-xs">
+        {featured && (
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold bg-[var(--accent)] text-[var(--accent-contrast)] text-[11px]">
+            <i class="fa-solid fa-thumbtack text-[9px]" aria-hidden="true"></i>
+            精选置顶
           </span>
+        )}
+        <a href={`/posts?cat=${encodeURIComponent(category)}`} class="px-2.5 py-0.5 rounded-md font-bold bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--border-subtle)] hover:border-[var(--accent)] transition-colors no-underline">
+          {category}
+        </a>
+        <time datetime={dateStr} class="text-[var(--text-dim)] flex items-center gap-1 font-mono">
+          <i class="fa-regular fa-calendar text-[10px]" aria-hidden="true"></i>
+          {dateStr}
+        </time>
+        {series && (
+          <a href={`/posts?series=${encodeURIComponent(series)}`} class="px-2 py-0.5 rounded text-[11px] font-semibold bg-[var(--bg-glass)] text-[var(--text-muted)] hover:text-[var(--accent)] border border-[var(--border-subtle)] no-underline">
+            <i class="fa-solid fa-layer-group text-[9px] mr-1" aria-hidden="true"></i>{series}
+          </a>
         )}
         {extraMeta?.difficulty && (
           <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--bg-surface-elevated)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
@@ -55,7 +57,7 @@ const dateStr = pubDate.toISOString().split('T')[0];
       </div>
 
       <!-- 标题 -->
-      <h3 class="text-base md:text-lg font-bold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors leading-snug mb-2">
+      <h3 class="text-base md:text-lg font-extrabold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors leading-snug mb-2">
         <a href={`/posts/${post.slug}`} class="no-underline text-inherit">
           {title}
         </a>
@@ -68,15 +70,17 @@ const dateStr = pubDate.toISOString().split('T')[0];
     </div>
 
     <!-- 底部标签与阅读箭头 -->
-    <div class="flex items-center justify-between pt-3 border-t border-[var(--border-subtle)] text-xs">
-      <div class="flex flex-wrap gap-1.5">
-        {tags.slice(0, 3).map(tag => (
-          <span class="text-[11px] text-[var(--text-dim)] font-medium">#{tag}</span>
+    <div class="flex items-center justify-between gap-3 pt-3 border-t border-[var(--border-subtle)] text-xs">
+      <div class="flex flex-wrap gap-1.5 min-w-0">
+        {tags.slice(0, 4).map(tag => (
+          <a href={`/posts?tag=${encodeURIComponent(tag)}`} class="text-[11px] px-2 py-0.5 rounded-full bg-[var(--bg-glass)] text-[var(--text-dim)] hover:text-[var(--accent)] border border-transparent hover:border-[var(--border-subtle)] transition-colors no-underline font-medium">
+            #{tag}
+          </a>
         ))}
       </div>
-      <a href={`/posts/${post.slug}`} class="flex items-center gap-1 font-bold text-[var(--accent)] no-underline group-hover:translate-x-1 transition-transform">
+      <a href={`/posts/${post.slug}`} class="flex items-center gap-1.5 font-bold text-[var(--accent)] no-underline group-hover:translate-x-1 transition-transform flex-shrink-0">
         <span>阅读全文</span>
-        <i class="fa-solid fa-arrow-right text-[10px]"></i>
+        <i class="fa-solid fa-arrow-right text-[10px]" aria-hidden="true"></i>
       </a>
     </div>
   </div>

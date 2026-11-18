@@ -1,13 +1,14 @@
 ---
 import ThemeScript from '../../components/common/ThemeScript.astro';
 import { createAdminConfiguration } from '../../config/admin';
-import { siteFor, settings as defaultSettings, categories } from '../../config/site';
+import { siteFor, settings as defaultSettings, categories, safeImageSrc } from '../../config/site';
 import '../../styles/tokens.css';
 import '../../styles/prose.css';
 import '../../styles/console.css';
 import 'katex/dist/katex.min.css';
 const siteSettings = Astro.locals.siteSettings || defaultSettings;
 const site = siteFor(siteSettings);
+const avatarSrc = safeImageSrc(site.avatar);
 const connection = createAdminConfiguration(import.meta.env, import.meta.env.DEV, Astro.locals.services?.config);
 const groups = [
   { label: '工作区', items: [{ id: 'overview', label: '内容总览', icon: 'overview' }, { id: 'posts', label: '文章管理', icon: 'posts' }, { id: 'taxonomy', label: '分类与标签', icon: 'tags' }, { id: 'media', label: '媒体资源', icon: 'image' }, ...(connection.direct ? [{ id: 'analytics', label: '访问统计', icon: 'chart' }] : [])] },
@@ -35,12 +36,21 @@ const groups = [
       <a class="console-brand" href="#/overview"><img src="/favicon.svg" width="34" height="34" alt="" /><span>{site.brand}<small>CONTENT STUDIO</small></span></a>
       <div class="workspace-label"><span class="status-dot"></span><span id="workspace-mode">{connection.local ? '本地工作区' : '管理工作区'}</span></div>
       <nav>{groups.map(group => <div class="nav-group"><p>{group.label}</p>{group.items.map(item => <a href={`#/${item.id}`} data-route={item.id}><span data-icon={item.icon}></span><span>{item.label}</span>{item.id === 'posts' && <span class="nav-count" id="nav-post-count">—</span>}</a>)}</div>)}</nav>
-      <div class="console-profile"><span class="profile-avatar">H</span><div><strong>{site.author}</strong><small>站点管理员</small></div><button type="button" id="nav-close" class="icon-button mobile-only" aria-label="关闭导航"><span data-icon="close"></span></button></div>
+      <div class="console-profile">
+        {avatarSrc ? <img class="profile-avatar-img" src={avatarSrc} alt="" /> : <span class="profile-avatar">{(site.author || 'H').slice(0, 1)}</span>}
+        <div class="min-w-0"><strong>{site.author}</strong><small>站点管理员</small></div>
+        <button type="button" id="nav-close" class="icon-button mobile-only" aria-label="关闭导航"><span data-icon="close"></span></button>
+      </div>
     </aside>
     <div class="console-body">
       <header class="console-topbar">
         <div class="topbar-location"><button type="button" class="icon-button mobile-only" id="nav-open" aria-controls="console-nav" aria-expanded="false" aria-label="打开导航"><span data-icon="menu"></span></button><span class="desktop-only">管理后台</span><span class="breadcrumb-divider desktop-only">/</span><strong id="workspace-title">内容总览</strong></div>
-        <div class="topbar-actions"><span class="connection-chip" id="connection-chip"><span class="status-dot"></span>{connection.local ? '本地编辑' : '等待连接'}</span><button type="button" class="icon-button" id="console-theme" aria-label="切换明暗主题"><span data-icon="theme"></span></button><a class="button quiet visit-link" href="/" target="_blank" rel="noopener noreferrer">查看博客<span data-icon="external"></span></a></div>
+        <div class="topbar-actions">
+          <span class="connection-chip" id="connection-chip"><span class="status-dot"></span>{connection.local ? '本地编辑' : '等待连接'}</span>
+          <a class="button secondary topbar-write-btn" id="topbar-new-post" href="#/editor/new"><span data-icon="edit"></span><span>写文章</span></a>
+          <button type="button" class="icon-button" id="console-theme" aria-label="切换明暗主题" title="切换深色/浅色主题"><span data-icon="theme"></span></button>
+          <a class="button quiet visit-link" href="/" target="_blank" rel="noopener noreferrer">查看博客<span data-icon="external"></span></a>
+        </div>
       </header>
       <main id="console-main" class="console-main" tabindex="-1"><div class="loading-state"><span class="loading-spinner"></span><h1>正在连接工作区</h1><p>读取文章与站点配置…</p></div></main>
       <div class="console-footer"><span>{site.brand} / CONTENT STUDIO</span><span id="console-footer-state">{connection.direct ? '正在连接内容服务' : 'Git 驱动的内容管理'}</span></div>

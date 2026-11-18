@@ -2616,3 +2616,404 @@ html[data-theme="light"] .tabs button[aria-selected="true"] {
     grid-column: 1 / -1;
   }
 }
+
+/* ==========================================================================
+   管理后台视觉质感与沉浸写作工作台升级
+   ========================================================================== */
+.console-topbar {
+  background: color-mix(in srgb, var(--bg-surface) 86%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.profile-avatar-img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--admin-line);
+  flex-shrink: 0;
+}
+.topbar-write-btn {
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
+/* 总览页继续写作横幅与最近文章外链 */
+.continue-draft-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 22px;
+  margin-bottom: 28px;
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 12%, var(--bg-surface)),
+    var(--bg-surface)
+  );
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--admin-line));
+}
+.continue-draft-card strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-hero);
+  margin-bottom: 3px;
+}
+.continue-draft-card p {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.recent-row-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.recent-row-end .icon-button {
+  width: 32px;
+  height: 32px;
+}
+
+/* 文章管理工具栏与多操作列适配 */
+.filter-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.active-filter-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.active-filter-banner .notice {
+  margin-bottom: 0;
+  flex: 1;
+}
+.table-title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.table-header,
+.table-row {
+  grid-template-columns: 22px minmax(0, 1fr) 140px 104px 86px 136px;
+}
+.table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+.table-actions .icon-button {
+  width: 32px;
+  height: 32px;
+}
+
+/* 媒体库拖拽批量上传热区与选图弹窗检索 */
+.media-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  border: 1.5px dashed var(--admin-line);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+.media-dropzone > .icon {
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+}
+.media-dropzone strong {
+  display: block;
+  font-size: 13px;
+  color: var(--text-hero);
+}
+.media-dropzone small {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.media-dropzone:hover,
+.media-dropzone.is-dragover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.dialog-media-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 编辑器增强：标题字数提示、保存徽章、分栏实时对照、专注模式、标签胶囊、大纲与公式预览 */
+.editor-heading-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.editor-save-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.editor-save-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+}
+.editor-save-pill.is-dirty {
+  color: var(--text-hero);
+  border-color: color-mix(in srgb, #f59e0b 45%, var(--border-subtle));
+}
+.editor-save-pill.is-dirty::before {
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.65);
+}
+
+.console .article-description-input {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  min-height: 48px;
+}
+.editor-meta-counters {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+  font: 11px var(--font-mono);
+  color: var(--text-dim);
+}
+.console .markdown-source.is-dragover {
+  background: var(--accent-soft);
+  outline: 2px dashed var(--accent);
+  outline-offset: -8px;
+}
+
+/* 分栏对照模式 (Split View) */
+.editor-split-pane {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 620px;
+}
+.editor-split-left {
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+}
+.console .split-markdown-source {
+  flex: 1;
+  height: 640px;
+  min-height: 620px;
+  padding: 26px 28px;
+  resize: none;
+}
+.editor-split-right {
+  height: 640px;
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--bg-base) 42%, var(--bg-surface));
+}
+.split-article-preview {
+  padding: 26px 30px;
+}
+.split-article-preview .post-body {
+  padding-top: 0;
+}
+
+.editor-shortcuts-hint code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+}
+
+/* 路径生成、常用标签胶囊与大纲列表 */
+.slug-suggest-btn {
+  width: auto !important;
+  min-height: 30px;
+  padding: 4px 10px;
+  margin-top: 6px;
+  font-size: 11px !important;
+  color: var(--accent);
+}
+.quick-tag-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+.quick-tag-chip {
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-glass);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11px;
+  transition: border-color 140ms, background 140ms, color 140ms;
+}
+.quick-tag-chip:hover {
+  border-color: var(--accent);
+  color: var(--text-hero);
+}
+.quick-tag-chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.editor-outline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.editor-outline-list li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  min-width: 0;
+}
+.editor-outline-list li.depth-2 {
+  padding-left: 6px;
+}
+.editor-outline-list li.depth-3 {
+  padding-left: 16px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.outline-level {
+  font: 9.5px var(--font-mono);
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--bg-glass);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.outline-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 数学公式实时预览框 */
+.math-preview-wrap {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--admin-line);
+}
+.math-preview-wrap > small {
+  display: block;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.math-live-preview {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-x: auto;
+  color: var(--text-hero);
+  font-size: 14px;
+}
+
+/* 无干扰专注写作模式 (Zen Mode) */
+body.editor-zen {
+  --admin-sidebar: 0px;
+}
+body.editor-zen .console-nav,
+body.editor-zen .console-topbar,
+body.editor-zen .console-footer,
+body.editor-zen .editor-inspector {
+  display: none !important;
+}
+body.editor-zen .console-main {
+  max-width: 1440px;
+  padding-top: 24px;
+}
+body.editor-zen .editor-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+body.editor-zen .editor-document {
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  box-shadow: var(--shadow-card);
+}
+body.editor-zen .editor-document:has(.editor-split-pane) {
+  max-width: 1400px;
+}
+body.editor-zen .editor-toolbar {
+  top: 0;
+}
+
+@media (max-width: 1200px) {
+  .table-header,
+  .table-row {
+    grid-template-columns: 22px minmax(0, 1fr) 120px 92px 84px 132px;
+  }
+}
+@media (max-width: 1024px) {
+  .table-header,
+  .table-row {
+    grid-template-columns: 22px minmax(0, 1fr) 92px 84px 132px;
+  }
+  .editor-split-pane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .editor-split-left {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .console .split-markdown-source {
+    height: 420px;
+    min-height: 360px;
+  }
+  .editor-split-right {
+    height: 420px;
+  }
+}
+@media (max-width: 760px) {
+  .topbar-write-btn {
+    display: none;
+  }
+  .continue-draft-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .editor-shortcuts-hint {
+    display: none;
+  }
+}

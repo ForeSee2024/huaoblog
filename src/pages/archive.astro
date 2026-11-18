@@ -1,5 +1,5 @@
 ---
-// archive.astro: 年份时间轴归档页 (过滤草稿与未来日期，移动端优先排布)
+// archive.astro: 年份时间轴归档页 (过滤草稿与未来日期，支持年份速跳与分类标识)
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Sidebar from '../components/layout/Sidebar.astro';
 import { getPublishedPosts } from '../utils/posts';
@@ -8,7 +8,6 @@ import { siteFor } from '../config/site';
 const site = siteFor(Astro.locals.siteSettings);
 const sortedPosts = await getPublishedPosts(Astro.locals.services.store);
 
-// 按年份分组
 const postsByYear = sortedPosts.reduce((acc, post) => {
   const year = post.data.pubDate.getFullYear().toString();
   if (!acc[year]) acc[year] = [];
@@ -20,56 +19,78 @@ const years = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
 ---
 <BaseLayout title={`文章归档 | ${site.name}`}>
   <div class="flex flex-col lg:flex-row gap-8 items-start">
-    
+
     <Sidebar />
 
     <main class="w-full lg:flex-1 flex flex-col gap-6 min-w-0 order-1 lg:order-2">
-      
+
       <div class="cyber-card p-6 md:p-8">
         <div class="flex items-center gap-2 text-xs font-mono text-[var(--accent)] mb-2">
-          <i class="fa-solid fa-timeline"></i>
+          <i class="fa-solid fa-timeline" aria-hidden="true"></i>
           <span>TIMELINE ARCHIVE</span>
         </div>
         <h1 class="text-2xl md:text-3xl font-extrabold text-[var(--text-hero)] mb-2">
           文章年历归档
         </h1>
-        <p class="text-xs md:text-sm text-[var(--text-muted)] mb-8">
-          目前共收录 <strong class="text-[var(--accent)]">{sortedPosts.length}</strong> 篇深度文章与技术笔记，记录持续进阶的足迹。
+        <p class="text-xs md:text-sm text-[var(--text-muted)] mb-6">
+          目前共收录 <strong class="text-[var(--accent)] font-mono">{sortedPosts.length}</strong> 篇深度文章与技术笔记，记录持续进阶的足迹。
         </p>
 
-        <!-- 年份树时间轴 -->
-        <div class="flex flex-col gap-8 relative border-l-2 border-[var(--border-subtle)] ml-4 pl-6">
-          {years.map(year => (
-            <div class="flex flex-col gap-3">
-              <!-- 年份节点徽章 -->
-              <div class="relative flex items-center gap-2 text-lg font-extrabold text-[var(--text-hero)] -ml-[33px]">
-                <div class="w-4 h-4 rounded-full bg-[var(--accent)] shadow-[0_0_10px_var(--accent-glow)] flex-shrink-0"></div>
-                <span>{year} 年</span>
-                <span class="text-xs font-mono text-[var(--text-dim)]">({postsByYear[year].length} 篇)</span>
-              </div>
+        {years.length > 1 && (
+          <nav aria-label="按年份快速跳转" class="flex flex-wrap gap-2 pb-6 mb-7 border-b border-[var(--border-subtle)]">
+            {years.map(year => (
+              <a
+                href={`#year-${year}`}
+                class="px-3 py-1 rounded-full text-xs font-mono font-semibold bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] no-underline transition-colors"
+              >
+                {year} ({postsByYear[year].length})
+              </a>
+            ))}
+          </nav>
+        )}
 
-              <!-- 当年文章条目 -->
-              <div class="flex flex-col gap-2 mt-1">
-                {postsByYear[year].map(post => {
-                  const monthDay = post.data.pubDate.toISOString().slice(5, 10);
-                  return (
-                    <a 
-                      href={`/posts/${post.slug}`} 
-                      class="flex items-center justify-between p-3 rounded-xl bg-[var(--bg-glass)] hover:bg-[var(--accent-soft)] border border-transparent hover:border-[var(--accent)] transition-all no-underline group"
-                    >
-                      <span class="text-xs md:text-sm font-semibold text-[var(--text-main)] group-hover:text-[var(--accent)] transition-colors truncate pr-4">
-                        {post.data.title}
-                      </span>
-                      <span class="font-mono text-xs text-[var(--text-dim)] flex-shrink-0">
-                        {monthDay}
-                      </span>
-                    </a>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
+        <!-- 年份树时间轴 -->
+        {years.length > 0 ? (
+          <div class="flex flex-col gap-9 relative border-l-2 border-[var(--border-subtle)] ml-3.5 pl-6">
+            {years.map(year => (
+              <section id={`year-${year}`} class="flex flex-col gap-3 scroll-mt-24">
+                <!-- 年份节点徽章 -->
+                <div class="relative flex items-center gap-2.5 text-lg font-extrabold text-[var(--text-hero)] -ml-[33px]">
+                  <div class="w-4 h-4 rounded-full bg-[var(--accent)] ring-4 ring-[var(--bg-card-solid)] shadow-[0_0_12px_var(--accent-glow)] flex-shrink-0"></div>
+                  <span class="font-mono">{year} 年</span>
+                  <span class="text-xs font-mono px-2 py-0.5 rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">{postsByYear[year].length} 篇</span>
+                </div>
+
+                <!-- 当年文章条目 -->
+                <div class="flex flex-col gap-2 mt-1">
+                  {postsByYear[year].map(post => {
+                    const monthDay = post.data.pubDate.toISOString().slice(5, 10);
+                    return (
+                      <a
+                        href={`/posts/${post.slug}`}
+                        class="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-[var(--bg-glass)] hover:bg-[var(--accent-soft)] border border-transparent hover:border-[var(--accent)] transition-all no-underline group"
+                      >
+                        <div class="min-w-0 flex items-center gap-3">
+                          <span class="font-mono text-xs text-[var(--text-dim)] group-hover:text-[var(--accent)] flex-shrink-0">
+                            {monthDay}
+                          </span>
+                          <span class="text-xs md:text-sm font-semibold text-[var(--text-main)] group-hover:text-[var(--text-hero)] transition-colors truncate">
+                            {post.data.title}
+                          </span>
+                        </div>
+                        <span class="hidden sm:inline-block text-[11px] px-2 py-0.5 rounded bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-dim)] flex-shrink-0">
+                          {post.data.category}
+                        </span>
+                      </a>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <p class="text-sm text-[var(--text-muted)] py-6">暂无已归档文章。</p>
+        )}
       </div>
 
     </main>

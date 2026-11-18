@@ -14,13 +14,13 @@ const homePosts = sortedPosts.slice(0, settings.home.postsPerPage);
 ---
 <BaseLayout>
   <div class="flex flex-col lg:flex-row gap-8 items-start">
-    
+
     <!-- 左侧常驻侧边栏 (移动端后置显示) -->
     <Sidebar />
 
     <!-- 右侧主体内容流 (移动端 order-1 优先第一屏呈现) -->
     <main class="w-full lg:flex-1 flex flex-col gap-6 min-w-0 order-1 lg:order-2">
-      
+
       <!-- 主页 Hero 引言卡 -->
       <div class="cyber-card p-6 md:p-8">
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[10px] font-mono text-[var(--accent)] mb-4">
@@ -35,44 +35,51 @@ const homePosts = sortedPosts.slice(0, settings.home.postsPerPage);
         </p>
 
         <div class="flex flex-wrap items-center gap-3">
-          <a href="/posts" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] text-xs font-bold no-underline shadow-[0_0_20px_var(--accent-glow)] hover:opacity-90 transition-opacity">
-            <i class="fa-solid fa-book-open"></i>
+          <a href="/posts" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] text-xs font-bold no-underline shadow-[0_0_22px_var(--accent-glow)] hover:opacity-90 hover:-translate-y-0.5 transition-all">
+            <i class="fa-solid fa-book-open" aria-hidden="true"></i>
             <span>{settings.home.primaryLabel}</span>
           </a>
-          <a href="/about" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-main)] hover:text-[var(--accent)] text-xs font-bold no-underline hover:border-[var(--accent)] transition-all">
-            <i class="fa-solid fa-user-astronaut"></i>
+          <a href="/about" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-main)] hover:text-[var(--accent)] text-xs font-bold no-underline hover:border-[var(--accent)] hover:-translate-y-0.5 transition-all">
+            <i class="fa-solid fa-user-astronaut" aria-hidden="true"></i>
             <span>{settings.home.secondaryLabel}</span>
           </a>
         </div>
       </div>
 
       <!-- 全站播报通告条 -->
-      {settings.home.announcementEnabled && <div class="cyber-card p-3.5 flex items-start gap-3 text-xs">
-        <i class="fa-solid fa-bullhorn text-[var(--accent)] text-sm flex-shrink-0" aria-hidden="true"></i>
+      {settings.home.announcementEnabled && <div class="cyber-card px-4 py-3.5 flex items-start gap-3 text-xs border-l-4 border-l-[var(--accent)]">
+        <i class="fa-solid fa-bullhorn text-[var(--accent)] text-sm flex-shrink-0 mt-0.5" aria-hidden="true"></i>
         <span class="font-bold text-[var(--text-hero)] flex-shrink-0">{settings.home.announcementTitle}：</span>
-        <span class="text-[var(--text-muted)] whitespace-pre-line min-w-0 flex-grow">
+        <span class="text-[var(--text-muted)] whitespace-pre-line min-w-0 flex-grow leading-relaxed">
           {settings.home.announcement}
         </span>
       </div>}
 
       <!-- 最新发布文章流标题 -->
-      <div class="flex items-center justify-between mt-2">
+      <div class="flex items-center justify-between mt-1 px-1">
         <div class="flex items-center gap-2 text-sm font-extrabold text-[var(--text-hero)]">
-          <i class="fa-solid fa-fire text-[#ef4444]"></i>
+          <i class="fa-solid fa-fire text-[#ef4444]" aria-hidden="true"></i>
           <span>{settings.home.feedTitle}</span>
         </div>
-        <a href="/posts" class="text-xs font-semibold text-[var(--accent)] no-underline hover:underline flex items-center gap-1">
-          <span>查看全部博文</span>
-          <i class="fa-solid fa-chevron-right text-[10px]"></i>
+        <a href="/posts" class="text-xs font-semibold text-[var(--accent)] no-underline hover:underline flex items-center gap-1 group">
+          <span>查看全部博文 ({sortedPosts.length})</span>
+          <i class="fa-solid fa-chevron-right text-[10px] group-hover:translate-x-0.5 transition-transform" aria-hidden="true"></i>
         </a>
       </div>
 
       <!-- 文章卡片列表 -->
-      <div class="flex flex-col gap-4">
-        {homePosts.map(post => (
-          <PostCard post={post} />
-        ))}
-      </div>
+      {homePosts.length > 0 ? (
+        <div class="flex flex-col gap-4">
+          {homePosts.map(post => (
+            <PostCard post={post} />
+          ))}
+        </div>
+      ) : (
+        <div class="cyber-card p-10 text-center">
+          <p class="text-sm font-bold text-[var(--text-hero)] mb-1">文章正在筹备中</p>
+          <p class="text-xs text-[var(--text-muted)]">新发布的文章会第一时间呈现在这里。</p>
+        </div>
+      )}
 
     </main>
 

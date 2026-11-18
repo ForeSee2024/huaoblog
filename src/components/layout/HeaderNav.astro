@@ -1,5 +1,5 @@
 ---
-// HeaderNav.astro: 响应式顶部悬浮胶囊分段导航栏 (移动端优先自适应，绝对不溢出)
+// HeaderNav.astro: 响应式顶部悬浮胶囊分段导航栏 (滚动自适应、字体就绪滑块校准、快捷键智能提示)
 interface Props {
   currentPath?: string;
 }
@@ -24,12 +24,12 @@ const navigation = settings.navigation.flatMap(link => {
   return [{ ...link, href, active, icon, external: !href.startsWith('/') }];
 });
 ---
-<header class="fixed top-3 sm:top-5 left-0 right-0 z-50 flex justify-center px-2 sm:px-4 pointer-events-none">
-  <nav aria-label="主导航" class="pointer-events-auto min-w-0 max-w-[calc(100vw-16px)] sm:max-w-max flex items-center justify-between sm:justify-start gap-1 sm:gap-2 p-1 sm:p-1.5 rounded-full border border-[var(--border-card)] bg-[var(--bg-card)] backdrop-blur-xl shadow-lg transition-all duration-300">
-    
-    <!-- 品牌标志 (移动端紧凑简写，桌面端全称) -->
-    <a href="/" aria-label={`${site.brand} · 首页`} class="flex items-center gap-1.5 px-2 sm:px-3 py-1 text-xs font-black tracking-wider text-[var(--text-hero)] no-underline hover:text-[var(--accent)] transition-colors flex-shrink-0">
-      <span class="w-6 h-6 flex items-center justify-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] flex-shrink-0">
+<header id="site-header" class="fixed top-3 sm:top-4 left-0 right-0 z-50 flex justify-center px-2 sm:px-4 pointer-events-none transition-all duration-300">
+  <nav aria-label="主导航" id="site-nav-pill" class="pointer-events-auto min-w-0 max-w-[calc(100vw-16px)] sm:max-w-max flex items-center justify-between sm:justify-start gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-full border border-[var(--border-card)] bg-[var(--bg-card)] backdrop-blur-2xl shadow-lg transition-all duration-300">
+
+    <!-- 品牌标志 -->
+    <a href="/" aria-label={`${site.brand} · 首页`} class="flex items-center gap-1.5 px-2 sm:px-3 py-1 text-xs font-black tracking-wider text-[var(--text-hero)] no-underline hover:text-[var(--accent)] transition-colors flex-shrink-0 group">
+      <span class="w-6 h-6 flex items-center justify-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] flex-shrink-0 transition-transform duration-300 group-hover:rotate-6">
         <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"/>
           <path d="M3.27 6.96 12 12.01l8.73-5.05"/>
@@ -40,10 +40,10 @@ const navigation = settings.navigation.flatMap(link => {
       <span class="inline sm:hidden font-mono text-[11px] max-w-14 truncate">{site.brand}</span>
     </a>
 
-    <!-- 分段导航药丸容器 (手机端图标化，平板及桌面端图文并茂) -->
+    <!-- 分段导航药丸容器 -->
     <div class="relative flex items-center min-w-0 bg-[var(--bg-glass)] p-0.5 sm:p-1 rounded-full overflow-x-auto" id="nav-segments">
-      <div class="nav-slider absolute h-[calc(100%-6px)] rounded-full bg-[var(--accent)] transition-all duration-300 pointer-events-none opacity-90 shadow-[0_0_12px_var(--accent-glow)]" id="nav-slider"></div>
-      {navigation.map(link => <a href={link.href} target={link.external ? '_blank' : undefined} rel={link.external ? 'noopener noreferrer' : undefined} aria-label={link.label} aria-current={link.active ? 'page' : undefined} class:list={["nav-item relative z-10 flex flex-shrink-0 items-center gap-1 px-2.5 sm:px-3 py-1 text-xs font-bold rounded-full transition-colors no-underline", link.active ? 'text-[var(--accent-contrast)] active' : 'text-[var(--text-muted)] hover:text-[var(--text-hero)]']} data-path={link.href} title={link.label}>
+      <div class="nav-slider absolute h-[calc(100%-6px)] rounded-full bg-[var(--accent)] transition-all duration-300 pointer-events-none opacity-95 shadow-[0_0_14px_var(--accent-glow)]" id="nav-slider"></div>
+      {navigation.map(link => <a href={link.href} target={link.external ? '_blank' : undefined} rel={link.external ? 'noopener noreferrer' : undefined} aria-label={link.label} aria-current={link.active ? 'page' : undefined} class:list={["nav-item relative z-10 flex flex-shrink-0 items-center gap-1.5 px-2.5 sm:px-3 py-1 text-xs font-bold rounded-full transition-colors no-underline", link.active ? 'text-[var(--accent-contrast)] active' : 'text-[var(--text-muted)] hover:text-[var(--text-hero)]']} data-path={link.href} title={link.label}>
         <i class={`${link.icon} text-[11px]`} aria-hidden="true"></i>
         <span class="hidden md:inline">{link.label}</span>
       </a>)}
@@ -52,24 +52,28 @@ const navigation = settings.navigation.flatMap(link => {
     <div class="hidden sm:block w-[1px] h-4 bg-[var(--border-subtle)] mx-0.5"></div>
 
     <!-- 全局搜索胶囊按钮 -->
-    <button type="button" aria-label="全局搜索" class="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-hero)] hover:border-[var(--accent)] text-xs font-semibold transition-all cursor-pointer flex-shrink-0" id="btn-open-search" title="全局搜索 (快捷键 Ctrl+K / Cmd+K)">
+    <button type="button" aria-label="全局搜索" class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-hero)] hover:border-[var(--accent)] text-xs font-semibold transition-all cursor-pointer flex-shrink-0" id="btn-open-search" title="全局搜索 (快捷键 Ctrl+K / ⌘K)">
       <i class="fa-solid fa-magnifying-glass text-[11px] text-[var(--accent)]" aria-hidden="true"></i>
-      <kbd class="hidden lg:inline px-1 py-0.2 text-[9px] font-mono bg-[var(--bg-glass)] border border-[var(--border-subtle)] rounded text-[var(--text-dim)]">Ctrl+K</kbd>
+      <span class="hidden xl:inline text-[11px]">搜索</span>
+      <kbd id="nav-search-kbd" class="hidden lg:inline px-1.5 py-0.5 text-[9px] font-mono bg-[var(--bg-glass)] border border-[var(--border-subtle)] rounded text-[var(--text-dim)]">Ctrl K</kbd>
     </button>
 
     <!-- 调色盘与设置 -->
     <div class="relative flex-shrink-0">
-      <button type="button" aria-label="选择主题色调" aria-expanded="false" aria-controls="palette-dropdown" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-hero)] hover:bg-[var(--bg-glass)] transition-colors cursor-pointer" id="btn-palette" title="主题色彩矩阵">
+      <button type="button" aria-label="选择主题色调" aria-expanded="false" aria-controls="palette-dropdown" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-hero)] hover:bg-[var(--bg-glass)] transition-colors cursor-pointer" id="btn-palette" title="切换主题色彩矩阵">
         <i class="fa-solid fa-palette text-xs" aria-hidden="true"></i>
       </button>
 
-      <div role="group" aria-label="主题色调" class="palette-dropdown absolute top-full right-0 mt-2 w-48 p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-card)] shadow-2xl backdrop-blur-2xl hidden" id="palette-dropdown">
-        <span class="text-[11px] font-bold text-[var(--text-dim)] block mb-2">主题色调 (Theme Accent)</span>
-        <div class="grid grid-cols-4 gap-2 mb-2">
-          <button type="button" aria-label="科技蓝" aria-pressed="false" class="swatch w-7 h-7 rounded-full bg-[#38bdf8] border-2 border-transparent aria-pressed:border-[var(--text-hero)] transition-transform hover:scale-110 cursor-pointer" data-accent="cyberblue" title="Cyber Blue (科技蓝)"></button>
-          <button type="button" aria-label="极客青" aria-pressed="false" class="swatch w-7 h-7 rounded-full bg-[#34d399] border-2 border-transparent aria-pressed:border-[var(--text-hero)] transition-transform hover:scale-110 cursor-pointer" data-accent="neoncyan" title="Neon Cyan (极客青)"></button>
-          <button type="button" aria-label="紫罗兰" aria-pressed="false" class="swatch w-7 h-7 rounded-full bg-[#818cf8] border-2 border-transparent aria-pressed:border-[var(--text-hero)] transition-transform hover:scale-110 cursor-pointer" data-accent="violet" title="Electric Violet (紫罗兰)"></button>
-          <button type="button" aria-label="琥珀金" aria-pressed="false" class="swatch w-7 h-7 rounded-full bg-[#fbbf24] border-2 border-transparent aria-pressed:border-[var(--text-hero)] transition-transform hover:scale-110 cursor-pointer" data-accent="lumine" title="Lumine Gold (琥珀金)"></button>
+      <div role="group" aria-label="主题色调" class="palette-dropdown absolute top-full right-0 mt-2.5 w-52 p-3.5 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-card)] shadow-2xl backdrop-blur-2xl hidden" id="palette-dropdown">
+        <div class="flex items-center justify-between mb-2.5">
+          <span class="text-[11px] font-bold text-[var(--text-hero)]">主题色调</span>
+          <span id="palette-current-name" class="text-[10px] font-mono text-[var(--accent)]">Cyber Blue</span>
+        </div>
+        <div class="grid grid-cols-4 gap-2.5">
+          <button type="button" aria-label="科技蓝" aria-pressed="false" class="swatch w-8 h-8 rounded-full bg-[#38bdf8] border-2 border-transparent aria-pressed:border-[var(--text-hero)] aria-pressed:scale-105 transition-transform hover:scale-110 cursor-pointer" data-accent="cyberblue" data-label="科技蓝" title="Cyber Blue (科技蓝)"></button>
+          <button type="button" aria-label="极客青" aria-pressed="false" class="swatch w-8 h-8 rounded-full bg-[#34d399] border-2 border-transparent aria-pressed:border-[var(--text-hero)] aria-pressed:scale-105 transition-transform hover:scale-110 cursor-pointer" data-accent="neoncyan" data-label="极客青" title="Neon Cyan (极客青)"></button>
+          <button type="button" aria-label="紫罗兰" aria-pressed="false" class="swatch w-8 h-8 rounded-full bg-[#818cf8] border-2 border-transparent aria-pressed:border-[var(--text-hero)] aria-pressed:scale-105 transition-transform hover:scale-110 cursor-pointer" data-accent="violet" data-label="紫罗兰" title="Electric Violet (紫罗兰)"></button>
+          <button type="button" aria-label="琥珀金" aria-pressed="false" class="swatch w-8 h-8 rounded-full bg-[#fbbf24] border-2 border-transparent aria-pressed:border-[var(--text-hero)] aria-pressed:scale-105 transition-transform hover:scale-110 cursor-pointer" data-accent="lumine" data-label="琥珀金" title="Lumine Gold (琥珀金)"></button>
         </div>
       </div>
     </div>
@@ -84,7 +88,7 @@ const navigation = settings.navigation.flatMap(link => {
 <script>
   function updateNavSlider() {
     const slider = document.getElementById('nav-slider');
-    const activeItem = document.querySelector('.nav-item.active') as HTMLElement;
+    const activeItem = document.querySelector('.nav-item.active') as HTMLElement | null;
     if (slider && activeItem) {
       slider.style.width = `${activeItem.offsetWidth}px`;
       slider.style.left = `${activeItem.offsetLeft}px`;
@@ -103,15 +107,37 @@ const navigation = settings.navigation.flatMap(link => {
   }
 
   function syncPalette() {
+    const currentAccent = document.documentElement.dataset.accent || 'cyberblue';
+    const labelNode = document.getElementById('palette-current-name');
     document.querySelectorAll<HTMLElement>('.swatch').forEach(button => {
-      button.setAttribute('aria-pressed', String(button.dataset.accent === document.documentElement.dataset.accent));
+      const active = button.dataset.accent === currentAccent;
+      button.setAttribute('aria-pressed', String(active));
+      if (active && labelNode && button.dataset.label) {
+        labelNode.textContent = button.dataset.label;
+      }
     });
+  }
+
+  function syncHeaderScroll() {
+    const header = document.getElementById('site-header');
+    const pill = document.getElementById('site-nav-pill');
+    const scrolled = window.scrollY > 24;
+    header?.classList.toggle('sm:top-2.5', scrolled);
+    header?.classList.toggle('sm:top-4', !scrolled);
+    pill?.classList.toggle('shadow-2xl', scrolled);
   }
 
   document.addEventListener('DOMContentLoaded', () => {
     updateNavSlider();
+    document.fonts?.ready?.then(updateNavSlider).catch(() => {});
     syncNavThemeIcon();
     syncPalette();
+    syncHeaderScroll();
+
+    const kbd = document.getElementById('nav-search-kbd');
+    if (kbd && /Mac|iPhone|iPad/i.test(navigator.userAgent)) {
+      kbd.textContent = '⌘K';
+    }
 
     const btnPalette = document.getElementById('btn-palette');
     const dropdown = document.getElementById('palette-dropdown');
@@ -133,11 +159,14 @@ const navigation = settings.navigation.flatMap(link => {
     });
 
     document.querySelectorAll('.swatch').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const accent = (btn as HTMLElement).dataset.accent || 'cyberblue';
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const target = btn as HTMLElement;
+        const accent = target.dataset.accent || 'cyberblue';
         document.documentElement.dataset.accent = accent;
-        try { localStorage.setItem('blog-accent', accent); } catch { /* Browser storage may be unavailable. */ }
+        try { localStorage.setItem('blog-accent', accent); } catch { /* Storage unavailable */ }
         window.dispatchEvent(new CustomEvent('accent-changed', { detail: { accent } }));
+        closePalette();
       });
     });
 
@@ -146,12 +175,13 @@ const navigation = settings.navigation.flatMap(link => {
       const isDark = document.documentElement.dataset.theme === 'dark';
       const newTheme = isDark ? 'light' : 'dark';
       document.documentElement.dataset.theme = newTheme;
-      try { localStorage.setItem('blog-theme', newTheme); } catch { /* Browser storage may be unavailable. */ }
+      try { localStorage.setItem('blog-theme', newTheme); } catch { /* Storage unavailable */ }
       syncNavThemeIcon();
       window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: newTheme } }));
     });
   });
 
+  window.addEventListener('scroll', syncHeaderScroll, { passive: true });
   window.addEventListener('resize', updateNavSlider);
   window.addEventListener('theme-changed', syncNavThemeIcon);
   window.addEventListener('accent-changed', syncPalette);

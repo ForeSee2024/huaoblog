@@ -1,135 +1,143 @@
 /* ==========================================================================
-   全局设计系统令牌 (默认极客黑 + 科技蓝，彻底强化浅色与深色表现)
+   全局设计系统令牌 (极客深空黑 + 清透镜面浅色 + 四色动态强调矩阵)
    ========================================================================== */
 :root {
   --font-sans: 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Fira Code', monospace;
+  --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-serif: 'Cinzel', 'Noto Sans SC', serif;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --transition-smooth: all 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --transition-smooth: border-color 0.26s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    background-color 0.26s ease;
 }
 
-/* [DARK MODE] 深色模式 - 极客冷峻黑、电光青蓝霓虹、次表面微晶质感 */
+/* [DARK MODE] 深色模式 - 极客冷峻深空黑、次表面微晶高光与电光霓虹 */
 :root, html[data-theme="dark"] {
-  --bg-base: #06080e;
-  --bg-surface: #0c101a;
-  --bg-surface-elevated: #121826;
-  --bg-card: rgba(12, 16, 26, 0.78);
-  --bg-card-solid: #0e1320;
-  --bg-glass: rgba(255, 255, 255, 0.04);
-  --bg-input: rgba(8, 11, 18, 0.85);
+  --bg-base: #060911;
+  --bg-surface: #0c111d;
+  --bg-surface-elevated: #131a2b;
+  --bg-card: rgba(12, 17, 29, 0.78);
+  --bg-card-solid: #0d1320;
+  --bg-glass: rgba(255, 255, 255, 0.045);
+  --bg-input: rgba(8, 12, 20, 0.88);
 
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-card: rgba(255, 255, 255, 0.1);
-  --border-top-highlight: rgba(56, 189, 248, 0.4);
+  --border-subtle: rgba(255, 255, 255, 0.075);
+  --border-card: rgba(255, 255, 255, 0.105);
+  --border-top-highlight: color-mix(in srgb, var(--accent) 38%, rgba(255, 255, 255, 0.14));
 
-  --text-hero: #ffffff;
+  --text-hero: #f8fafc;
   --text-main: #e2e8f0;
   --text-muted: #94a3b8;
-  --text-dim: #8a99ad;
+  --text-dim: #7c8da5;
 
-  --shadow-ambient: 0 24px 50px -12px rgba(0, 0, 0, 0.8);
-  --shadow-card: 0 16px 36px -8px rgba(0, 0, 0, 0.6), 0 0 1px 1px rgba(255, 255, 255, 0.08);
-  --shadow-glow: 0 0 32px var(--accent-glow);
+  --shadow-ambient: 0 24px 54px -12px rgba(0, 0, 0, 0.82);
+  --shadow-card:
+    0 1px 0 0 rgba(255, 255, 255, 0.05) inset,
+    0 16px 38px -10px rgba(0, 0, 0, 0.62),
+    0 0 1px 1px rgba(255, 255, 255, 0.05);
+  --shadow-glow: 0 10px 34px -6px var(--accent-glow);
 
-  --code-bg: #090c14;
-  --code-header: rgba(255, 255, 255, 0.04);
-  --grid-line: rgba(56, 189, 248, 0.04);
-  --three-bg-opacity: 0.85;
+  --code-bg: #080b13;
+  --code-header: #0e1422;
+  --grid-line: color-mix(in srgb, var(--accent) 5%, transparent);
+  --aurora-opacity: 0.22;
+  --three-bg-opacity: 0.82;
 }
 
-/* [LIGHT MODE] 浅色模式 - 鲜明立体的 3D 拓扑网格、纯白镜面高光与清透蓝阶 */
+/* [LIGHT MODE] 浅色模式 - 纯白镜面反光、漫反射云感阴影与清透色阶 */
 html[data-theme="light"] {
-  --bg-base: #f0f4fa;
+  --bg-base: #f2f6fc;
   --bg-surface: #ffffff;
-  --bg-surface-elevated: #ffffff;
-  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-surface-elevated: #f8fafd;
+  --bg-card: rgba(255, 255, 255, 0.88);
   --bg-card-solid: #ffffff;
-  --bg-glass: rgba(14, 165, 233, 0.04);
-  --bg-input: rgba(241, 245, 249, 0.9);
+  --bg-glass: rgba(15, 23, 42, 0.035);
+  --bg-input: rgba(241, 245, 249, 0.92);
 
-  /* Linear 顶尖工艺：1px 细边框 + 顶部白光镜面反光 */
-  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-subtle: rgba(15, 23, 42, 0.075);
   --border-card: rgba(15, 23, 42, 0.1);
-  --border-top-highlight: rgba(255, 255, 255, 0.95);
+  --border-top-highlight: rgba(255, 255, 255, 0.96);
 
-  --text-hero: #070d18;
+  --text-hero: #09111f;
   --text-main: #1e293b;
-  --text-muted: #334155;
+  --text-muted: #475569;
   --text-dim: #64748b;
 
-  /* 浅色多重漫反射阴影，使卡片轻盈浮于动态网格之上 */
-  --shadow-ambient: 0 20px 45px -12px rgba(14, 165, 233, 0.12);
+  --shadow-ambient: 0 20px 45px -12px rgba(15, 23, 42, 0.1);
   --shadow-card:
-    0 1px 0 0 rgba(255, 255, 255, 0.9) inset,
-    0 12px 32px -6px rgba(15, 23, 42, 0.08),
-    0 2px 4px -1px rgba(15, 23, 42, 0.04);
-  --shadow-glow: 0 8px 24px var(--accent-glow);
+    0 1px 0 0 rgba(255, 255, 255, 0.95) inset,
+    0 12px 30px -8px rgba(15, 23, 42, 0.075),
+    0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  --shadow-glow: 0 10px 28px -6px var(--accent-glow);
 
-  --code-bg: #0d121c;
-  --code-header: #141b29;
-  --grid-line: rgba(2, 132, 199, 0.06);
-  --three-bg-opacity: 0.95;
+  --code-bg: #0d121d;
+  --code-header: #151d2e;
+  --grid-line: color-mix(in srgb, var(--accent) 7%, transparent);
+  --aurora-opacity: 0.15;
+  --three-bg-opacity: 0.92;
 }
 
-/* 主题强调色系统：默认 Cyber Blue (黑 + 蓝) */
-html[data-accent="cyberblue"] {
+/* 主题强调色系统：默认 Cyber Blue (科技蓝) */
+:root, html[data-accent="cyberblue"] {
   --accent: #0284c7;
-  --accent-soft: rgba(2, 132, 199, 0.14);
-  --accent-glow: rgba(14, 165, 233, 0.4);
+  --accent-soft: rgba(2, 132, 199, 0.13);
+  --accent-glow: rgba(14, 165, 233, 0.34);
   --accent-contrast: #ffffff;
   --three-color: 0x0284c7;
 }
 html[data-theme="dark"][data-accent="cyberblue"] {
   --accent: #38bdf8;
-  --accent-soft: rgba(56, 189, 248, 0.16);
-  --accent-glow: rgba(56, 189, 248, 0.5);
+  --accent-soft: rgba(56, 189, 248, 0.15);
+  --accent-glow: rgba(56, 189, 248, 0.42);
   --accent-contrast: #03121c;
   --three-color: 0x38bdf8;
 }
 
-/* 备用配色选项 */
+/* Neon Cyan (极客青) */
 html[data-accent="neoncyan"] {
   --accent: #059669;
-  --accent-soft: rgba(5, 150, 105, 0.14);
-  --accent-glow: rgba(16, 185, 129, 0.4);
+  --accent-soft: rgba(5, 150, 105, 0.13);
+  --accent-glow: rgba(16, 185, 129, 0.34);
   --accent-contrast: #ffffff;
   --three-color: 0x059669;
 }
 html[data-theme="dark"][data-accent="neoncyan"] {
   --accent: #34d399;
-  --accent-soft: rgba(52, 211, 153, 0.16);
-  --accent-glow: rgba(52, 211, 153, 0.5);
+  --accent-soft: rgba(52, 211, 153, 0.15);
+  --accent-glow: rgba(52, 211, 153, 0.42);
   --accent-contrast: #021a12;
   --three-color: 0x34d399;
 }
 
+/* Electric Violet (紫罗兰) */
 html[data-accent="violet"] {
   --accent: #6366f1;
-  --accent-soft: rgba(99, 102, 241, 0.14);
-  --accent-glow: rgba(99, 102, 241, 0.4);
+  --accent-soft: rgba(99, 102, 241, 0.13);
+  --accent-glow: rgba(99, 102, 241, 0.34);
   --accent-contrast: #ffffff;
   --three-color: 0x6366f1;
 }
 html[data-theme="dark"][data-accent="violet"] {
   --accent: #818cf8;
-  --accent-soft: rgba(129, 140, 248, 0.16);
-  --accent-glow: rgba(129, 140, 248, 0.5);
+  --accent-soft: rgba(129, 140, 248, 0.15);
+  --accent-glow: rgba(129, 140, 248, 0.42);
   --accent-contrast: #0b0d1e;
   --three-color: 0x818cf8;
 }
 
+/* Lumine Gold (琥珀金) */
 html[data-accent="lumine"] {
   --accent: #d97706;
-  --accent-soft: rgba(217, 119, 6, 0.14);
-  --accent-glow: rgba(245, 158, 11, 0.4);
+  --accent-soft: rgba(217, 119, 6, 0.13);
+  --accent-glow: rgba(245, 158, 11, 0.34);
   --accent-contrast: #ffffff;
   --three-color: 0xd97706;
 }
 html[data-theme="dark"][data-accent="lumine"] {
   --accent: #fbbf24;
-  --accent-soft: rgba(251, 191, 36, 0.16);
-  --accent-glow: rgba(251, 191, 36, 0.5);
+  --accent-soft: rgba(251, 191, 36, 0.15);
+  --accent-glow: rgba(251, 191, 36, 0.42);
   --accent-contrast: #1f1402;
   --three-color: 0xfbbf24;
 }

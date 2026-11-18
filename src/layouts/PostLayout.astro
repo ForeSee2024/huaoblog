@@ -2,15 +2,32 @@
 import BaseLayout from './BaseLayout.astro';
 import TableOfContents from '../components/post/TableOfContents.astro';
 import { formatDate, type BlogPost } from '../utils/posts';
+import { estimateReadingStats } from '../utils/reading-time.js';
 import { safeExternalHref, safeImageSrc, siteFor } from '../config/site';
-interface Props { post: BlogPost; headings: { depth: number; slug: string; text: string }[]; }
-const { post, headings } = Astro.props;
-const { title, description, pubDate, category, tags, views, coverImage, series, extraMeta } = post.data;
+
+interface Props {
+  post: BlogPost;
+  headings: { depth: number; slug: string; text: string }[];
+  prevPost?: BlogPost | null;
+  nextPost?: BlogPost | null;
+}
+
+const { post, headings, prevPost = null, nextPost = null } = Astro.props;
+const { title, description, pubDate, updatedDate, category, tags, coverImage, series, extraMeta } = post.data;
 const site = siteFor(Astro.locals.siteSettings);
 const cover = safeImageSrc(coverImage || '');
 const repoHref = safeExternalHref(extraMeta?.repoUrl || '');
+const reading = estimateReadingStats(post.body || '');
+const mobileHeadings = headings.filter(h => h.depth <= 3);
+const pubStr = formatDate(pubDate);
+const updatedStr = updatedDate ? formatDate(updatedDate) : '';
 ---
 <BaseLayout title={`${title} | ${site.name}`} description={description} analyticsTarget={{ type: 'post', key: post.slug }}>
+  <!-- 顶部实时激光阅读进度条 -->
+  <div class="reading-laser-track" aria-hidden="true">
+    <div id="reading-laser-bar" class="reading-laser-bar"></div>
+  </div>
+
   <div class="flex flex-col xl:flex-row gap-8 items-start">
     <main class="w-full xl:flex-1 min-w-0">
       <header class="post-intro">
@@ -18,25 +35,194 @@ const repoHref = safeExternalHref(extraMeta?.repoUrl || '');
         <div class="post-intro-content">
           <div class="post-meta">
             <a href={`/posts?cat=${encodeURIComponent(category)}`} class="post-category">{category}</a>
-            <time datetime={formatDate(pubDate)} class="font-mono">{formatDate(pubDate)}</time>
-            {views && <span>{views} 次阅读</span>}
+            <time datetime={pubStr} class="font-mono inline-flex items-center gap-1">
+              <i class="fa-regular fa-calendar text-[11px]" aria-hidden="true"></i>
+              {pubStr}
+            </time>
+            {updatedStr && updatedStr !== pubStr && (
+              <span class="font-mono text-[var(--text-dim)]">更新于 {updatedStr}</span>
+            )}
+            <span class="inline-flex items-center gap-1 font-mono text-[var(--text-dim)]">
+              <i class="fa-regular fa-clock text-[11px]" aria-hidden="true"></i>
+              {reading.label}{reading.words > 0 ? ` · ${reading.words.toLocaleString()} 字` : ''}
+            </span>
+            {extraMeta?.difficulty && (
+              <span class="px-2 py-0.5 rounded bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[11px] font-semibold">
+                难度：{extraMeta.difficulty}
+              </span>
+            )}
             {extraMeta?.targetEvent && <span>{extraMeta.targetEvent}</span>}
           </div>
           <h1 class="post-heading">{title}</h1>
           <p class="post-summary">{description}</p>
         </div>
       </header>
-      <article class="article-prose post-body-surface"><slot /></article>
+
+      <!-- 移动端与平板可折叠章节目录 -->
+      {mobileHeadings.length > 0 && (
+        <details class="mobile-toc cyber-card xl:hidden" id="mobile-toc-details">
+          <summary>
+            <span class="inline-flex items-center gap-2">
+              <i class="fa-solid fa-list-ul text-[var(--accent)]" aria-hidden="true"></i>
+              <span>文章目录（共 {mobileHeadings.length} 节）</span>
+            </span>
+            <i class="fa-solid fa-chevron-down text-xs text-[var(--text-dim)] toc-chevron" aria-hidden="true"></i>
+          </summary>
+          <ul class="flex flex-col gap-1.5 text-xs max-h-64 overflow-y-auto">
+            {mobileHeadings.map(h => (
+              <li class:list={[h.depth === 3 ? 'pl-3.5 text-[11px]' : 'font-semibold']}>
+                <a href={`#${h.slug}`} class="mobile-toc-link block py-1 text-[var(--text-muted)] hover:text-[var(--accent)] no-underline truncate">
+                  {h.text}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      <article class="article-prose post-body-surface" id="post-article-body"><slot /></article>
+
       <footer class="cyber-card p-6 mt-6 flex flex-col gap-4">
-        <div class="post-tags">{tags.map(tag => <a href={`/posts?tag=${encodeURIComponent(tag)}`}>#{tag}</a>)}</div>
-        {series && <a href={`/posts?series=${encodeURIComponent(series)}`} class="text-sm text-[var(--accent)]">连载系列：{series}</a>}
-        <div class="flex flex-wrap gap-4 text-sm">
-          {repoHref && <a href={repoHref} target="_blank" rel="noopener noreferrer" class="text-[var(--accent)]">配套代码仓库</a>}
-          {extraMeta?.paperDoi && <span class="text-[var(--text-muted)]">DOI：{extraMeta.paperDoi}</span>}
-          <a href="/posts" class="text-[var(--accent)] ml-auto">返回文章列表</a>
+        {tags.length > 0 && (
+          <div class="post-tags">
+            {tags.map(tag => <a href={`/posts?tag=${encodeURIComponent(tag)}`}>#{tag}</a>)}
+          </div>
+        )}
+        {series && (
+          <a href={`/posts?series=${encodeURIComponent(series)}`} class="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--accent)] no-underline hover:underline">
+            <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+            <span>连载系列：{series}</span>
+          </a>
+        )}
+        <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-[var(--border-subtle)] text-xs">
+          {repoHref && (
+            <a href={repoHref} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-main)] hover:border-[var(--accent)] hover:text-[var(--accent)] font-semibold no-underline transition-colors">
+              <i class="fa-brands fa-github" aria-hidden="true"></i>
+              <span>配套代码仓库</span>
+            </a>
+          )}
+          {extraMeta?.paperDoi && <span class="text-[var(--text-muted)] font-mono">DOI: {extraMeta.paperDoi}</span>}
+          <button type="button" id="btn-copy-post-link" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-main)] hover:border-[var(--accent)] hover:text-[var(--accent)] font-semibold cursor-pointer transition-colors">
+            <i class="fa-solid fa-link text-[11px]" aria-hidden="true"></i>
+            <span>复制本文链接</span>
+          </button>
+          <a href="/posts" class="inline-flex items-center gap-1 font-semibold text-[var(--accent)] no-underline hover:underline ml-auto">
+            <span>返回文章列表</span>
+            <i class="fa-solid fa-arrow-right text-[10px]" aria-hidden="true"></i>
+          </a>
         </div>
       </footer>
+
+      {(prevPost || nextPost) && (
+        <nav class="post-adjacent-grid" aria-label="相邻文章导航">
+          {prevPost ? (
+            <a href={`/posts/${prevPost.slug}`} class="post-adjacent-card">
+              <small><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> 更新一篇</small>
+              <strong>{prevPost.data.title}</strong>
+            </a>
+          ) : <div class="hidden sm:block"></div>}
+          {nextPost && (
+            <a href={`/posts/${nextPost.slug}`} class="post-adjacent-card is-next">
+              <small>更早一篇 <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></small>
+              <strong>{nextPost.data.title}</strong>
+            </a>
+          )}
+        </nav>
+      )}
     </main>
+
     <TableOfContents headings={headings} />
   </div>
+
+  <!-- 正文图片高清灯箱 -->
+  <dialog id="post-image-lightbox" class="image-lightbox" aria-label="图片大图预览">
+    <figure class="lightbox-figure">
+      <img id="lightbox-img" src="" alt="" />
+      <figcaption id="lightbox-caption" class="lightbox-caption"></figcaption>
+    </figure>
+  </dialog>
 </BaseLayout>
+
+<script>
+  const mobileToc = document.getElementById('mobile-toc-details') as HTMLDetailsElement | null;
+  mobileToc?.querySelectorAll('a.mobile-toc-link').forEach(link => {
+    link.addEventListener('click', () => { mobileToc.open = false; });
+  });
+
+  const articleBody = document.getElementById('post-article-body');
+  articleBody?.querySelectorAll('pre').forEach((pre) => {
+    if (pre.parentElement?.classList.contains('code-block-wrapper')) return;
+    const codeEl = pre.querySelector('code');
+    if (!codeEl) return;
+
+    const langMatch = codeEl.className.match(/language-([a-z0-9_+-]+)/i);
+    const rawLang = langMatch ? langMatch[1] : 'code';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'code-block-wrapper';
+
+    const header = document.createElement('div');
+    header.className = 'code-block-header';
+
+    const dots = document.createElement('span');
+    dots.className = 'code-block-dots';
+    dots.setAttribute('aria-hidden', 'true');
+    dots.appendChild(document.createElement('i'));
+    dots.appendChild(document.createElement('i'));
+    dots.appendChild(document.createElement('i'));
+
+    const lang = document.createElement('span');
+    lang.className = 'code-block-lang';
+    lang.textContent = rawLang;
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'code-copy-btn';
+    copyBtn.textContent = '复制代码';
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(codeEl.textContent || '');
+        copyBtn.textContent = '✓ 已复制';
+        copyBtn.classList.add('is-copied');
+        setTimeout(() => {
+          copyBtn.textContent = '复制代码';
+          copyBtn.classList.remove('is-copied');
+        }, 1800);
+      } catch {
+        copyBtn.textContent = '复制失败';
+      }
+    });
+
+    header.appendChild(dots);
+    header.appendChild(lang);
+    header.appendChild(copyBtn);
+    pre.parentNode?.insertBefore(wrapper, pre);
+    wrapper.appendChild(header);
+    wrapper.appendChild(pre);
+  });
+
+  const lightbox = document.getElementById('post-image-lightbox') as HTMLDialogElement | null;
+  const lightboxImg = document.getElementById('lightbox-img') as HTMLImageElement | null;
+  const lightboxCaption = document.getElementById('lightbox-caption');
+  if (articleBody && lightbox && lightboxImg) {
+    articleBody.querySelectorAll<HTMLImageElement>('img').forEach(img => {
+      img.addEventListener('click', () => {
+        if (!img.src) return;
+        lightboxImg.src = img.src;
+        lightboxImg.alt = img.alt || '';
+        if (lightboxCaption) lightboxCaption.textContent = img.alt || '';
+        lightbox.showModal();
+      });
+    });
+    lightbox.addEventListener('click', () => lightbox.close());
+  }
+
+  document.getElementById('btn-copy-post-link')?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      (window as any).showToast?.('文章链接已复制', window.location.href, 'fa-solid fa-link');
+    } catch {
+      /* Clipboard unavailable */
+    }
+  });
+</script>

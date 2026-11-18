@@ -9,36 +9,91 @@ const friends = settings.friends.flatMap(friend => {
   const url = safeExternalHref(friend.url);
   return url ? [{ ...friend, url, avatar: friend.avatar ? safeImageSrc(friend.avatar) : undefined }] : [];
 });
+const copyInfoText = `名称：${site.brand}\n简介：${site.description}${home ? `\n地址：${home}` : ''}`;
 ---
 <BaseLayout title={`友链 | ${site.name}`}>
   <div class="flex flex-col lg:flex-row gap-8 items-start">
     <Sidebar />
     <main class="w-full lg:flex-1 flex flex-col gap-6 min-w-0 order-1 lg:order-2">
       <header class="cyber-card p-6 md:p-8">
-        <p class="text-xs font-mono text-[var(--accent)] mb-3">CONNECTIONS / FRIENDS</p>
-        <h1 class="text-3xl font-extrabold text-[var(--text-hero)] mb-3">伙伴与友链</h1>
-        <p class="text-sm text-[var(--text-muted)] leading-loose">这里将收录朋友们的博客与值得长期阅读的独立网站。</p>
+        <p class="text-xs font-mono text-[var(--accent)] mb-2.5">CONNECTIONS / FRIENDS</p>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-[var(--text-hero)] mb-2.5">伙伴与友链</h1>
+        <p class="text-xs md:text-sm text-[var(--text-muted)] leading-relaxed">收录朋友们的独立博客与值得长期订阅阅读的技术站点。</p>
       </header>
-      {friends.length > 0 ? <section class="cyber-card p-6 md:p-8" aria-label="友链列表">
-        <div class="flex flex-col divide-y divide-[var(--border-subtle)]">
-          {friends.map(friend => <a href={friend.url} target="_blank" rel="noopener noreferrer" class="flex items-start gap-4 py-5 first:pt-0 last:pb-0 no-underline group">
-            {friend.avatar ? <img src={friend.avatar} alt="" loading="lazy" class="w-12 h-12 object-cover rounded-xl flex-shrink-0" /> : <span class="w-12 h-12 rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-link" aria-hidden="true"></i></span>}
-            <span class="min-w-0 flex-1">
-              <span class="block text-base font-bold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors">{friend.name}</span>
-              <span class="block text-sm text-[var(--text-muted)] leading-relaxed whitespace-pre-line mt-1">{friend.description}</span>
-            </span>
-            <i class="fa-solid fa-arrow-up-right-from-square text-xs text-[var(--text-dim)] mt-1" aria-hidden="true"></i>
-          </a>)}
-        </div>
-      </section> : <section class="cyber-card p-8 md:p-10">
-        <h2 class="text-lg font-bold text-[var(--text-hero)] mb-3">友链正在整理</h2>
-        <p class="text-sm text-[var(--text-muted)] leading-loose">目前还没有添加正式友链。你可以先浏览我的文章，或看看最近的归档。</p>
-        <a href="/archive" class="inline-block mt-5 text-sm text-[var(--accent)]">查看文章归档 →</a>
-      </section>}
+
+      {friends.length > 0 ? (
+        <section aria-label="友链列表" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {friends.map(friend => (
+            <a
+              href={friend.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="cyber-card cyber-card-interactive p-5 flex items-start gap-4 no-underline group"
+            >
+              {friend.avatar ? (
+                <img src={friend.avatar} alt="" loading="lazy" class="w-12 h-12 object-cover rounded-2xl border border-[var(--border-subtle)] flex-shrink-0" />
+              ) : (
+                <span class="w-12 h-12 rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)] flex items-center justify-center flex-shrink-0">
+                  <i class="fa-solid fa-link" aria-hidden="true"></i>
+                </span>
+              )}
+              <span class="min-w-0 flex-1">
+                <span class="flex items-center justify-between gap-2">
+                  <span class="text-sm font-bold text-[var(--text-hero)] group-hover:text-[var(--accent)] transition-colors truncate">{friend.name}</span>
+                  <i class="fa-solid fa-arrow-up-right-from-square text-[11px] text-[var(--text-dim)] group-hover:text-[var(--accent)] transition-colors flex-shrink-0" aria-hidden="true"></i>
+                </span>
+                <span class="block text-xs text-[var(--text-muted)] leading-relaxed line-clamp-2 mt-1.5">{friend.description}</span>
+              </span>
+            </a>
+          ))}
+        </section>
+      ) : (
+        <section class="cyber-card p-8 md:p-10">
+          <h2 class="text-lg font-bold text-[var(--text-hero)] mb-2">友链正在整理</h2>
+          <p class="text-sm text-[var(--text-muted)] leading-loose">目前还没有添加正式友链。你可以先浏览我的文章，或看看最近的归档。</p>
+          <a href="/archive" class="inline-block mt-4 text-sm font-semibold text-[var(--accent)] no-underline hover:underline">查看文章归档 →</a>
+        </section>
+      )}
+
       <section class="cyber-card p-6 md:p-8">
-        <h2 class="text-lg font-bold text-[var(--text-hero)] mb-4">本站信息</h2>
-        <dl class="grid grid-cols-[4rem_1fr] gap-x-4 gap-y-3 text-sm"><dt class="text-[var(--text-muted)]">名称</dt><dd>{site.brand}</dd><dt class="text-[var(--text-muted)]">作者</dt><dd>{site.author}</dd><dt class="text-[var(--text-muted)]">简介</dt><dd>{site.description}</dd>{home && <><dt class="text-[var(--text-muted)]">主页</dt><dd class="break-all"><a href={home} class="text-[var(--accent)]">{home}</a></dd></>}</dl>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-[var(--border-subtle)]">
+          <h2 class="text-base font-extrabold text-[var(--text-hero)]">本站友链名片</h2>
+          <button
+            type="button"
+            id="btn-copy-site-card"
+            data-card={copyInfoText}
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--border-subtle)] hover:border-[var(--accent)] text-xs font-bold cursor-pointer transition-colors"
+          >
+            <i class="fa-regular fa-copy text-[11px]" aria-hidden="true"></i>
+            <span>复制本站信息</span>
+          </button>
+        </div>
+        <dl class="grid grid-cols-[4rem_1fr] gap-x-4 gap-y-2.5 text-xs md:text-sm">
+          <dt class="text-[var(--text-dim)] font-semibold">名称</dt>
+          <dd class="text-[var(--text-hero)] font-semibold">{site.brand}</dd>
+          <dt class="text-[var(--text-dim)] font-semibold">作者</dt>
+          <dd>{site.author}</dd>
+          <dt class="text-[var(--text-dim)] font-semibold">简介</dt>
+          <dd class="text-[var(--text-muted)]">{site.description}</dd>
+          {home && <>
+            <dt class="text-[var(--text-dim)] font-semibold">主页</dt>
+            <dd class="break-all font-mono text-xs"><a href={home} class="text-[var(--accent)] no-underline hover:underline">{home}</a></dd>
+          </>}
+        </dl>
       </section>
     </main>
   </div>
 </BaseLayout>
+
+<script>
+  const btn = document.getElementById('btn-copy-site-card');
+  btn?.addEventListener('click', async () => {
+    const text = btn.getAttribute('data-card') || '';
+    try {
+      await navigator.clipboard.writeText(text);
+      (window as any).showToast?.('本站友链信息已复制', '可直接粘贴发送以交换友链', 'fa-solid fa-check');
+    } catch {
+      /* Clipboard unavailable */
+    }
+  });
+</script>

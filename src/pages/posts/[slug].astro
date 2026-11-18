@@ -1,20 +1,43 @@
 ---
 // 文章按请求读取当前已发布版本，草稿和删除记录不对外展示。
-import { getPublishedPost } from '../../utils/posts';
+import { getPublishedPost, getPublishedPosts } from '../../utils/posts';
 import PostLayout from '../../layouts/PostLayout.astro';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { renderMarkdown } from '../../server/render-markdown.js';
 
-const post = await getPublishedPost(Astro.locals.services.store, Astro.params.slug || '');
+const slug = Astro.params.slug || '';
+const store = Astro.locals.services.store;
+const post = await getPublishedPost(store, slug);
 if (!post) Astro.response.status = 404;
+
+let prevPost = null;
+let nextPost = null;
+if (post) {
+  const allPosts = await getPublishedPosts(store);
+  const currentIndex = allPosts.findIndex(item => item.slug === post.slug);
+  if (currentIndex > 0) prevPost = allPosts[currentIndex - 1];
+  if (currentIndex >= 0 && currentIndex < allPosts.length - 1) nextPost = allPosts[currentIndex + 1];
+}
+
 const { html, headings } = post ? renderMarkdown(post.body || '') : { html: '', headings: [] };
 ---
-{post ? <PostLayout post={post} headings={headings}>
+{post ? <PostLayout post={post} headings={headings} prevPost={prevPost} nextPost={nextPost}>
   <Fragment set:html={html} />
 </PostLayout> : <BaseLayout title="文章不存在" analyticsTarget={false}>
-  <main class="cyber-card p-8 md:p-10">
-    <h1 class="text-2xl font-bold text-[var(--text-hero)] mb-3">文章不存在</h1>
-    <p class="text-sm text-[var(--text-muted)] mb-5">这篇文章暂未发布，或已被移除。</p>
-    <a href="/posts" class="text-sm text-[var(--accent)]">返回文章列表 →</a>
+  <main class="cyber-card p-8 md:p-12 text-center max-w-2xl mx-auto mt-6">
+    <div class="w-12 h-12 rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)] flex items-center justify-center mx-auto mb-4 text-lg">
+      <i class="fa-solid fa-compass" aria-hidden="true"></i>
+    </div>
+    <h1 class="text-2xl font-extrabold text-[var(--text-hero)] mb-2">文章不存在</h1>
+    <p class="text-sm text-[var(--text-muted)] mb-6 leading-relaxed">这篇文章暂未发布，或链接地址已发生变更。</p>
+    <div class="flex items-center justify-center gap-3">
+      <a href="/posts" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] text-xs font-bold no-underline">
+        <span>浏览全部文章</span>
+        <i class="fa-solid fa-arrow-right text-[10px]" aria-hidden="true"></i>
+      </a>
+      <a href="/" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-main)] hover:border-[var(--accent)] text-xs font-bold no-underline">
+        返回首页
+      </a>
+    </div>
   </main>
 </BaseLayout>}
