@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { validateSlug } from '../src/admin/content-model.js';
 import { editorView, renderOutlineItems } from '../src/admin/editor-view.js';
+import { validateSettings } from '../src/admin/settings-model.js';
 import { collectAllKnownTags, filterPosts } from '../src/admin/view-model.js';
 import { mediaView, overview, postsView } from '../src/admin/views.js';
 import {
@@ -114,3 +116,23 @@ test('editor and workspace views render split mode, zen toggle, quick tags, cont
   assert.match(postsView(workspace, { state: 'all', search: '', sort: 'newest' }), /id="post-sort"/);
   assert.match(mediaView(workspace), /id="media-dropzone"/);
 });
+
+test('article reading stage stays visually centered and TOC never calls scrollIntoView', async () => {
+  const tocSource = await readFile(new URL('../src/components/post/TableOfContents.astro', import.meta.url), 'utf8');
+  const scriptPart = tocSource.match(/<script>([\s\S]*?)<\/script>/)?.[1] || '';
+  assert.doesNotMatch(scriptPart, /\.scrollIntoView\s*\(/);
+
+  const postLayout = await readFile(new URL('../src/layouts/PostLayout.astro', import.meta.url), 'utf8');
+  assert.match(postLayout, /class="post-reading-stage"/);
+  assert.match(postLayout, /class="post-reading-main"/);
+});
+
+test('canonical site.json validates cleanly and contains no personal PII', async () => {
+  const raw = await readFile(new URL('../src/data/site.json', import.meta.url), 'utf8');
+  const parsed = JSON.parse(raw);
+  const validated = validateSettings(parsed);
+  assert.equal(validated.identity.brand, 'HuaOvO');
+  assert.ok(validated.about.tools.length >= 15);
+  assert.doesNotMatch(raw, /胡敖|宜宾学院|成都工业学院|西北师范大学|13308222685|2558307602|2026R11S/);
+});
+

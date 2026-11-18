@@ -22,14 +22,22 @@ const mobileHeadings = headings.filter(h => h.depth <= 3);
 const pubStr = formatDate(pubDate);
 const updatedStr = updatedDate ? formatDate(updatedDate) : '';
 ---
-<BaseLayout title={`${title} | ${site.name}`} description={description} analyticsTarget={{ type: 'post', key: post.slug }}>
+<BaseLayout title={`${title} | ${site.name}`} description={description} analyticsTarget={{ type: 'post', key: post.slug }} wideStage={true}>
   <!-- 顶部实时激光阅读进度条 -->
   <div class="reading-laser-track" aria-hidden="true">
     <div id="reading-laser-bar" class="reading-laser-bar"></div>
   </div>
 
-  <div class="flex flex-col xl:flex-row gap-8 items-start">
-    <main class="w-full xl:flex-1 min-w-0">
+  <!-- 对称三栏阅读舞台：保证正文严格位于屏幕视觉正中心 -->
+  <div class="post-reading-stage">
+    <div class="post-reading-rail-left hidden xl:flex">
+      <a href="/posts" class="post-back-pill" title="返回技术博文列表">
+        <i class="fa-solid fa-arrow-left text-[10px]" aria-hidden="true"></i>
+        <span>返回列表</span>
+      </a>
+    </div>
+
+    <main class="post-reading-main">
       <header class="post-intro">
         {cover && <img src={cover} alt="" class="post-cover" />}
         <div class="post-intro-content">
@@ -54,17 +62,17 @@ const updatedStr = updatedDate ? formatDate(updatedDate) : '';
             {extraMeta?.targetEvent && <span>{extraMeta.targetEvent}</span>}
           </div>
           <h1 class="post-heading">{title}</h1>
-          <p class="post-summary">{description}</p>
+          {description && <p class="post-summary">{description}</p>}
         </div>
       </header>
 
-      <!-- 移动端与平板可折叠章节目录 -->
+      <!-- 移动端与中小屏可折叠章节目录 -->
       {mobileHeadings.length > 0 && (
         <details class="mobile-toc cyber-card xl:hidden" id="mobile-toc-details">
           <summary>
             <span class="inline-flex items-center gap-2">
-              <i class="fa-solid fa-list-ul text-[var(--accent)]" aria-hidden="true"></i>
-              <span>文章目录（共 {mobileHeadings.length} 节）</span>
+              <i class="fa-solid fa-bars-staggered text-[var(--accent)]" aria-hidden="true"></i>
+              <span>本文目录（共 {mobileHeadings.length} 节）</span>
             </span>
             <i class="fa-solid fa-chevron-down text-xs text-[var(--text-dim)] toc-chevron" aria-hidden="true"></i>
           </summary>
@@ -148,6 +156,20 @@ const updatedStr = updatedDate ? formatDate(updatedDate) : '';
   mobileToc?.querySelectorAll('a.mobile-toc-link').forEach(link => {
     link.addEventListener('click', () => { mobileToc.open = false; });
   });
+
+  // 当没有章节目录时，仍同步顶部激光阅读进度细条
+  if (!document.getElementById('desktop-toc-list')) {
+    const syncLaserOnly = () => {
+      const laser = document.getElementById('reading-laser-bar');
+      if (!laser) return;
+      const total = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = total > 0 ? Math.min(100, Math.max(0, (window.scrollY / total) * 100)) : 0;
+      laser.style.width = `${pct}%`;
+    };
+    window.addEventListener('scroll', syncLaserOnly, { passive: true });
+    window.addEventListener('resize', syncLaserOnly);
+    syncLaserOnly();
+  }
 
   const articleBody = document.getElementById('post-article-body');
   articleBody?.querySelectorAll('pre').forEach((pre) => {

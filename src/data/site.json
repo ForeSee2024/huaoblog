@@ -1,30 +1,40 @@
 {
   "identity": {
-    "name": "HuaOvO · 胡敖的学习与项目记录",
+    "name": "HuaOvO · AI 系统工程与研究笔记",
     "brand": "HuaOvO",
-    "author": "Huao · 胡敖",
-    "description": "胡敖（Huao）的个人博客，记录动态图学习、软件项目、数学建模、文献管理与 CTF 备赛。",
+    "author": "HuaOvO",
+    "description": "HuaOvO 的个人技术博客，记录 RAG 知识检索、多模态异步架构、十亿级流式数据工程、时序动态图研究与数学建模实践。",
     "avatar": "/favicon.svg",
-    "tagline": "图学习 · 软件项目 · 数学建模",
-    "bio": "把项目里的问题记下来，\n把读过的论文连起来。",
+    "tagline": "RAG 与多模态工程 · 时序动态图 · 高可靠后端",
+    "bio": "聚焦 AI 应用系统、高可靠后端底座与数据流工程。\n把架构取舍、实验边界与踩坑复盘写成可复用的长期记录。",
     "socialLinks": [
       {
         "label": "GitHub · ForeSee2024",
         "url": "https://github.com/ForeSee2024",
         "icon": "github"
+      },
+      {
+        "label": "AI Systems Core",
+        "url": "https://github.com/ForeSee2024/ai-systems-core",
+        "icon": "github"
+      },
+      {
+        "label": "Scorify · 悦谱集",
+        "url": "https://yuepuji.com",
+        "icon": "link"
       }
     ]
   },
   "home": {
-    "eyebrow": "PROJECTS & LEARNING",
-    "title": "把做过的事，\n写成能再用的笔记。",
-    "intro": "我是胡敖，英文名 Huao，HuaOvO 是这里的名字。这个博客记录我推进的软件项目、动态图与聚类学习、数学建模整理，以及文献阅读和安全方向的探索。",
-    "primaryLabel": "阅读项目与笔记",
-    "secondaryLabel": "认识 Huao",
+    "eyebrow": "AI SYSTEMS · DATA ENGINEERING · RESEARCH",
+    "title": "把真实的系统与实验，\n沉淀为可复核的技术记录。",
+    "intro": "这里是 HuaOvO 的个人技术空间。主要记录 RAG 检索与多模型流式网关、多模态异步任务状态机、十亿级 Parquet 流式清洗、时序动态图（TTAG）协同演化实验，以及全栈性能优化、数学建模与 Agentic AI 安全探索。",
+    "primaryLabel": "浏览技术博文",
+    "secondaryLabel": "关于与项目栈",
     "announcementEnabled": true,
-    "announcementTitle": "记录开始",
-    "announcement": "博客已上线。这里从真实项目和学习记录开始，后续随实践继续补充与修订。",
-    "feedTitle": "项目记录与学习笔记",
+    "announcementTitle": "近期聚焦",
+    "announcement": "正在推进时序动态图协同演化实验（CoEvo-TTAG）的长期漂移抑制与流式数据管线整理，同时持续补充 AI 系统工程与实验复盘笔记。",
+    "feedTitle": "最新研究与工程记录",
     "postsPerPage": 6
   },
   "navigation": [
@@ -60,52 +70,125 @@
     "backgroundEffect": true
   },
   "about": {
-    "title": "关于我",
-    "subtitle": "想更多地了解我吗？",
-    "body": "在这里分享技术笔记、学习心得和日常记录。\n\n喜欢写代码，也喜欢把复杂的问题一点点理清楚。",
-    "introduction": "我是胡敖（Huao），一名喜欢计算机与技术的学生。",
-    "languages": "我使用简体中文，也阅读英文技术资料。",
+    "title": "关于 HuaOvO",
+    "subtitle": "聚焦 AI 应用工程、高可靠后端底座与大规模数据流实践",
+    "body": "这里用来整理我在系统研发、数据流工程与科研实验中的真实思考。相比单纯罗列结论，我更希望把具体的工程约束、为什么放弃某种方案、实验预注册后的意外结果，以及后来如何修正理解完整保留下来。\n\n## 正在推进与探索的方向\n\n- **RAG 知识检索与多模型流式网关（LinkRead）**：围绕长文档中文语义递归切片、`PostgreSQL + pgvector (HNSW)` 混合召回、双层意图路由、条件 `Query Rewrite` 与 `Reranker` 精排打散压低生成幻觉；基于 `TypeScript + Genkit / Zod` 构建统一 Schema 校验的无状态 SSE 多模型流式网关，配合 `Celery + Redis` 异步消化长文档解析链路。\n- **多模态理解与异步租约状态机（智鉴通衢）**：面向复杂混排与遮挡票据，设计远端 GPU（`Donut + DocVQA`）主链路与本地轻量管线（`YOLOv11 + PaddleOCR`）双轨超时降级路由；自研线程池 `15s` 心跳续租、`60s` 僵尸任务重入回收与终态幂等保护状态机，按字段置信度阈值分流人工复核闭环。\n- **时序动态图研究与十亿级流式数据工程（CoEvo-TTAG）**：围绕文本属性时序图（TTAG）探索内容与拓扑演化的双向联合检出，采用滑动窗口软更新与独立锚定抑制长期分布漂移；自研基于 `HTTP Range` 严格字节白名单的 `Parquet` 按需列裁剪流式引擎，在单机低流量与低内存约束下完成十亿级事件分片的无泄露清洗。\n- **大规模目录 SSR 性能工程与轻量化检索（Scorify / 悦谱集）**：围绕十万级双语目录推进 `Next.js` SSR/BFF 首屏瘦身与延迟 Hydration 优化，落实游标分页与结构化索引；基于 `Fastify + PostgreSQL` 自建 `Intl.Segmenter` 分词倒排表与前缀队列，免重型外部组件适配轻量单机部署。\n- **数学建模与 Agentic AI 安全**：关注物理机理建模与数值实验的可复核性（多次参与全国数学建模竞赛并获奖），同时持续跟进国际 CTF 赛事中 Agentic AI 赛道的评测、工具链与安全边界推演。\n\n## 从哪里开始读\n\n如果你第一次来到这里，可以从下面几篇笔记按主题切入：\n\n- **建站与知识工作流**：[blog开局-杂谈建站](/posts/2026-10-14-note-ae0873c0) · [文献堆成山之前，我先搭了一个能跑的架子](/posts/lit-vault-v0) · [本地优先之后，跨端同步卡在了哪儿](/posts/clovery-local-first)\n- **时序图实验与方法边界**：[研究对象被我换成了一条边](/posts/person-not-edge) · [预注册之后，我先碰到一个空结果](/posts/preregister-then-null) · [先算上限，再调门](/posts/ceiling-before-gates) · [样本过关之后，我先把主张收了一级](/posts/claim-before-freeze)\n- **工程现场与安全笔记**：[那天我选错了那份 PDF](/posts/demo-as-engineering) · [给自己搭一套 CTF 技能架子](/posts/ctf-skills-mcp) · [学逆向，是为了看懂软件怎么保护自己](/posts/reverse-as-understanding)\n\n## 写作与记录原则\n\n写工程系统时，把吞吐、延迟、故障恢复边界和实际测试结果交代清楚；写实验与建模时，让每一句主张严格停留在数据能够支撑的范围内；尚未解决的卡点原样留在文末，等下一次实践跑通后再回来补齐。",
+    "introduction": "你好，这里是 HuaOvO —— 热衷于把复杂系统拆解清楚、让实验结论对齐真实代码的开发者与探索者。",
+    "languages": "日常使用简体中文写作，持续阅读英文技术文档与学术文献。",
     "operatingSystems": [
-      "macos"
+      "macos",
+      "linux",
+      "ubuntu",
+      "windows"
     ],
     "coverImage": "",
     "tools": [
       {
-        "name": "TypeScript",
-        "description": "网页项目与接口组织",
-        "icon": "typescript"
-      },
-      {
         "name": "Python",
-        "description": "建模、实验与数据整理",
+        "description": "异步后端、数据流与实验管线",
         "icon": "python"
       },
       {
+        "name": "TypeScript",
+        "description": "全栈类型契约与多模型流式网关",
+        "icon": "typescript"
+      },
+      {
+        "name": "FastAPI",
+        "description": "高并发 API 与异步推理编排",
+        "icon": "fastapi"
+      },
+      {
+        "name": "PostgreSQL",
+        "description": "pgvector 向量检索与倒排索引",
+        "icon": "postgresql"
+      },
+      {
+        "name": "Redis",
+        "description": "异步队列、心跳租约与状态同步",
+        "icon": "redis"
+      },
+      {
+        "name": "PyTorch",
+        "description": "多模态推理与时序动态图实验",
+        "icon": "pytorch"
+      },
+      {
+        "name": "Vue",
+        "description": "管理工作台与桌面端交互工程",
+        "icon": "vue"
+      },
+      {
+        "name": "Next.js",
+        "description": "双语 SSR 目录架构与首屏优化",
+        "icon": "nextjs"
+      },
+      {
         "name": "Astro",
-        "description": "博客前台与静态页面",
+        "description": "边缘驱动的个人内容系统",
         "icon": "astro"
       },
       {
+        "name": "Flutter",
+        "description": "跨平台精读客户端与双模播放器",
+        "icon": "flutter"
+      },
+      {
+        "name": "Node.js",
+        "description": "Fastify / Express 服务与工具链",
+        "icon": "nodejs"
+      },
+      {
+        "name": "MySQL",
+        "description": "ACID 事务建模与业务持久化",
+        "icon": "mysql"
+      },
+      {
+        "name": "SQLite",
+        "description": "轻量边缘存储与内存集成测试",
+        "icon": "sqlite"
+      },
+      {
+        "name": "Docker",
+        "description": "多进程容器化与可复现交付",
+        "icon": "docker"
+      },
+      {
         "name": "Cloudflare",
-        "description": "博客部署与域名管理",
+        "description": "Workers 边缘计算、D1 与 R2 存储",
         "icon": "cloudflare"
       },
       {
+        "name": "Nginx",
+        "description": "反向代理与动静分离部署",
+        "icon": "nginx"
+      },
+      {
+        "name": "Git",
+        "description": "版本控制与契约先行工作流",
+        "icon": "git"
+      },
+      {
         "name": "Zotero",
-        "description": "文献收藏与引用管理",
+        "description": "学术文献索引与引用网络管理",
         "icon": "zotero"
       },
       {
         "name": "Obsidian",
-        "description": "阅读笔记与知识连接",
+        "description": "本地优先知识库与问题演化追踪",
         "icon": "obsidian"
+      },
+      {
+        "name": "LaTeX",
+        "description": "数学建模与实验报告排版",
+        "icon": "latex"
       }
     ],
     "githubEnabled": true
   },
   "friends": [],
   "footer": {
-    "text": "Huao · 胡敖 / 记录实践，保留问题。",
+    "text": "HuaOvO / 记录真实系统，保留未解问题。",
     "icp": "",
     "icpUrl": "https://beian.miit.gov.cn/"
   }
