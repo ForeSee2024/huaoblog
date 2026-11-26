@@ -66,3 +66,27 @@ test('bulk deletion and recovery work without a GitHub release and validate know
   assert.equal((await call(request('nonexistent'))).status, 404);
   assert.equal((await call(request('settings', { method: 'POST', data: {} }))).status, 405);
 });
+
+test('content API transparently renews active sessions via Set-Cookie without leaking unauthenticated state', async t => {
+  const { database, store, blobs } = await fixture(t);
+  let clock = Date.parse('2026-10-15T10:00:00Z');
+  const prodConfig = { deployment: 'cloudflare', siteUrl: 'https://huaoblog.cn', devAuth: false, githubUserId: '160737293', sessionTtlSeconds: 3600 };
+  const prodCall = api.createContentHandler({ store, database, blobs, config: prodConfig }, {
+    now: () => clock,
+    fetch: async () => Response.json({ id: 160737293, login: 'ForeSee2024' }),
+  });
+  const loginRes = await prodCall(new Request('https://huaoblog.cn/api/v1/session', {
+    method: 'POST',
+    headers: { Origin: 'https://huaoblog.cn', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: 'gho_' + 'd'.repeat(40) }),
+  }));
+  assert.equal(loginRes.status, 200);
+  const cookiePair = loginRes.headers.get('Set-Cookie').split(';')[0];
+
+  clock += 1000 * 1000; // > 900s (1/4 of 3600s) triggers sliding renewal
+  const contentRes = await prodCall(new Request('https://huaoblog.cn/api/v1/content', { headers: { Cookie: cookiePair } }));
+  assert.equal(contentRes.status, 200);
+  assert.match(contentRes.headers.get('Set-Cookie') || '', /Max-Age=3600/);
+  const body = await contentRes.json();
+  assert.equal(body.connection.authenticated, true);
+});

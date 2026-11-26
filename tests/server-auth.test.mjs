@@ -59,3 +59,33 @@ test('the native fetch receiver is preserved in strict Worker runtimes', async t
   try { await auth.createAuth(database, config).login('gho_' + 'a'.repeat(40), req()); }
   finally { globalThis.fetch = original; }
 });
+
+test('sessions default to 365 days and slide forward transparently when active', async t => {
+  const { database } = await setup(t, { sessionTtlSeconds: undefined });
+  let clock = Date.parse('2026-10-15T10:00:00Z');
+  const persistentAuth = auth.createAuth(database, { deployment: 'node', siteUrl: 'https://huaoblog.cn', githubUserId: '160737293' }, {
+    now: () => clock,
+    fetch: async () => Response.json({ id: 160737293, login: 'ForeSee2024' }),
+  });
+  assert.equal(persistentAuth.ttlSeconds, 365 * 86400);
+  const login = await persistentAuth.login('gho_' + 'c'.repeat(40), req());
+  assert.match(login.cookie, new RegExp(`Max-Age=${365 * 86400}`));
+
+  const cookieHeader = login.cookie.split(';')[0];
+  // 未过续期阈值时不重复刷库发 Cookie
+  clock += 60 * 60 * 1000;
+  const fresh = await persistentAuth.authenticateSession(req(cookieHeader));
+  assert.equal(fresh.user.id, '160737293');
+  assert.equal(fresh.cookie, null);
+
+  // 2 天后访问自动触发滑动续期并延长浏览器 Cookie Max-Age 与数据库 expires_at
+  clock += 2 * 86400 * 1000;
+  const renewed = await persistentAuth.authenticateSession(req(cookieHeader));
+  assert.equal(renewed.user.id, '160737293');
+  assert.match(renewed.cookie, new RegExp(`Max-Age=${365 * 86400}`));
+
+  // 跨越最初签发时的 365 天上限，因已触发续期而依然保持有效
+  clock += 364 * 86400 * 1000;
+  const stillAlive = await persistentAuth.authenticate(req(cookieHeader));
+  assert.equal(stillAlive.id, '160737293');
+});

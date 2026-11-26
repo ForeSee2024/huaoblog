@@ -8,6 +8,6 @@ export function runtimeConfig(env, deployment) {
     deployment, devAuth, siteUrl, apiUrl: '/api/v1', backend: 'api', direct: true,
     githubUserId: String(env.ADMIN_GITHUB_ID || '160737293'),
     authUrl: String(env.CMS_AUTH_URL || 'https://huaoblog-oauth.huaoqaq.workers.dev').replace(/\/$/, ''),
-    sessionTtlSeconds: 7 * 86400,
+    sessionTtlSeconds: 365 * 86400,
   };
 }

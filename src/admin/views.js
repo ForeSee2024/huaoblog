@@ -22,7 +22,15 @@ export const pageHeading = (title, description, actions = "", eyebrow = "") =>
 const editAttrs = (post) =>
   `data-slug="${e(post.slug)}" data-status="${e(post.status)}"`;
 
-export function overview(data, local, { direct = false } = {}) {
+function localDraftNoticeCard(localDrafts = []) {
+  if (!localDrafts.length) return "";
+  const lead = localDrafts[0];
+  const savedTime = lead.savedAt ? new Date(lead.savedAt).toLocaleString("zh-CN", { hour12: false, month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+  const extraCount = localDrafts.length > 1 ? `（另有 ${localDrafts.length - 1} 篇本地暂存）` : "";
+  return `<div class="continue-draft-card local-recovery-card" role="region" aria-label="浏览器本地未保存草稿提醒"><div><span class="eyebrow">LOCAL DRAFT BACKUP · 未同步暂存</span><strong>${e(lead.title)}${e(extraCount)}</strong><p>${e(lead.description || `已在浏览器本地安全保留上次未提交的草稿${savedTime ? `（暂存时间 ${savedTime}）` : ""}，登录后点击「继续编辑并保存」即可同步云端。`)}</p></div><button type="button" class="button primary" data-action="open-local-draft" data-route="${e(lead.route)}">${icon("edit")}继续编辑并保存</button></div>`;
+}
+
+export function overview(data, local, { direct = false, localDrafts = [] } = {}) {
   const counts = summarizeWorkspace(data);
   const sorted = [...data.posts].sort((a, b) =>
     String(b.data.pubDate || "").localeCompare(String(a.data.pubDate || "")),
@@ -41,6 +49,7 @@ export function overview(data, local, { direct = false } = {}) {
 
   const authorLabel = data.settings?.identity?.author || data.settings?.identity?.brand || "站长";
   return `${pageHeading("内容总览", `欢迎回来，${authorLabel}。这里是你的内容创作与站点管理工作台。`, button("新建文章", "new-post", "plus", "primary"), "HUAOVO / OVERVIEW")}
+  ${localDraftNoticeCard(localDrafts)}
   <div class="metric-strip">${metrics.map(([label, value, hint, glyph]) => `<div class="metric"><label>${icon(glyph)}${label}</label><strong>${value}</strong><small>${hint}</small></div>`).join("")}</div>
   ${draftBanner}
   <div class="overview-grid"><section><div class="section-bar"><h2>最近的文章</h2><a href="#/posts" class="button quiet">管理全部${icon("chevron")}</a></div>${latest.length ? latest.map((post, index) => `<div class="recent-row"><span class="post-index">${String(index + 1).padStart(2, "0")}</span><div class="recent-copy"><button type="button" data-action="edit-post" ${editAttrs(post)}>${e(post.data.title || "未命名草稿")}</button><p>${e(post.data.description || "还没有填写摘要，继续完善这篇文章。")}</p><div class="row-meta"><span>${e(post.data.category || "未设置分类")}</span><span class="meta-dot">/</span><span>${e(date(post.data.pubDate))}</span>${originBadge(post)}${post.data.featured ? `<span class="badge published">精选</span>` : ""}</div></div><div class="recent-row-end">${status(post)}${post.status === "published" ? `<a class="icon-button" href="/posts/${encodeURIComponent(post.slug)}" target="_blank" rel="noopener noreferrer" title="在前台打开文章" aria-label="在前台查看 ${e(post.data.title)}">${icon("external")}</a>` : ""}</div></div>`).join("") : empty("开始你的第一篇文章", "把一次实践、一段思考，整理成可以再次阅读的记录。", "new-post", "新建文章")}
@@ -73,7 +82,7 @@ export function postTable(posts, selected = new Set()) {
     );
   return `<div class="table-header"><span></span><span>文章</span><span class="table-category">分类</span><span>文章日期</span><span>状态</span><span>操作</span></div>${posts.map((post) => `<div class="table-row ${selected.has(postKey(post)) ? 'selected' : ''}"><input type="checkbox" class="selection-checkbox" data-select-post="${e(postKey(post))}" aria-label="选择${post.status === 'draft' ? '草稿' : '文章'} ${e(post.data.title || post.slug)}" ${selected.has(postKey(post)) ? 'checked' : ''} ${post.pendingDeletion ? 'disabled data-locked="true"' : ''} /><div class="table-content"><div class="table-title-line"><button type="button" class="table-title" data-action="edit-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''}>${e(post.data.title || "未命名草稿")}</button>${originBadge(post)}${post.data.featured ? '<span class="badge published">精选</span>' : ''}</div><p class="table-description">${e(post.data.description || post.slug)}</p></div><div class="table-category">${e(post.data.category || "未设置")}</div><div class="table-date">${e(date(post.data.pubDate))}</div><div class="table-state">${post.pendingDeletion ? '<span class="badge pending">待删除</span>' : status(post)}</div><div class="table-actions">${post.status === 'published' && !post.pendingDeletion ? `<a class="icon-button" href="/posts/${encodeURIComponent(post.slug)}" target="_blank" rel="noopener noreferrer" title="在前台查看" aria-label="在前台查看 ${e(post.data.title || post.slug)}">${icon("external")}</a><button type="button" class="icon-button" data-action="copy-post-url" data-slug="${e(post.slug)}" title="复制文章链接" aria-label="复制 ${e(post.data.title || post.slug)} 链接">${icon("link")}</button>` : ''}<button type="button" class="icon-button" data-action="edit-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''} title="编辑" aria-label="编辑 ${e(post.data.title || "草稿")}">${icon("edit")}</button><button type="button" class="icon-button" data-action="delete-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''} title="${post.status === "draft" ? "删除草稿" : "移入回收站"}" aria-label="${post.status === "draft" ? "删除草稿" : "移除文章"} ${e(post.data.title || "")}">${icon("delete")}</button></div></div>`).join("")}`;
 }
-export function postsView(data, filters, selected = new Set()) {
+export function postsView(data, filters, selected = new Set(), { localDrafts = [] } = {}) {
   const counts = summarizeWorkspace(data);
   const sortValue = filters.sort || "newest";
   const originValue = filters.origin || "";
@@ -96,6 +105,7 @@ export function postsView(data, filters, selected = new Set()) {
     ["title", "按标题名称"],
   ];
   return `${pageHeading("文章管理", "管理已发表内容、草稿和文章更新。", button("新建文章", "new-post", "plus", "primary"))}
+  ${localDraftNoticeCard(localDrafts)}
   <div class="filter-toolbar"><div class="tabs" role="tablist" aria-label="文章状态">${[
     ["all", "全部", data.posts.length],
     ["published", "已发表", counts.published],
@@ -170,5 +180,5 @@ export function connectionView(data, config, loadError = "") {
 function directConnectionView(data, config, loadError) {
   const connection = data.connection || {}, authenticated = connection.authenticated === true;
   const login = config.ready ? button(authenticated ? '退出登录' : '使用 GitHub 登录', authenticated ? 'logout' : 'login', authenticated ? 'logout' : 'github', 'primary') : notice('请检查授权服务与站点地址配置。', 'error');
-  return `${pageHeading('内容服务', '发布文章、删除内容和保存配置后，前台立即更新。', button('刷新状态', 'refresh', 'refresh'))}${loadError ? notice(loadError, 'error') : ''}<div class="connection-grid"><section class="settings-section"><div class="connection-detail">${icon('folder')}<div><h2>内容数据库</h2><p>${e(connection.label || (authenticated ? '管理会话已连接' : '等待管理员登录'))}</p></div></div><dl class="config-list"><div><dt>内容状态</dt><dd>${authenticated ? connection.writable ? '可编辑' : '只读' : '尚未登录'}</dd></div><div><dt>管理员</dt><dd>${e(connection.user?.login || (authenticated ? '本站管理员' : '等待 GitHub 授权'))}</dd></div><div><dt>站点地址</dt><dd>${e(config.siteUrl)}</dd></div></dl><div class="connection-actions">${login}</div><p class="field-hint">管理会话保存在本站安全 Cookie 中，退出登录后失效。</p></section><section class="settings-section"><div class="connection-detail">${icon('clock')}<div><h2>恢复与备份</h2><p>保留修改前的版本和已删除内容。</p></div></div><p class="section-copy">在文章和站点配置中查看历史版本；在回收站找回内容，或下载包含图片文件的完整备份。</p><div class="connection-actions"><a class="button secondary" href="#/recovery">打开恢复与备份${icon('chevron')}</a></div></section></div>`;
+  return `${pageHeading('内容服务', '发布文章、删除内容和保存配置后，前台立即更新。', button('刷新状态', 'refresh', 'refresh'))}${loadError ? notice(loadError, 'error') : ''}<div class="connection-grid"><section class="settings-section"><div class="connection-detail">${icon('folder')}<div><h2>内容数据库</h2><p>${e(connection.label || (authenticated ? '管理会话已连接' : '等待管理员登录'))}</p></div></div><dl class="config-list"><div><dt>内容状态</dt><dd>${authenticated ? connection.writable ? '可编辑' : '只读' : '尚未登录'}</dd></div><div><dt>管理员</dt><dd>${e(connection.user?.login || (authenticated ? '本站管理员' : '等待 GitHub 授权'))}</dd></div><div><dt>站点地址</dt><dd>${e(config.siteUrl)}</dd></div></dl><div class="connection-actions">${login}</div><p class="field-hint">管理会话保存在本站安全 Cookie 中，有效期 365 天并在使用后台时自动续期，主动退出后失效。</p></section><section class="settings-section"><div class="connection-detail">${icon('clock')}<div><h2>恢复与备份</h2><p>保留修改前的版本和已删除内容。</p></div></div><p class="section-copy">在文章和站点配置中查看历史版本；在回收站找回内容，或下载包含图片文件的完整备份。</p><div class="connection-actions"><a class="button secondary" href="#/recovery">打开恢复与备份${icon('chevron')}</a></div></section></div>`;
 }

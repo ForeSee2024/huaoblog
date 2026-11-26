@@ -7,6 +7,12 @@ import { beijingDay, isBotUserAgent } from './storage/analytics.js';
 
 const MAX_BROWSER_BACKUP = 32 * 1024 * 1024;
 const json = (data, status = 200, extra = {}) => Response.json(data, { status, headers: { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', ...extra } });
+const withSessionCookie = (response, sessionCookie) => {
+  if (!sessionCookie || response.headers.has('Set-Cookie')) return response;
+  const headers = new Headers(response.headers);
+  headers.append('Set-Cookie', sessionCookie);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+};
 const batch = (items, label) => { if (!Array.isArray(items) || !items.length || items.length > 3) throw new ContentError(`${label}每次请求应为 1 至 3 项，后台会自动分批处理。`); return items; };
 const connection = (user, config) => ({ mode: 'database', direct: true, configured: true, connected: Boolean(user), authenticated: Boolean(user), writable: Boolean(user), label: user ? '内容服务已连接' : '等待登录', detail: user ? `${config.deployment === 'cloudflare' ? 'Cloudflare D1 / R2' : 'SQLite / 本地文件'} · 修改直接生效` : '使用站点管理员的 GitHub 账号登录。' });
 const knownRoutes = new Map([['content', ['GET']], ['session', ['GET', 'POST', 'DELETE']], ['posts', ['POST']], ['posts/delete', ['POST']], ['settings', ['PUT']], ['media', ['POST']], ['media/delete', ['POST']], ['trash', ['GET']], ['trash/restore', ['POST']], ['history', ['GET']], ['history/restore', ['POST']], ['backups/export', ['GET']], ['backups/validate', ['POST']], ['backups/import', ['POST']], ['search', ['GET']], ['analytics', ['GET']], ['analytics/collect', ['POST']]]);
@@ -38,7 +44,11 @@ export function createContentHandler(runtime, deps = {}) {
         if (path === 'analytics/collect') assertCollectOrigin(request);
         else auth.assertSameOrigin(request);
       }
-      const user = await auth.authenticate(request);
+      const authResult = auth.authenticateSession
+        ? await auth.authenticateSession(request)
+        : { user: await auth.authenticate(request), cookie: null };
+      const user = authResult.user;
+      const reply = await (async () => {
       if (path === 'session') {
         if (request.method === 'GET') return json({ connection: connection(user, config) });
         if (request.method === 'DELETE') return json({ connection: connection(null, config) }, 200, { 'Set-Cookie': await auth.logout(request) });
@@ -142,6 +152,8 @@ export function createContentHandler(runtime, deps = {}) {
         return json({ ...result, state: await state(user) });
       }
       return json({ error: '接口不存在。', code: 'not_found' }, 404);
+      })();
+      return withSessionCookie(reply, authResult.cookie);
     } catch (error) {
       if (error instanceof ContentError) return json({ error: error.message, code: error.code, requestId }, error.status);
       console.error(JSON.stringify({ event: 'content_api_failed', requestId, error: error?.name || 'Error' }));
