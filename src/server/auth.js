@@ -15,21 +15,37 @@ export function createAuth(database, config, deps = {}) {
   const now = deps.now || Date.now;
   const fetcher = deps.fetch || globalThis.fetch.bind(globalThis);
   const ownerId = String(config.githubUserId || '');
-  const ttl = Math.max(300, Math.min(30 * 86400, Number(config.sessionTtlSeconds) || 7 * 86400));
+  const ttl = Math.max(300, Math.min(365 * 86400, Number(config.sessionTtlSeconds) || 365 * 86400));
+  const renewIntervalMs = Math.max(60 * 1000, Math.min(24 * 3600 * 1000, Math.floor((ttl * 1000) / 4)));
   const dev = request => config.deployment === 'node' && config.devAuth === true && loopback(new URL(request.url)) && loopback(new URL(config.siteUrl));
   const cookie = (value, request, maxAge = ttl) => `${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`;
+  async function authenticateSession(request, { renew = true } = {}) {
+    if (dev(request)) return { user: { id: ownerId, login: 'local-owner', local: true }, cookie: null };
+    const token = tokenFrom(request);
+    if (!token) return { user: null, cookie: null };
+    const tokenHash = await sha256(token);
+    const [session] = await database.all('SELECT user_id, login, expires_at FROM auth_sessions WHERE token_hash = ?', [tokenHash]);
+    const currentNow = now();
+    if (!session || session.expires_at <= currentNow || session.user_id !== ownerId) return { user: null, cookie: null };
+    const user = { id: session.user_id, login: session.login };
+    const nextExpiresAt = currentNow + ttl * 1000;
+    if (renew && nextExpiresAt - session.expires_at >= renewIntervalMs) {
+      await database.batch([{ sql: 'UPDATE auth_sessions SET expires_at = ? WHERE token_hash = ? AND expires_at > ?', params: [nextExpiresAt, tokenHash, currentNow] }]);
+      return { user, cookie: cookie(token, request, ttl) };
+    }
+    return { user, cookie: null };
+  }
   return {
+    ttlSeconds: ttl,
     assertSameOrigin(request) {
       const url = new URL(request.url);
       if (request.headers.get('Origin') !== url.origin || request.headers.get('Sec-Fetch-Site') === 'cross-site') throw new ContentError('请求来源无效，请从本站后台重新操作。', 403, 'origin');
       if (url.protocol !== 'https:' && !dev(request)) throw new ContentError('管理操作需要 HTTPS。', 403, 'origin');
     },
+    authenticateSession,
     async authenticate(request) {
-      if (dev(request)) return { id: ownerId, login: 'local-owner', local: true };
-      const token = tokenFrom(request);
-      if (!token) return null;
-      const [session] = await database.all('SELECT user_id, login, expires_at FROM auth_sessions WHERE token_hash = ?', [await sha256(token)]);
-      return session && session.expires_at > now() && session.user_id === ownerId ? { id: session.user_id, login: session.login } : null;
+      const { user } = await authenticateSession(request, { renew: false });
+      return user;
     },
     async login(token, request) {
       if (typeof token !== 'string' || token.length < 20 || token.length > 512 || !/^[a-zA-Z0-9_]+$/.test(token)) throw new ContentError('登录凭据无效，请重新登录。', 401, 'authentication');

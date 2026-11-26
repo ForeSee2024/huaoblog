@@ -5,6 +5,7 @@ import { validateSlug } from '../src/admin/content-model.js';
 import { editorView, renderOutlineItems } from '../src/admin/editor-view.js';
 import { validateSettings } from '../src/admin/settings-model.js';
 import { collectAllKnownTags, filterPosts } from '../src/admin/view-model.js';
+import { buildLoginPromptCopy, buildRecoveryKey, scanLocalDrafts } from '../src/admin/session-recovery.js';
 import { mediaView, overview, postsView } from '../src/admin/views.js';
 import {
   estimateReadingStats,
@@ -155,5 +156,47 @@ test('canonical site.json validates cleanly and contains no personal PII', async
   assert.equal(validated.identity.brand, 'HuaOvO');
   assert.ok(validated.about.tools.length >= 15);
   assert.doesNotMatch(raw, /胡敖|宜宾学院|成都工业学院|西北师范大学|13308222685|2558307602|2026R11S/);
+});
+
+test('recovery scanning preserves compatible local draft keys and prompts login without losing drafts', () => {
+  assert.equal(buildRecoveryKey('ForeSee2024/huaoblog', 'editor/new', 'temp'), 'huaovo-recovery:ForeSee2024/huaoblog:new');
+  assert.equal(buildRecoveryKey('ForeSee2024/huaoblog', 'editor/my-post/draft', 'my-post'), 'huaovo-recovery:ForeSee2024/huaoblog:my-post');
+
+  const store = new Map([
+    ['huaovo-recovery:ForeSee2024/huaoblog:new', JSON.stringify({
+      savedAt: 1795681000000,
+      post: { slug: '2026-11-26-note-abc', status: 'draft', data: { title: '半成品草稿', description: '待同步' }, body: '还没保存的正文' },
+    })],
+    ['huaovo-recovery:ForeSee2024/huaoblog:empty', JSON.stringify({
+      savedAt: 1795682000000,
+      post: { slug: 'empty', status: 'draft', data: { title: '', description: '' }, body: '   ' },
+    })],
+  ]);
+  const fakeStorage = {
+    get length() { return store.size; },
+    key(i) { return [...store.keys()][i] ?? null; },
+    getItem(k) { return store.get(k) ?? null; },
+  };
+  const drafts = scanLocalDrafts(fakeStorage, 'ForeSee2024/huaoblog', []);
+  assert.equal(drafts.length, 1);
+  assert.equal(drafts[0].title, '半成品草稿');
+  assert.equal(drafts[0].route, 'editor/new');
+
+  const copy = buildLoginPromptCopy({ route: 'overview', localDrafts: drafts, reason: 'welcome' });
+  assert.equal(copy.hasPendingDraft, true);
+  assert.match(copy.draftNotice, /半成品草稿/);
+  assert.match(copy.description, /365 天/);
+
+  const workspace = {
+    posts: [],
+    media: [],
+    settings: { identity: { brand: 'HUAOVO', description: '简介', avatar: '' }, friends: [] },
+    connection: { mode: 'database', authenticated: false },
+  };
+  const overviewHtml = overview(workspace, false, { direct: true, localDrafts: drafts });
+  const postsHtml = postsView(workspace, { state: 'all', search: '', origin: '', sort: 'newest' }, new Set(), { localDrafts: drafts });
+  assert.match(overviewHtml, /data-action="open-local-draft"/);
+  assert.match(overviewHtml, /半成品草稿/);
+  assert.match(postsHtml, /data-action="open-local-draft"/);
 });
 

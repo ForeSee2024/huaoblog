@@ -24,6 +24,7 @@ import { loadEditorPost } from './editor-state.js';
 import { recoveryView, historyView, directDeletionResult } from './recovery-view.js';
 import { analyticsView, analyticsPostRows, analyticsDaySummary } from './analytics-view.js';
 import { estimateReadingStats, extractMarkdownHeadings, suggestSlugFromTitle } from '../utils/reading-time.js';
+import { buildLoginPromptCopy, buildRecoveryKey, hasDraftContent, scanLocalDrafts } from './session-recovery.js';
 
 const config = JSON.parse(document.body.dataset.connection);
 const direct = config.backend === 'api';
@@ -76,6 +77,7 @@ function setZenMode(enabled) {
 const selectedPosts = new Set(), selectedMedia = new Set();
 const writeActions = new Set(['new-post', 'save-post', 'publish-post', 'save-settings', 'delete-post', 'delete-media', 'upload-media', 'delete-posts-batch', 'delete-media-batch', 'restore-trash', 'restore-version']);
 let trashData = { posts: [], media: [] }, historyContext = null, backupValidation = null, viewRevision = 0;
+let loginPromptDismissed = false, loginPromptPromise = null, pendingManualRecovery = false;
 const backupEvents = [];
 const analyticsState = {
   days: 30,
@@ -323,9 +325,17 @@ function canWrite() {
 }
 function syncWriteAccess() {
   if (!direct) return;
-  main.querySelectorAll('#article-form,#settings-form').forEach(form => { form.inert = saving || !canWrite(); });
+  // 始终保留文章编辑器可编辑性，避免会话失效时丢失或锁死草稿输入
+  main.querySelectorAll('#article-form').forEach(form => { form.inert = saving; });
+  main.querySelectorAll('#settings-form').forEach(form => { form.inert = saving || !canWrite(); });
   main.querySelectorAll('[data-action]').forEach(control => {
-    if (writeActions.has(control.dataset.action)) control.disabled = saving || !canWrite() || control.dataset.locked === 'true';
+    const action = control.dataset.action;
+    if (!writeActions.has(action)) return;
+    if (['new-post', 'save-post', 'publish-post'].includes(action)) {
+      control.disabled = saving || control.dataset.locked === 'true';
+    } else {
+      control.disabled = saving || !canWrite() || control.dataset.locked === 'true';
+    }
   });
 }
 function syncSelectionControls() {
@@ -406,6 +416,103 @@ function showError(error) {
   element.innerHTML = notice(message, "error");
   main.prepend(element);
 }
+async function performLogin() {
+  const inEditor = currentRoute.startsWith("editor/") && Boolean(activePost);
+  const preservedPost = inEditor ? copy(gatherPost()) : null;
+  const wasDirty = dirty;
+  if (inEditor && (wasDirty || hasDraftContent(preservedPost))) {
+    storeRecovery(true);
+  }
+  await repository.login();
+  loginPromptDismissed = false;
+  await readWorkspace();
+  if (loadError) throw new Error(loadError);
+  if (inEditor && preservedPost) {
+    const matchedRemote = data.posts.find(
+      (item) => item.slug === preservedPost.slug && item.status === preservedPost.status,
+    );
+    if (matchedRemote?.revision && !activePost.revision) {
+      activePost.revision = matchedRemote.revision;
+    }
+    document.getElementById("operation-error")?.remove();
+    document.querySelectorAll(".inline-login-notice").forEach((el) => el.remove());
+    dirty = wasDirty;
+    syncWriteAccess();
+    syncSelectionControls();
+  } else {
+    await render(currentRoute);
+  }
+  toast(direct ? "管理员会话已连接（365 天长效保持）" : "GitHub 已连接");
+}
+function promptLogin({ reason = "welcome" } = {}) {
+  if (!(direct || !config.local) || data.connection?.authenticated || !config.ready) {
+    return Promise.resolve(Boolean(data.connection?.authenticated));
+  }
+  if (loginPromptPromise) return loginPromptPromise;
+  if (activePost) storeRecovery(true);
+  const info = buildLoginPromptCopy({
+    route: currentRoute,
+    activePost,
+    dirty,
+    localDrafts: listLocalDrafts(),
+    reason,
+  });
+  loginPromptPromise = new Promise((resolve) => {
+    let settled = false;
+    const closePrompt = (result) => {
+      if (settled) return;
+      settled = true;
+      loginPromptPromise = null;
+      if (dialog.open) dialog.close();
+      dialog.removeEventListener("cancel", onCancel);
+      dialog.onclick = null;
+      if (!result) loginPromptDismissed = true;
+      resolve(result);
+    };
+    const onCancel = (event) => {
+      event.preventDefault();
+      closePrompt(false);
+    };
+    const draftBlock = info.hasPendingDraft
+      ? `<div class="login-draft-protect">${icon("notebook")}<div><strong>草稿已安全保护</strong><p>${e(info.draftNotice)}</p></div></div>`
+      : "";
+    dialog.classList.remove("wide");
+    dialog.setAttribute("role", "dialog");
+    dialog.innerHTML = `<div class="dialog-header"><h2 id="dialog-title">${e(info.title)}</h2><button type="button" class="icon-button" data-login-dialog="cancel" aria-label="关闭登录提示">${icon("close")}</button></div><p class="dialog-copy">${e(info.description)}</p>${draftBlock}<div id="login-dialog-error"></div><div class="dialog-actions"><button type="button" class="button secondary" data-login-dialog="cancel">暂不登录</button><button type="button" class="button primary" data-login-dialog="confirm">${icon("github")}<span>使用 GitHub 登录</span></button></div>`;
+    dialog.setAttribute("aria-labelledby", "dialog-title");
+    dialog.addEventListener("cancel", onCancel);
+    dialog.onclick = async (event) => {
+      const btn = event.target.closest("[data-login-dialog]");
+      if (!btn) return;
+      if (btn.dataset.loginDialog === "cancel") {
+        closePrompt(false);
+        return;
+      }
+      if (btn.dataset.loginDialog === "confirm") {
+        const confirmBtn = dialog.querySelector('[data-login-dialog="confirm"]');
+        const cancelBtn = dialog.querySelector('[data-login-dialog="cancel"]:not(.icon-button)');
+        const errorBox = document.getElementById("login-dialog-error");
+        if (errorBox) errorBox.innerHTML = "";
+        confirmBtn.disabled = true;
+        if (cancelBtn) cancelBtn.disabled = true;
+        const label = confirmBtn.querySelector("span");
+        if (label) label.textContent = "等待 GitHub 授权…";
+        try {
+          await performLogin();
+          closePrompt(true);
+        } catch (error) {
+          if (errorBox) errorBox.innerHTML = notice(error?.message || "登录未完成，请重试。", "error");
+          confirmBtn.disabled = false;
+          if (cancelBtn) cancelBtn.disabled = false;
+          if (label) label.textContent = "重新尝试登录";
+        }
+      }
+    };
+    if (dialog.open) dialog.close();
+    dialog.showModal();
+  });
+  return loginPromptPromise;
+}
 function markDirty() {
   dirty = true;
   const editorState = document.getElementById("editor-save-state");
@@ -422,22 +529,34 @@ function markDirty() {
   }
 }
 function recoveryKey() {
-  return `huaovo-recovery:${config.repo || "local"}:${currentRoute === "editor/new" ? "new" : activePost?.slug || "new"}`;
+  return buildRecoveryKey(config.repo, currentRoute, activePost?.slug);
 }
-function storeRecovery() {
-  if (!activePost || !dirty) return;
+function storeRecovery(force = false) {
+  if (!activePost || (!dirty && !force)) return;
+  if (pendingManualRecovery && !dirty) return;
   try {
+    const snapshot = gatherPost();
+    if (!dirty && !hasDraftContent(snapshot)) return;
     localStorage.setItem(
       recoveryKey(),
-      JSON.stringify({ post: gatherPost(), savedAt: Date.now() }),
+      JSON.stringify({ post: snapshot, savedAt: Date.now() }),
     );
     const editorState = document.getElementById("editor-save-state");
-    if (editorState && dirty) {
+    if (editorState && (dirty || !canWrite())) {
       const timeStr = new Date().toTimeString().slice(0, 5);
-      editorState.textContent = `未保存 · 本地已暂存 ${timeStr}`;
+      editorState.textContent = canWrite()
+        ? `未保存 · 本地已暂存 ${timeStr}`
+        : `未登录 · 浏览器已暂存 ${timeStr}`;
       editorState.classList.add("is-dirty");
     }
   } catch {}
+}
+function listLocalDrafts() {
+  try {
+    return scanLocalDrafts(localStorage, config.repo, data.posts);
+  } catch {
+    return [];
+  }
 }
 function clearRecovery() {
   clearTimeout(recoveryTimer);
@@ -583,9 +702,9 @@ async function render(route) {
   if (page !== "settings") editingSettings = null;
   if (page === "overview")
     main.innerHTML =
-      (loadError ? notice(loadError, "error") : "") +
-      overview(data, config.local, { direct });
-  else if (page === "posts") main.innerHTML = postsView(data, filters, selectedPosts);
+      (loadError ? `<div class="inline-login-notice">${notice(loadError, "error")}</div>` : "") +
+      overview(data, config.local, { direct, localDrafts: listLocalDrafts() });
+  else if (page === "posts") main.innerHTML = postsView(data, filters, selectedPosts, { localDrafts: listLocalDrafts() });
   else if (page === "taxonomy") main.innerHTML = taxonomyView(data, categories);
   else if (page === "media") {
     main.innerHTML = mediaView(data, mediaSearch, selectedMedia);
@@ -638,6 +757,9 @@ async function render(route) {
     );
   } else if (page === "editor") {
     activePost = null;
+    pendingManualRecovery = false;
+    recovery = null;
+    let autoLoadedDraft = false;
     const slug = segments[1],
       version = segments[2] || "draft";
     if (slug === "new") {
@@ -657,11 +779,33 @@ async function render(route) {
         },
         body: "",
       };
+      try {
+        const savedNew = JSON.parse(localStorage.getItem(buildRecoveryKey(config.repo, "editor/new")) || "null");
+        if (savedNew?.post && hasDraftContent(savedNew.post)) {
+          const restored = copy(savedNew.post);
+          delete restored.revision;
+          restored.status = "draft";
+          activePost = restored;
+          autoLoadedDraft = true;
+          dirty = true;
+        }
+      } catch {}
     } else {
       main.innerHTML = '<div class="loading-state" role="status"><span class="loading-spinner"></span><p>正在读取完整正文…</p></div>';
       const post = await loadEditorPost(repository, data.posts, slug, version);
       if (revision !== viewRevision) return;
-      activePost = post;
+      if (post) {
+        activePost = post;
+      } else {
+        try {
+          const savedExisting = JSON.parse(localStorage.getItem(buildRecoveryKey(config.repo, route, slug)) || "null");
+          if (savedExisting?.post && hasDraftContent(savedExisting.post)) {
+            activePost = copy(savedExisting.post);
+            autoLoadedDraft = true;
+            dirty = true;
+          }
+        } catch {}
+      }
     }
     if (!activePost) {
       main.innerHTML =
@@ -679,16 +823,24 @@ async function render(route) {
     );
     await mountEditor();
     if (revision !== viewRevision) return;
-    try {
-      const cached = JSON.parse(localStorage.getItem(recoveryKey()) || "null");
-      if (
-        cached?.post &&
-        JSON.stringify(cached.post) !== JSON.stringify(activePost)
-      ) {
-        recovery = cached.post;
-        document.getElementById("recovery-banner").hidden = false;
-      }
-    } catch {}
+    const bannerEl = document.getElementById("recovery-banner");
+    if (autoLoadedDraft && bannerEl) {
+      bannerEl.innerHTML = `<span>已自动为你保留并载入浏览器中尚未保存的草稿，登录后点击「保存草稿」即可同步至云端。</span><div>${button("清空并新建空白稿", "discard-recovery", "", "quiet")}</div>`;
+      bannerEl.hidden = false;
+    } else {
+      try {
+        const cached = JSON.parse(localStorage.getItem(recoveryKey()) || "null");
+        if (
+          cached?.post &&
+          hasDraftContent(cached.post) &&
+          JSON.stringify(cached.post) !== JSON.stringify(activePost)
+        ) {
+          recovery = cached.post;
+          pendingManualRecovery = true;
+          bannerEl.hidden = false;
+        }
+      } catch {}
+    }
     updateCharacterCount();
     resizeTitle();
   } else {
@@ -714,6 +866,7 @@ async function render(route) {
   });
   if (direct && loadError && !['overview', 'connection', 'analytics'].includes(page)) {
     const access = document.createElement('div');
+    access.className = 'inline-login-notice';
     access.innerHTML = notice(loadError, 'error') + (config.ready && !data.connection.authenticated ? button('使用 GitHub 登录', 'login', 'github', 'primary') : '');
     main.prepend(access);
   }
@@ -1529,7 +1682,15 @@ main.addEventListener("click", async (event) => {
   const target = event.target.closest("[data-action]");
   if (!target || saving) return;
   const action = target.dataset.action;
-  if (direct && writeActions.has(action) && !canWrite()) { showError(new Error('请先以管理员身份登录，再修改内容。')); return; }
+  if (direct && writeActions.has(action) && !canWrite()) {
+    if (activePost) storeRecovery(true);
+    if (action === 'new-post') {
+      await go('editor/new');
+      return;
+    }
+    const authenticated = await promptLogin({ reason: 'action' });
+    if (!authenticated || !['save-post', 'publish-post'].includes(action)) return;
+  }
   if (action === 'save-settings' && !settingsFormIsValid()) return;
   const mutation = [
     "save-post",
@@ -1750,7 +1911,11 @@ main.addEventListener("click", async (event) => {
           `[${String(result.get("label")).replace(/[\[\]\n]/g, "")}](${url.replace(/[()\s]/g, (character) => encodeURIComponent(character))})`,
         );
       }
+    } else if (action === "open-local-draft") {
+      const targetRoute = target.dataset.route || "editor/new";
+      await go(targetRoute);
     } else if (action === "restore-recovery") {
+      pendingManualRecovery = false;
       activePost = { ...recovery, revision: activePost.revision };
       const restored = copy(activePost);
       editorGeneration++;
@@ -1772,6 +1937,21 @@ main.addEventListener("click", async (event) => {
       markDirty();
       toast("已恢复编辑内容，请保存草稿");
     } else if (action === "discard-recovery") {
+      if (currentRoute === "editor/new") {
+        const confirmed = await ask(
+          "清空本地暂存并新建空白稿？",
+          '<p class="dialog-copy">该操作会清除浏览器中暂存的未保存草稿，不可恢复。</p>',
+          "确认清空",
+          true,
+        );
+        if (!confirmed) return;
+        pendingManualRecovery = false;
+        clearRecovery();
+        dirty = false;
+        await render("editor/new");
+        return;
+      }
+      pendingManualRecovery = false;
       clearRecovery();
       document.getElementById("recovery-banner").hidden = true;
     } else if (action === "refresh") {
@@ -1779,11 +1959,7 @@ main.addEventListener("click", async (event) => {
       await render(currentRoute);
       toast(loadError || "工作区状态已刷新", Boolean(loadError));
     } else if (action === "login") {
-      await repository.login();
-      await readWorkspace();
-      await render(currentRoute);
-      if (loadError) throw new Error(loadError);
-      toast(direct ? '管理员会话已连接' : "GitHub 已连接");
+      await performLogin();
     } else if (action === "logout") {
       await repository.logout();
       trashData = { posts: [], media: [] };
@@ -1888,6 +2064,23 @@ main.addEventListener("click", async (event) => {
       await render(currentRoute);
     }
   } catch (error) {
+    if (error?.status === 401 || error?.code === 'authentication') {
+      if (activePost) storeRecovery(true);
+      data.connection = { ...data.connection, authenticated: false, writable: false };
+      loadError = error.message || '登录会话已失效，请重新登录。';
+      syncWriteAccess();
+      const authenticated = await promptLogin({ reason: 'expired' });
+      if (authenticated && ['save-post', 'publish-post'].includes(action)) {
+        try {
+          await saveArticle(action === 'publish-post');
+          return;
+        } catch (retryError) {
+          showError(retryError);
+          return;
+        }
+      }
+      return;
+    }
     showError(error);
   } finally {
     if (mutation) {
@@ -1965,11 +2158,34 @@ document.addEventListener("keydown", (event) => {
     (activePost || editingSettings)
   ) {
     event.preventDefault();
-    if (saving || !canWrite()) return;
+    if (saving) return;
+    if (!canWrite()) {
+      if (activePost) storeRecovery(true);
+      promptLogin({ reason: "action" }).then((ok) => {
+        if (!ok || (!activePost && !settingsFormIsValid())) return;
+        setSaving(true);
+        (activePost ? saveArticle() : saveConfiguration())
+          .catch(showError)
+          .finally(() => {
+            setSaving(false);
+          });
+      });
+      return;
+    }
     if (!activePost && !settingsFormIsValid()) return;
     setSaving(true);
     (activePost ? saveArticle() : saveConfiguration())
-      .catch(showError)
+      .catch(async (error) => {
+        if (error?.status === 401 || error?.code === "authentication") {
+          if (activePost) storeRecovery(true);
+          data.connection = { ...data.connection, authenticated: false, writable: false };
+          if (await promptLogin({ reason: "expired" }) && activePost) {
+            await saveArticle().catch(showError);
+          }
+          return;
+        }
+        showError(error);
+      })
       .finally(() => {
         setSaving(false);
       });
@@ -2004,11 +2220,19 @@ document.addEventListener("keydown", (event) => {
   }
 });
 async function initialize() {
+  document.getElementById("connection-chip")?.addEventListener("click", () => {
+    if (!saving && !canWrite() && config.ready) {
+      promptLogin({ reason: "welcome" });
+    }
+  });
   await readWorkspace();
   try {
     await render(location.hash.replace(/^#\/?/, "") || "overview");
   } catch (error) {
     showError(error);
+  }
+  if ((direct || !config.local) && !data.connection?.authenticated && config.ready && !loginPromptDismissed) {
+    promptLogin({ reason: "welcome" });
   }
 }
 initialize();
