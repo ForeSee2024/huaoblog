@@ -2,6 +2,7 @@
 // archive.astro: 年份时间轴归档页 (过滤草稿与未来日期，支持年份速跳与分类标识)
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Sidebar from '../components/layout/Sidebar.astro';
+import OriginBadge from '../components/post/OriginBadge.astro';
 import { getPublishedPosts } from '../utils/posts';
 import { siteFor } from '../config/site';
 
@@ -78,9 +79,12 @@ const years = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
                             {post.data.title}
                           </span>
                         </div>
-                        <span class="hidden sm:inline-block text-[11px] px-2 py-0.5 rounded bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-dim)] flex-shrink-0">
-                          {post.data.category}
-                        </span>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                          <OriginBadge origin={post.data.origin} linked={false} compact={true} />
+                          <span class="hidden sm:inline-block text-[11px] px-2 py-0.5 rounded bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-dim)]">
+                            {post.data.category}
+                          </span>
+                        </div>
                       </a>
                     );
                   })}

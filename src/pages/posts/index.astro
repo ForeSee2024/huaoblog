@@ -4,13 +4,16 @@ import Sidebar from '../../components/layout/Sidebar.astro';
 import PostCard from '../../components/post/PostCard.astro';
 import { getPublishedPosts } from '../../utils/posts';
 import { sortFeedPosts } from '../../utils/post-filters';
+import { getPostOrigin, ORIGIN_DISPLAY } from '../../utils/post-origin.js';
 import { categories, siteFor } from '../../config/site';
 
 const site = siteFor(Astro.locals.siteSettings);
 const posts = sortFeedPosts(await getPublishedPosts(Astro.locals.services.store));
 const catCounts: Record<string, number> = {};
+const originCounts: Record<'human' | 'ai', number> = { human: 0, ai: 0 };
 for (const post of posts) {
   catCounts[post.data.category] = (catCounts[post.data.category] || 0) + 1;
+  originCounts[getPostOrigin(post)] += 1;
 }
 ---
 <BaseLayout title={`技术博文 | ${site.name}`}>
@@ -52,6 +55,25 @@ for (const post of posts) {
             );
           })}
         </div>
+        <div class="flex flex-wrap items-center gap-2 text-xs mt-3 pt-3 border-t border-[var(--border-subtle)]" id="origin-filter-bar" aria-label="按创作形式筛选">
+          <span class="text-[11px] text-[var(--text-dim)] mr-1 font-medium">内容形式：</span>
+          {[
+            ['', '全部', posts.length, ''],
+            ['human', ORIGIN_DISPLAY.human.label, originCounts.human, 'fa-solid fa-pen-nib'],
+            ['ai', ORIGIN_DISPLAY.ai.label, originCounts.ai, 'fa-regular fa-file-lines'],
+          ].map(([key, label, count, glyph], index) => (
+            <button
+              type="button"
+              data-origin={key}
+              aria-pressed={index === 0 ? 'true' : 'false'}
+              class="post-filter post-filter--origin"
+            >
+              {glyph && <i class={`${glyph} text-[10px]`} aria-hidden="true"></i>}
+              <span>{label}</span>
+              <small class="post-filter-count">{count}</small>
+            </button>
+          ))}
+        </div>
         <div id="active-filters" class="flex flex-wrap gap-2 mt-3 text-xs empty:hidden"></div>
         <p id="filter-results-count" class="mt-4 text-xs text-[var(--text-muted)]" role="status">共 {posts.length} 篇文章</p>
       </header>
@@ -61,6 +83,7 @@ for (const post of posts) {
           <div
             class="post-item-wrap"
             data-category={post.data.category}
+            data-origin={getPostOrigin(post)}
             data-tags={JSON.stringify(post.data.tags)}
             data-series={post.data.series || ''}
             data-search={`${post.data.title} ${post.data.description} ${(post.data.tags || []).join(' ')} ${post.data.series || ''}`.toLowerCase()}
@@ -83,7 +106,9 @@ for (const post of posts) {
 
 <script>
   import { matchesPostFilters } from '../../utils/post-filters';
+  import { ORIGIN_DISPLAY } from '../../utils/post-origin.js';
   const buttons = [...document.querySelectorAll<HTMLButtonElement>('#category-filter-bar button')];
+  const originButtons = [...document.querySelectorAll<HTMLButtonElement>('#origin-filter-bar button')];
   const items = [...document.querySelectorAll<HTMLElement>('.post-item-wrap')];
   const active = document.getElementById('active-filters');
   const searchInput = document.getElementById('posts-quick-search') as HTMLInputElement | null;
@@ -94,6 +119,9 @@ for (const post of posts) {
     for (const button of buttons) {
       button.setAttribute('aria-pressed', String((params.get('cat') || '') === button.dataset.category));
     }
+    for (const button of originButtons) {
+      button.setAttribute('aria-pressed', String((params.get('origin') || '') === (button.dataset.origin || '')));
+    }
     let count = 0;
     for (const item of items) {
       const matchesMeta = matchesPostFilters(
@@ -101,6 +129,7 @@ for (const post of posts) {
           category: item.dataset.category || '',
           tags: JSON.parse(item.dataset.tags || '[]'),
           series: item.dataset.series,
+          origin: item.dataset.origin || '',
         },
         params,
       );
@@ -112,13 +141,16 @@ for (const post of posts) {
     document.getElementById('filter-results-count')!.textContent = `共 ${count} 篇文章`;
     document.getElementById('posts-empty')!.hidden = count !== 0;
     active?.replaceChildren();
-    for (const [key, label] of [['tag', '标签'], ['series', '系列']]) {
+    for (const [key, label] of [['tag', '标签'], ['series', '系列'], ['origin', '形式']]) {
       const value = params.get(key);
       if (!value || !active) continue;
+      const displayValue = key === 'origin'
+        ? (ORIGIN_DISPLAY[value as keyof typeof ORIGIN_DISPLAY]?.label || value)
+        : value;
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'post-filter is-chip';
-      button.textContent = `${label}：${value} ×`;
+      button.textContent = `${label}：${displayValue} ×`;
       button.addEventListener('click', () => updateFilter(key, ''));
       active.appendChild(button);
     }
@@ -132,11 +164,12 @@ for (const post of posts) {
   }
 
   buttons.forEach(button => button.addEventListener('click', () => updateFilter('cat', button.dataset.category || '')));
+  originButtons.forEach(button => button.addEventListener('click', () => updateFilter('origin', button.dataset.origin || '')));
   searchInput?.addEventListener('input', applyFilters);
   document.getElementById('clear-post-filters')?.addEventListener('click', () => {
     if (searchInput) searchInput.value = '';
     const url = new URL(location.href);
-    ['cat', 'tag', 'series'].forEach(key => url.searchParams.delete(key));
+    ['cat', 'tag', 'series', 'origin'].forEach(key => url.searchParams.delete(key));
     history.pushState(null, '', url);
     applyFilters();
   });
@@ -172,5 +205,10 @@ for (const post of posts) {
   }
   .post-filter:hover {
     border-color: var(--accent);
+  }
+  .post-filter--origin {
+    min-height: 30px;
+    padding: 0.25rem 0.68rem;
+    font-size: 0.72rem;
   }
 </style>

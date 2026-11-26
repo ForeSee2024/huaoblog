@@ -46,3 +46,11 @@ test('publication dates cannot be missing or blank', async () => {
     assert.equal(postSchema.safeParse({ ...article, pubDate }).success, false, `pubDate=${String(pubDate)}`);
   }
 });
+
+test('origin filter distinguishes handwritten and curated posts cleanly', () => {
+  assert.equal(filters.matchesPostFilters(post('human-post', { origin: 'human' }).data, new URLSearchParams('origin=human')), true);
+  assert.equal(filters.matchesPostFilters(post('human-post', { origin: 'human' }).data, new URLSearchParams('origin=ai')), false);
+  assert.equal(filters.matchesPostFilters(post('legacy-post').data, new URLSearchParams('origin=ai')), true);
+  assert.equal(schema.postSchema.safeParse({ ...post('a').data, description: '摘要', origin: 'human' }).data.origin, 'human');
+  assert.equal(schema.postSchema.safeParse({ ...post('b').data, description: '摘要' }).data.origin, 'ai');
+});

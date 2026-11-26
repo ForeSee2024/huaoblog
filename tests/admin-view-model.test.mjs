@@ -2,14 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { filterPosts, collectTaxonomy, summarizeWorkspace, parseTags } from '../src/admin/view-model.js';
 const posts = [
-  { slug: 'one', status: 'published', data: { title: 'Rust 系统实践', category: '软件工程与系统', tags: ['Rust', 'Linux'], description: '安全网关' } },
-  { slug: 'one', status: 'draft', data: { title: 'Rust 草稿修订', category: '软件工程与系统', tags: ['Rust'], description: '' } },
+  { slug: 'one', status: 'published', data: { title: 'Rust 系统实践', category: '软件工程与系统', tags: ['Rust', 'Linux'], description: '安全网关', origin: 'ai' } },
+  { slug: 'one', status: 'draft', data: { title: 'Rust 草稿修订', category: '软件工程与系统', tags: ['Rust'], description: '', origin: 'human' } },
   { slug: 'two', status: 'draft', data: { title: '', category: 'AI 与前沿科研', tags: ['LLM'], description: '' } },
 ];
-test('搜索、状态与分类同时筛选，保留同名文章草稿的独立版本', () => {
+test('搜索、状态、分类与创作来源同时筛选，保留同名文章草稿的独立版本', () => {
   assert.equal(filterPosts(posts, { search: 'RUST', state: 'draft' }).length, 1);
   assert.equal(filterPosts(posts, { search: '安全', state: 'published' })[0].slug, 'one');
   assert.equal(filterPosts(posts, { category: 'AI 与前沿科研' }).length, 1);
+  assert.equal(filterPosts(posts, { origin: 'human' }).length, 1);
+  assert.equal(filterPosts(posts, { origin: 'ai' }).length, 2);
   assert.equal(posts.length, 3);
 });
 test('前台分类与标签统计只计算已发表文章，工作区分别统计草稿', () => {

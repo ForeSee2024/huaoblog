@@ -1,4 +1,5 @@
 import { ContentError, validateSlug } from '../../admin/content-model.js';
+import { getPostOrigin } from '../../utils/post-origin.js';
 import { sha256 } from '../auth.js';
 
 const BEIJING_OFFSET_MS = 8 * 3600 * 1000;
@@ -358,6 +359,7 @@ export function createAnalyticsMethods({ database }) {
           title: meta?.data?.title || row.id,
           category: meta?.data?.category || '未分类',
           pubDate: meta?.data?.pubDate || '',
+          origin: getPostOrigin(meta),
           status: active ? 'published' : 'archived',
         });
       }
@@ -382,6 +384,7 @@ export function createAnalyticsMethods({ database }) {
           title: doc?.title || slug,
           category: doc?.category || '已移除文章',
           pubDate: doc?.pubDate || '',
+          origin: doc?.origin || '',
           status: doc?.status || 'removed',
           totalViews,
           totalVisitors,

@@ -93,7 +93,7 @@ test('editor and workspace views render split mode, zen toggle, quick tags, cont
   };
 
   const editorHtml = editorView(
-    draftPost,
+    { ...draftPost, data: { ...draftPost.data, origin: 'human' } },
     ['软件工程与系统'],
     false,
     (v) => v,
@@ -104,17 +104,38 @@ test('editor and workspace views render split mode, zen toggle, quick tags, cont
   assert.match(editorHtml, /data-action="toggle-zen"/);
   assert.match(editorHtml, /data-action="suggest-slug"/);
   assert.match(editorHtml, /data-action="toggle-editor-tag" data-tag="Wasm"/);
+  assert.match(editorHtml, /name="origin"/);
+  assert.match(editorHtml, /class="badge origin-human"/);
   assert.match(editorHtml, /架构总览/);
 
   const workspace = {
-    posts: [draftPost],
+    posts: [
+      { ...draftPost, data: { ...draftPost.data, origin: 'human' } },
+      { slug: 'ai-curated', status: 'published', data: { title: '归档笔记', description: '摘要', pubDate: '2026-11-12', category: '软件工程与系统', tags: [], origin: 'ai' } },
+    ],
     media: [],
     settings: { identity: { brand: 'HUAOVO', description: '简介', avatar: '' }, friends: [] },
     connection: { mode: 'database' },
   };
-  assert.match(overview(workspace, false, { direct: true }), /CONTINUE WRITING/);
-  assert.match(postsView(workspace, { state: 'all', search: '', sort: 'newest' }), /id="post-sort"/);
+  const overviewHtml = overview(workspace, false, { direct: true });
+  const postsHtml = postsView(workspace, { state: 'all', search: '', origin: '', sort: 'newest' });
+  assert.match(overviewHtml, /CONTINUE WRITING/);
+  assert.match(overviewHtml, /class="badge origin-human"/);
+  assert.match(postsHtml, /id="post-sort"/);
+  assert.match(postsHtml, /id="post-origin"/);
+  assert.match(postsHtml, /class="badge origin-ai"/);
   assert.match(mediaView(workspace), /id="media-dropzone"/);
+});
+
+test('public origin distinction stays subtle without explicit AI writing labels', async () => {
+  const originJs = await readFile(new URL('../src/utils/post-origin.js', import.meta.url), 'utf8');
+  const badgeAstro = await readFile(new URL('../src/components/post/OriginBadge.astro', import.meta.url), 'utf8');
+  const postsIndex = await readFile(new URL('../src/pages/posts/index.astro', import.meta.url), 'utf8');
+  assert.match(originJs, /label:\s*'手写'/);
+  assert.match(originJs, /label:\s*'整理'/);
+  assert.match(badgeAstro, /origin-badge--\$\{meta\.key\}/);
+  assert.match(postsIndex, /id="origin-filter-bar"/);
+  assert.doesNotMatch(badgeAstro + postsIndex, /AI\s*写作|AI\s*生成/);
 });
 
 test('article reading stage stays visually centered and TOC never calls scrollIntoView', async () => {

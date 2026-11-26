@@ -1,11 +1,14 @@
+import { getPostOrigin } from "../utils/post-origin.js";
+
 export function filterPosts(
   posts,
-  { search = "", state = "all", category = "", tag = "", sort = "" } = {},
+  { search = "", state = "all", category = "", tag = "", origin = "", sort = "" } = {},
 ) {
   const query = search.trim().toLocaleLowerCase();
   const matched = posts.filter(
     (post) =>
       (state === "all" || state === post.status) &&
+      (!origin || getPostOrigin(post) === origin) &&
       (!category || post.data.category === category) &&
       (!tag || (post.data.tags || []).includes(tag)) &&
       (!query ||

@@ -17,12 +17,15 @@ test('published posts require the complete content contract while drafts may be 
 test('slugs reject traversal and frontmatter roundtrips Chinese and optional metadata', () => {
   assert.equal(typeof model.validateSlug, 'function', 'slug validation is not implemented');
   for (const slug of ['../file', 'A', 'a/b', '%2e%2e', '.hidden', 'a\\b']) assert.throws(() => model.validateSlug(slug));
-  const article = { ...post(), data: { ...post().data, extraMeta: { difficulty: '进阶', repoUrl: 'https://github.com/test/repo' }, series: '系统工程' } };
+  const article = { ...post(), data: { ...post().data, origin: 'human', extraMeta: { difficulty: '进阶', repoUrl: 'https://github.com/test/repo' }, series: '系统工程' } };
   const parsed = model.parsePost(model.stringifyPost(article), article.slug);
   assert.equal(parsed.body, article.body);
+  assert.equal(parsed.data.origin, 'human');
   assert.equal(parsed.data.extraMeta.repoUrl, article.data.extraMeta.repoUrl);
   assert.equal(parsed.data.pubDate, '2026-10-13');
   assert.equal(parsed.status, 'draft');
+  assert.equal(model.validatePost(post(), { publish: true }).data.origin, 'ai');
+  assert.throws(() => model.validatePost({ ...post(), data: { ...post().data, origin: 'robot' } }, { publish: true }), /创作方式/);
 });
 
 test('image inspection verifies bytes and matching extensions and rejects SVG uploads', () => {

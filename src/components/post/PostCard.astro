@@ -2,13 +2,14 @@
 // PostCard.astro: 文章卡片组件 (不展示前台阅读计数，突出内容层次、分类与标签快筛)
 import type { BlogPost } from '../../utils/posts';
 import { safeImageSrc } from '../../config/site';
+import OriginBadge from './OriginBadge.astro';
 
 interface Props {
   post: BlogPost;
 }
 
 const { post } = Astro.props;
-const { title, description, pubDate, category, tags, coverImage, extraMeta, featured, series } = post.data;
+const { title, description, pubDate, category, tags, coverImage, extraMeta, featured, series, origin } = post.data;
 const cover = safeImageSrc(coverImage || '');
 const dateStr = pubDate.toISOString().split('T')[0];
 ---
@@ -40,6 +41,7 @@ const dateStr = pubDate.toISOString().split('T')[0];
         <a href={`/posts?cat=${encodeURIComponent(category)}`} class="px-2.5 py-0.5 rounded-md font-bold bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--border-subtle)] hover:border-[var(--accent)] transition-colors no-underline">
           {category}
         </a>
+        <OriginBadge origin={origin} />
         <time datetime={dateStr} class="text-[var(--text-dim)] flex items-center gap-1 font-mono">
           <i class="fa-regular fa-calendar text-[10px]" aria-hidden="true"></i>
           {dateStr}

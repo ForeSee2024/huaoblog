@@ -534,6 +534,27 @@ html[data-theme="light"] .button.danger {
   color: var(--text-muted);
   border: 1px solid var(--border-subtle);
 }
+.badge.origin-human {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+html[data-theme="light"] .badge.origin-human {
+  background: rgba(217, 119, 6, 0.11);
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.28);
+}
+.badge.origin-ai {
+  background: var(--bg-glass);
+  color: var(--text-dim);
+  border: 1px solid var(--border-subtle);
+}
+.article-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .side-section {
   border-bottom: 1px solid var(--admin-line);
   padding: 0 0 26px;

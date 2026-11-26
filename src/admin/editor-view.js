@@ -5,9 +5,11 @@ import {
   field,
   toggle,
   status,
+  originBadge,
   safeImage,
 } from "./ui.js";
 import { extractMarkdownHeadings } from "../utils/reading-time.js";
+import { getPostOrigin, ORIGIN_DISPLAY } from "../utils/post-origin.js";
 
 export function renderOutlineItems(markdown = "") {
   const headings = extractMarkdownHeadings(markdown);
@@ -101,8 +103,15 @@ export function editorView(
   <aside class="editor-inspector">
     <section class="inspector-section">
       <h2>发布设置</h2>
-      <div id="article-status">${status(post)}</div>
+      <div id="article-status" class="article-status-row">${status(post)}${originBadge(post)}</div>
       ${post.hasPublishedVersion ? '<p class="field-hint">已有前台版本，保存草稿不会替换线上内容。</p>' : ""}
+      ${field("创作方式", "origin", getPostOrigin(post), {
+        choices: [
+          ["human", ORIGIN_DISPLAY.human.choiceLabel],
+          ["ai", ORIGIN_DISPLAY.ai.choiceLabel],
+        ],
+        hint: "区分本人手写与 AI 辅助整理；前台仅温和标识为「手写」与「整理」。",
+      })}
       ${field("文章路径", "slug", post.slug, { disabled: Boolean(post.revision), max: 120, hint: post.revision ? "保持路径稳定，已有链接不会改变。" : "小写英文、数字和连字符。" })}
       ${!post.revision ? `<button type="button" class="button quiet slug-suggest-btn" data-action="suggest-slug">${icon("sparkles")}根据标题生成路径</button>` : ""}
       ${field("所属分类", "category", data.category, { choices: categories })}

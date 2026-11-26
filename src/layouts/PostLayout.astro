@@ -1,6 +1,7 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import TableOfContents from '../components/post/TableOfContents.astro';
+import OriginBadge from '../components/post/OriginBadge.astro';
 import { formatDate, type BlogPost } from '../utils/posts';
 import { estimateReadingStats } from '../utils/reading-time.js';
 import { safeExternalHref, safeImageSrc, siteFor } from '../config/site';
@@ -13,7 +14,7 @@ interface Props {
 }
 
 const { post, headings, prevPost = null, nextPost = null } = Astro.props;
-const { title, description, pubDate, updatedDate, category, tags, coverImage, series, extraMeta } = post.data;
+const { title, description, pubDate, updatedDate, category, tags, coverImage, series, extraMeta, origin } = post.data;
 const site = siteFor(Astro.locals.siteSettings);
 const cover = safeImageSrc(coverImage || '');
 const repoHref = safeExternalHref(extraMeta?.repoUrl || '');
@@ -43,6 +44,7 @@ const updatedStr = updatedDate ? formatDate(updatedDate) : '';
         <div class="post-intro-content">
           <div class="post-meta">
             <a href={`/posts?cat=${encodeURIComponent(category)}`} class="post-category">{category}</a>
+            <OriginBadge origin={origin} />
             <time datetime={pubStr} class="font-mono inline-flex items-center gap-1">
               <i class="fa-regular fa-calendar text-[11px]" aria-hidden="true"></i>
               {pubStr}

@@ -1,0 +1,34 @@
+---
+import { originMeta } from '../../utils/post-origin.js';
+
+interface Props {
+  origin?: string;
+  linked?: boolean;
+  compact?: boolean;
+}
+
+const { origin, linked = true, compact = false } = Astro.props;
+const meta = originMeta(origin);
+const iconClass = meta.key === 'human' ? 'fa-solid fa-pen-nib' : 'fa-regular fa-file-lines';
+const classes = [
+  'origin-badge',
+  `origin-badge--${meta.key}`,
+  compact ? 'origin-badge--compact' : '',
+].filter(Boolean).join(' ');
+---
+{linked ? (
+  <a
+    href={`/posts?origin=${meta.key}`}
+    class={classes}
+    title={`仅看「${meta.label}」文章（${meta.hint}）`}
+    aria-label={`内容形式：${meta.label}（${meta.hint}）`}
+  >
+    <i class={iconClass} aria-hidden="true"></i>
+    <span>{meta.label}</span>
+  </a>
+) : (
+  <span class={classes} title={meta.hint}>
+    <i class={iconClass} aria-hidden="true"></i>
+    <span>{meta.label}</span>
+  </span>
+)}
