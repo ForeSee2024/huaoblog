@@ -1,4 +1,4 @@
-import { escape as e, icon, button, empty, notice } from './ui.js';
+import { escape as e, icon, button, empty, notice, originBadge } from './ui.js';
 import { pageHeading } from './views.js';
 
 export function formatDuration(seconds) {
@@ -88,10 +88,11 @@ export function analyticsPostRows(posts = [], options = {}) {
       : post.status === 'archived'
         ? '<span class="badge draft">已进回收站</span>'
         : '<span class="badge pending">已清除</span>';
+    const originTag = post.origin ? originBadge(post) : '';
     const pct = Math.round((Number(post.completionRate) || 0) * 100);
     return `<div class="analytics-table-row">
       <span class="analytics-rank">${rank}</span>
-      <div class="analytics-post-cell">${titleNode}<div class="analytics-post-meta"><span>${e(post.category || '未分类')}</span>${post.pubDate ? `<span>${e(String(post.pubDate).slice(0, 10))}</span>` : ''}${stateTag}</div></div>
+      <div class="analytics-post-cell">${titleNode}<div class="analytics-post-meta"><span>${e(post.category || '未分类')}</span>${post.pubDate ? `<span>${e(String(post.pubDate).slice(0, 10))}</span>` : ''}${originTag}${stateTag}</div></div>
       <div class="analytics-num-cell"><strong>${post.rangeViews}</strong><small>${post.rangeVisitors} 人</small></div>
       <div class="analytics-num-cell"><strong>${post.totalViews}</strong><small>${post.totalVisitors} 人</small></div>
       <div class="analytics-num-cell"><strong>${e(formatDuration(post.avgReadSeconds))}</strong><small>${post.completedReads} 人读完</small></div>

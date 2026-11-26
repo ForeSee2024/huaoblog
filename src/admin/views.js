@@ -4,11 +4,13 @@ import {
   button,
   empty,
   status,
+  originBadge,
   date,
   size,
   safeImage,
   notice,
 } from "./ui.js";
+import { getPostOrigin, ORIGIN_DISPLAY } from "../utils/post-origin.js";
 import {
   filterPosts,
   collectTaxonomy,
@@ -41,7 +43,7 @@ export function overview(data, local, { direct = false } = {}) {
   return `${pageHeading("内容总览", `欢迎回来，${authorLabel}。这里是你的内容创作与站点管理工作台。`, button("新建文章", "new-post", "plus", "primary"), "HUAOVO / OVERVIEW")}
   <div class="metric-strip">${metrics.map(([label, value, hint, glyph]) => `<div class="metric"><label>${icon(glyph)}${label}</label><strong>${value}</strong><small>${hint}</small></div>`).join("")}</div>
   ${draftBanner}
-  <div class="overview-grid"><section><div class="section-bar"><h2>最近的文章</h2><a href="#/posts" class="button quiet">管理全部${icon("chevron")}</a></div>${latest.length ? latest.map((post, index) => `<div class="recent-row"><span class="post-index">${String(index + 1).padStart(2, "0")}</span><div class="recent-copy"><button type="button" data-action="edit-post" ${editAttrs(post)}>${e(post.data.title || "未命名草稿")}</button><p>${e(post.data.description || "还没有填写摘要，继续完善这篇文章。")}</p><div class="row-meta"><span>${e(post.data.category || "未设置分类")}</span><span class="meta-dot">/</span><span>${e(date(post.data.pubDate))}</span>${post.data.featured ? `<span class="badge published">精选</span>` : ""}</div></div><div class="recent-row-end">${status(post)}${post.status === "published" ? `<a class="icon-button" href="/posts/${encodeURIComponent(post.slug)}" target="_blank" rel="noopener noreferrer" title="在前台打开文章" aria-label="在前台查看 ${e(post.data.title)}">${icon("external")}</a>` : ""}</div></div>`).join("") : empty("开始你的第一篇文章", "把一次实践、一段思考，整理成可以再次阅读的记录。", "new-post", "新建文章")}
+  <div class="overview-grid"><section><div class="section-bar"><h2>最近的文章</h2><a href="#/posts" class="button quiet">管理全部${icon("chevron")}</a></div>${latest.length ? latest.map((post, index) => `<div class="recent-row"><span class="post-index">${String(index + 1).padStart(2, "0")}</span><div class="recent-copy"><button type="button" data-action="edit-post" ${editAttrs(post)}>${e(post.data.title || "未命名草稿")}</button><p>${e(post.data.description || "还没有填写摘要，继续完善这篇文章。")}</p><div class="row-meta"><span>${e(post.data.category || "未设置分类")}</span><span class="meta-dot">/</span><span>${e(date(post.data.pubDate))}</span>${originBadge(post)}${post.data.featured ? `<span class="badge published">精选</span>` : ""}</div></div><div class="recent-row-end">${status(post)}${post.status === "published" ? `<a class="icon-button" href="/posts/${encodeURIComponent(post.slug)}" target="_blank" rel="noopener noreferrer" title="在前台打开文章" aria-label="在前台查看 ${e(post.data.title)}">${icon("external")}</a>` : ""}</div></div>`).join("") : empty("开始你的第一篇文章", "把一次实践、一段思考，整理成可以再次阅读的记录。", "new-post", "新建文章")}
   </section><aside class="overview-aside"><section class="side-section"><h2>常用操作</h2><div class="quick-actions">${[
     ["new-post", "edit", "开始写作", "进入支持分栏与专注模式的编辑器"],
     ...(direct ? [["go-analytics", "chart", "查看访问统计", "阅读排行、趋势与完读率"]] : []),
@@ -69,12 +71,25 @@ export function postTable(posts, selected = new Set()) {
       "new-post",
       "新建文章",
     );
-  return `<div class="table-header"><span></span><span>文章</span><span class="table-category">分类</span><span>文章日期</span><span>状态</span><span>操作</span></div>${posts.map((post) => `<div class="table-row ${selected.has(postKey(post)) ? 'selected' : ''}"><input type="checkbox" class="selection-checkbox" data-select-post="${e(postKey(post))}" aria-label="选择${post.status === 'draft' ? '草稿' : '文章'} ${e(post.data.title || post.slug)}" ${selected.has(postKey(post)) ? 'checked' : ''} ${post.pendingDeletion ? 'disabled data-locked="true"' : ''} /><div class="table-content"><div class="table-title-line"><button type="button" class="table-title" data-action="edit-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''}>${e(post.data.title || "未命名草稿")}</button>${post.data.featured ? '<span class="badge published">精选</span>' : ''}</div><p class="table-description">${e(post.data.description || post.slug)}</p></div><div class="table-category">${e(post.data.category || "未设置")}</div><div class="table-date">${e(date(post.data.pubDate))}</div><div class="table-state">${post.pendingDeletion ? '<span class="badge pending">待删除</span>' : status(post)}</div><div class="table-actions">${post.status === 'published' && !post.pendingDeletion ? `<a class="icon-button" href="/posts/${encodeURIComponent(post.slug)}" target="_blank" rel="noopener noreferrer" title="在前台查看" aria-label="在前台查看 ${e(post.data.title || post.slug)}">${icon("external")}</a><button type="button" class="icon-button" data-action="copy-post-url" data-slug="${e(post.slug)}" title="复制文章链接" aria-label="复制 ${e(post.data.title || post.slug)} 链接">${icon("link")}</button>` : ''}<button type="button" class="icon-button" data-action="edit-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''} title="编辑" aria-label="编辑 ${e(post.data.title || "草稿")}">${icon("edit")}</button><button type="button" class="icon-button" data-action="delete-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''} title="${post.status === "draft" ? "删除草稿" : "移入回收站"}" aria-label="${post.status === "draft" ? "删除草稿" : "移除文章"} ${e(post.data.title || "")}">${icon("delete")}</button></div></div>`).join("")}`;
+  return `<div class="table-header"><span></span><span>文章</span><span class="table-category">分类</span><span>文章日期</span><span>状态</span><span>操作</span></div>${posts.map((post) => `<div class="table-row ${selected.has(postKey(post)) ? 'selected' : ''}"><input type="checkbox" class="selection-checkbox" data-select-post="${e(postKey(post))}" aria-label="选择${post.status === 'draft' ? '草稿' : '文章'} ${e(post.data.title || post.slug)}" ${selected.has(postKey(post)) ? 'checked' : ''} ${post.pendingDeletion ? 'disabled data-locked="true"' : ''} /><div class="table-content"><div class="table-title-line"><button type="button" class="table-title" data-action="edit-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''}>${e(post.data.title || "未命名草稿")}</button>${originBadge(post)}${post.data.featured ? '<span class="badge published">精选</span>' : ''}</div><p class="table-description">${e(post.data.description || post.slug)}</p></div><div class="table-category">${e(post.data.category || "未设置")}</div><div class="table-date">${e(date(post.data.pubDate))}</div><div class="table-state">${post.pendingDeletion ? '<span class="badge pending">待删除</span>' : status(post)}</div><div class="table-actions">${post.status === 'published' && !post.pendingDeletion ? `<a class="icon-button" href="/posts/${encodeURIComponent(post.slug)}" target="_blank" rel="noopener noreferrer" title="在前台查看" aria-label="在前台查看 ${e(post.data.title || post.slug)}">${icon("external")}</a><button type="button" class="icon-button" data-action="copy-post-url" data-slug="${e(post.slug)}" title="复制文章链接" aria-label="复制 ${e(post.data.title || post.slug)} 链接">${icon("link")}</button>` : ''}<button type="button" class="icon-button" data-action="edit-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''} title="编辑" aria-label="编辑 ${e(post.data.title || "草稿")}">${icon("edit")}</button><button type="button" class="icon-button" data-action="delete-post" ${editAttrs(post)} ${post.pendingDeletion ? 'disabled' : ''} title="${post.status === "draft" ? "删除草稿" : "移入回收站"}" aria-label="${post.status === "draft" ? "删除草稿" : "移除文章"} ${e(post.data.title || "")}">${icon("delete")}</button></div></div>`).join("")}`;
 }
 export function postsView(data, filters, selected = new Set()) {
   const counts = summarizeWorkspace(data);
   const sortValue = filters.sort || "newest";
+  const originValue = filters.origin || "";
+  const originCounts = data.posts.reduce(
+    (acc, post) => {
+      acc[getPostOrigin(post)] += 1;
+      return acc;
+    },
+    { human: 0, ai: 0 },
+  );
   const filtered = filterPosts(data.posts, { ...filters, sort: sortValue });
+  const originChoices = [
+    ["", `全部来源 (${data.posts.length})`],
+    ["human", `${ORIGIN_DISPLAY.human.adminLabel} (${originCounts.human})`],
+    ["ai", `${ORIGIN_DISPLAY.ai.adminLabel} (${originCounts.ai})`],
+  ];
   const sortChoices = [
     ["newest", "按日期最新"],
     ["oldest", "按日期最早"],
@@ -92,7 +107,7 @@ export function postsView(data, filters, selected = new Set()) {
     )
     .join(
       "",
-    )}</div><div class="filter-toolbar-right"><label class="search-field">${icon("search")}<input id="post-search" type="search" placeholder="搜索标题、摘要或标签…" aria-label="搜索文章" value="${e(filters.search)}" /></label><label class="analytics-sort-label"><span class="sr-only">文章排序</span><select id="post-sort" aria-label="文章排序">${sortChoices.map(([val, text]) => `<option value="${val}" ${val === sortValue ? "selected" : ""}>${text}</option>`).join("")}</select></label></div></div>
+    )}</div><div class="filter-toolbar-right"><label class="search-field">${icon("search")}<input id="post-search" type="search" placeholder="搜索标题、摘要或标签…" aria-label="搜索文章" value="${e(filters.search)}" /></label><label class="analytics-sort-label"><span class="sr-only">创作来源</span><select id="post-origin" aria-label="创作来源筛选">${originChoices.map(([val, text]) => `<option value="${val}" ${val === originValue ? "selected" : ""}>${e(text)}</option>`).join("")}</select></label><label class="analytics-sort-label"><span class="sr-only">文章排序</span><select id="post-sort" aria-label="文章排序">${sortChoices.map(([val, text]) => `<option value="${val}" ${val === sortValue ? "selected" : ""}>${text}</option>`).join("")}</select></label></div></div>
   ${filters.category || filters.tag ? `<div class="active-filter-banner">${notice(`正在筛选：${filters.category || `#${filters.tag}`}`)}${button("清除筛选", "reset-filter", "", "quiet")}</div>` : ""}<div id="posts-bulk">${bulkToolbar('posts', filtered, selected, postKey)}</div><div class="post-table" id="post-table">${postTable(filtered, selected)}</div><div class="table-footer"><span id="post-result-count">共 ${filtered.length} 篇内容</span><span>${data.connection?.mode === 'database' ? '草稿仅在后台可见，删除内容可从回收站恢复' : '草稿与待删除变更分别管理'}</span></div>`;
 }
 export function taxonomyView(data, categories) {

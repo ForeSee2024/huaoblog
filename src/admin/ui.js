@@ -1,3 +1,4 @@
+import { getPostOrigin, ORIGIN_DISPLAY } from "../utils/post-origin.js";
 import {
   LayoutDashboard,
   FileText,
@@ -141,6 +142,11 @@ export const empty = (title, copy, action = "", label = "", glyph = "posts") =>
   `<div class="empty-state">${icon(glyph)}<h2>${escape(title)}</h2><p>${escape(copy)}</p>${action ? button(label, action, "plus", "primary") : ""}</div>`;
 export const status = (post) =>
   `<span class="badge ${post.status === "published" ? "published" : "draft"}"><span></span>${post.status === "published" ? "已发表" : "草稿"}</span>`;
+export const originBadge = (post) => {
+  const key = getPostOrigin(post);
+  const meta = ORIGIN_DISPLAY[key];
+  return `<span class="badge origin-${key}" title="${escape(meta.hint)}"><span></span>${escape(meta.adminLabel)}</span>`;
+};
 export const date = (value) => String(value || "").slice(0, 10) || "未设置日期";
 export const size = (value) =>
   value > 1048576

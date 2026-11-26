@@ -1,4 +1,7 @@
 import { parseDocument, stringify } from 'yaml';
+import { POST_ORIGINS, normalizePostOrigin } from '../utils/post-origin.js';
+
+export { POST_ORIGINS };
 
 export const CATEGORIES = ['软件工程与系统', 'AI 与前沿科研', '极客安全与攻防', '计算机体系沉淀', '生活随笔与杂项'];
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -55,7 +58,9 @@ export function validatePost(input, { publish = false } = {}) {
   if (category && !CATEGORIES.includes(category)) throw new ContentError('请选择有效的文章分类。');
   const tags = data.tags ?? [];
   if (!Array.isArray(tags) || tags.length > 20) throw new ContentError('标签最多 20 个。');
-  const normalized = { title, description, pubDate, category, tags: [...new Set(tags.map(tag => textField(tag, '标签', 40, true)))], series: textField(data.series, '专栏', 100), featured: data.featured ?? false, coverImage: safeUrl(data.coverImage, { label: '封面地址' }) };
+  const origin = normalizePostOrigin(data.origin);
+  if (!origin) throw new ContentError('请选择有效的创作方式。');
+  const normalized = { title, description, pubDate, category, tags: [...new Set(tags.map(tag => textField(tag, '标签', 40, true)))], series: textField(data.series, '专栏', 100), featured: data.featured ?? false, origin, coverImage: safeUrl(data.coverImage, { label: '封面地址' }) };
   if (typeof normalized.featured !== 'boolean') throw new ContentError('精选状态必须为布尔值。');
   if (data.updatedDate) normalized.updatedDate = dateField(data.updatedDate, '更新日期', false);
   if (data.views != null && data.views !== '') normalized.views = textField(String(data.views), '阅读量', 30);

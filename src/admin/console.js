@@ -1,7 +1,8 @@
 import { createRepository } from "./repository.js";
 import { validatePost } from "./content-model.js";
 import { validateSettings } from "./settings-model.js";
-import { escape as e, icon, button, field, notice, safeImage } from "./ui.js";
+import { escape as e, icon, button, field, notice, safeImage, status, originBadge } from "./ui.js";
+import { getPostOrigin, normalizePostOrigin } from "../utils/post-origin.js";
 import {
   overview,
   postsView,
@@ -53,7 +54,7 @@ let currentRoute = "",
   recovery = null,
   toastTimer,
   recoveryTimer;
-let filters = { search: "", state: "all", category: "", tag: "", sort: "newest" },
+let filters = { search: "", state: "all", category: "", tag: "", origin: "", sort: "newest" },
   mediaSearch = "",
   saving = false;
 
@@ -652,6 +653,7 @@ async function render(route) {
           category: categories[0],
           tags: [],
           featured: false,
+          origin: "human",
         },
         body: "",
       };
@@ -735,6 +737,7 @@ function gatherPost() {
     tags: parseTags(value("tags")),
     series: value("series"),
     featured: values.has("featured"),
+    origin: values.has("origin") ? (normalizePostOrigin(value("origin")) || "ai") : getPostOrigin(activePost),
     coverImage: value("coverImage"),
     extraMeta: {
       ...(activePost.data.extraMeta || {}),
@@ -1452,6 +1455,15 @@ main.addEventListener("change", (event) => {
   if (saving) return;
   const target = event.target;
   if (target.dataset.profileSearch) return;
+  if (target.id === "post-origin") {
+    selectedPosts.clear();
+    filters.origin = target.value || "";
+    const filtered = filterPosts(data.posts, { ...filters, sort: filters.sort || "newest" });
+    document.getElementById("post-table").innerHTML = postTable(filtered, selectedPosts);
+    document.getElementById("post-result-count").textContent = `共 ${filtered.length} 篇内容`;
+    syncSelectionControls();
+    return;
+  }
   if (target.id === "post-sort") {
     selectedPosts.clear();
     filters.sort = target.value || "newest";
@@ -1507,6 +1519,10 @@ main.addEventListener("change", (event) => {
   if (event.target.closest("#article-form")) {
     gatherPost();
     markDirty();
+    if (target.name === "origin") {
+      const statusBox = document.getElementById("article-status");
+      if (statusBox && activePost) statusBox.innerHTML = `${status(activePost)}${originBadge(activePost)}`;
+    }
   }
 });
 main.addEventListener("click", async (event) => {
@@ -1563,7 +1579,7 @@ main.addEventListener("click", async (event) => {
       await render("posts");
     } else if (action === "reset-filter") {
       selectedPosts.clear();
-      filters = { search: "", state: "all", category: "", tag: "", sort: filters.sort || "newest" };
+      filters = { search: "", state: "all", category: "", tag: "", origin: "", sort: filters.sort || "newest" };
       await render("posts");
     } else if (action === "filter-category") {
       selectedPosts.clear();
@@ -1572,6 +1588,7 @@ main.addEventListener("click", async (event) => {
         state: "all",
         category: target.dataset.category,
         tag: "",
+        origin: "",
         sort: filters.sort || "newest",
       };
       await go("posts");
@@ -1582,6 +1599,7 @@ main.addEventListener("click", async (event) => {
         state: "all",
         category: "",
         tag: target.dataset.tag,
+        origin: "",
         sort: filters.sort || "newest",
       };
       await go("posts");

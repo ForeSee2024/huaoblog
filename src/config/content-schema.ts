@@ -11,6 +11,7 @@ export const postSchema = z.object({
   tags: z.preprocess(value => value ?? [], z.array(z.string().trim().min(1)).default([])),
   series: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   featured: z.boolean().default(false),
+  origin: z.preprocess(emptyToUndefined, z.enum(['human', 'ai']).default('ai')),
   draft: z.boolean().default(false),
   views: z.preprocess(emptyToUndefined, z.string().optional()),
   coverImage: z.preprocess(emptyToUndefined, z.string().optional()),
