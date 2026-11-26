@@ -1,8 +1,40 @@
 const COLLECT_URL = '/api/v1/analytics/collect';
+const VISITOR_ID_KEY = 'huaovo-vid';
+const VALID_VISITOR_ID = /^[a-zA-Z0-9_-]{12,64}$/;
+
+export function getOrCreateVisitorId(storage, randomId = () => globalThis.crypto?.randomUUID?.()) {
+  try {
+    const existing = storage?.getItem?.(VISITOR_ID_KEY);
+    if (existing && VALID_VISITOR_ID.test(existing)) return existing;
+    const generated = String(randomId() || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48);
+    const id = VALID_VISITOR_ID.test(generated)
+      ? generated
+      : `v_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+    storage?.setItem?.(VISITOR_ID_KEY, id);
+    return id;
+  } catch {
+    const generated = String(randomId() || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48);
+    return VALID_VISITOR_ID.test(generated) ? generated : '';
+  }
+}
+
+export function extractReferrer(rawReferrer, currentOrigin = '') {
+  if (!rawReferrer) return '';
+  try {
+    const parsed = new URL(String(rawReferrer));
+    if (!['http:', 'https:'].includes(parsed.protocol)) return '';
+    if (currentOrigin && parsed.origin === currentOrigin) return 'internal';
+    return parsed.hostname.replace(/^www\./i, '').toLowerCase().slice(0, 120);
+  } catch {
+    return '';
+  }
+}
 
 export function createEngagementTracker({
   targetType,
   targetKey,
+  visitorId = '',
+  referrer = '',
   now = () => Date.now(),
   isVisible = () => true,
   hasReachedEnd = () => false,
@@ -33,7 +65,14 @@ export function createEngagementTracker({
     if (delta < 2 && !completed) return false;
     reportedSeconds += delta;
     if (completed) reportedCompleted = true;
-    send({ type: 'engage', targetType: 'post', targetKey, durationDelta: delta, completed }, { preferBeacon });
+    send({
+      type: 'engage',
+      targetType: 'post',
+      targetKey,
+      ...(visitorId ? { visitorId } : {}),
+      durationDelta: delta,
+      completed,
+    }, { preferBeacon });
     return true;
   }
 
@@ -41,7 +80,13 @@ export function createEngagementTracker({
     start() {
       if (!viewSent) {
         viewSent = true;
-        send({ type: 'view', targetType, targetKey }, { preferBeacon: false });
+        send({
+          type: 'view',
+          targetType,
+          targetKey,
+          ...(visitorId ? { visitorId } : {}),
+          ...(referrer ? { referrer } : {}),
+        }, { preferBeacon: false });
       }
       if (targetType === 'post' && isVisible()) {
         const timestamp = now();
@@ -112,9 +157,14 @@ export function startReadingTracker() {
     }).catch(() => {});
   }
 
+  const visitorId = getOrCreateVisitorId(window.localStorage);
+  const referrer = extractReferrer(document.referrer, window.location.origin);
+
   const tracker = createEngagementTracker({
     targetType: analyticsType,
     targetKey: analyticsKey,
+    visitorId,
+    referrer,
     isVisible: () => document.visibilityState === 'visible',
     hasReachedEnd: () => {
       const article = document.querySelector('article.article-prose');

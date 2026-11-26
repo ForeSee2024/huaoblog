@@ -3,7 +3,7 @@ import { ContentError, MAX_IMAGE_BYTES, inspectMediaBytes, validateMediaName, va
 import { createAuth, sha256 } from './auth.js';
 import { readFileUpload, readJson } from './body.js';
 import { exportBackup, readBackup, restoreBackup } from './backup.js';
-import { beijingDay, isBotUserAgent } from './storage/analytics.js';
+import { beijingDay, beijingHour, classifyReferrer, isBotUserAgent, parseCountry, parseUserAgent } from './storage/analytics.js';
 
 const MAX_BROWSER_BACKUP = 32 * 1024 * 1024;
 const json = (data, status = 200, extra = {}) => Response.json(data, { status, headers: { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', ...extra } });
@@ -66,9 +66,26 @@ export function createContentHandler(runtime, deps = {}) {
         if (isBotUserAgent(request.headers.get('user-agent'))) return silent();
         const payload = await readJson(request, 2048);
         const timestamp = now();
-        const visitorHash = await store.resolveVisitorHash(request, beijingDay(timestamp));
+        const { visitorHash, clientHash } = store.resolveVisitorIdentity
+          ? await store.resolveVisitorIdentity(request, beijingDay(timestamp), { visitorId: payload.visitorId })
+          : { visitorHash: await store.resolveVisitorHash(request, beijingDay(timestamp)), clientHash: '' };
         if (payload.type === 'view') {
-          await store.recordAnalyticsView({ targetType: payload.targetType, targetKey: payload.targetKey, visitorHash, now: timestamp });
+          const uaInfo = parseUserAgent(request.headers.get('user-agent'));
+          await store.recordAnalyticsView({
+            targetType: payload.targetType,
+            targetKey: payload.targetKey,
+            visitorHash,
+            clientHash,
+            dimensions: {
+              referrer: classifyReferrer(payload.referrer, url.origin),
+              device: uaInfo.device,
+              os: uaInfo.os,
+              browser: uaInfo.browser,
+              country: parseCountry(request),
+              hour: beijingHour(timestamp),
+            },
+            now: timestamp,
+          });
           return silent();
         }
         if (payload.type === 'engage') {

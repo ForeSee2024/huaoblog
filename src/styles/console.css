@@ -2659,8 +2659,179 @@ html[data-theme="light"] .login-draft-protect > .icon {
   color: var(--text-hero);
   font-weight: 650;
 }
+.analytics-subhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.analytics-subhead strong {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-hero);
+}
+.analytics-subhead small {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.analytics-hourly-card {
+  margin-top: 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--admin-line);
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+.analytics-hourly-bars {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  gap: 4px;
+  height: 92px;
+  align-items: end;
+}
+.analytics-hour-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.analytics-hour-track {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.analytics-hour-bar {
+  width: 72%;
+  max-width: 14px;
+  border-radius: 3px 3px 0 0;
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  transition: background-color 140ms ease;
+}
+.analytics-hour-col.is-peak .analytics-hour-bar,
+.analytics-hour-col:hover .analytics-hour-bar {
+  background: var(--accent);
+}
+.analytics-hour-col small {
+  font-size: 10px;
+  color: var(--text-dim);
+  height: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.analytics-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.analytics-dim-card,
+.analytics-origin-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--admin-line);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+.analytics-dim-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.analytics-dim-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.analytics-dim-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+}
+.analytics-dim-label {
+  color: var(--text-main);
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.analytics-dim-val {
+  color: var(--text-dim);
+  font-size: 11px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.analytics-dim-val b {
+  color: var(--text-hero);
+  font-weight: 600;
+}
+.analytics-dim-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+.analytics-dim-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.analytics-origin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.analytics-origin-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.analytics-origin-head strong {
+  font-size: 13px;
+  color: var(--text-hero);
+}
+.analytics-origin-head small {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.analytics-origin-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.analytics-origin-metrics div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.analytics-origin-metrics span {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.analytics-origin-metrics b {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-hero);
+  font-variant-numeric: tabular-nums;
+}
 
 @media (max-width: 760px) {
+  .analytics-insights-grid,
+  .analytics-origin-grid {
+    grid-template-columns: 1fr;
+  }
+  .analytics-origin-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .analytics-bars {
     height: 140px;
   }
