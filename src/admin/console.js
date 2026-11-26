@@ -83,6 +83,7 @@ const analyticsState = {
   days: 30,
   sort: 'totalViews',
   search: '',
+  origin: '',
   selectedDay: '',
   data: null,
   loading: false,
@@ -1600,6 +1601,7 @@ function renderAnalyticsTable() {
   if (table && analyticsState.data) {
     table.innerHTML = analyticsPostRows(analyticsState.data.posts, {
       search: analyticsState.search,
+      origin: analyticsState.origin,
       sort: analyticsState.sort,
     });
   }
@@ -1624,6 +1626,11 @@ main.addEventListener("change", (event) => {
     document.getElementById("post-table").innerHTML = postTable(filtered, selectedPosts);
     document.getElementById("post-result-count").textContent = `共 ${filtered.length} 篇内容`;
     syncSelectionControls();
+    return;
+  }
+  if (target.id === "analytics-post-origin") {
+    analyticsState.origin = target.value || "";
+    renderAnalyticsTable();
     return;
   }
   if (target.id === "analytics-post-sort") {
@@ -1970,6 +1977,7 @@ main.addEventListener("click", async (event) => {
       analyticsState.data = null;
       analyticsState.loading = false;
       analyticsState.error = '';
+      analyticsState.origin = '';
       analyticsState.selectedDay = '';
       data = {
         posts: [],

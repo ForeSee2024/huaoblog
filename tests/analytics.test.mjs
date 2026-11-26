@@ -9,7 +9,7 @@ import {
   formatDuration,
   formatPercent,
 } from '../src/admin/analytics-view.js';
-import { createEngagementTracker } from '../src/lib/reading-tracker.js';
+import { createEngagementTracker, extractReferrer, getOrCreateVisitorId } from '../src/lib/reading-tracker.js';
 import { createContentHandler } from '../src/server/api.js';
 import { createAuth } from '../src/server/auth.js';
 import {
@@ -17,8 +17,12 @@ import {
   MAX_DAILY_VIEWS_PER_TARGET,
   VIEW_COOLDOWN_MS,
   beijingDay,
+  beijingHour,
+  classifyReferrer,
   isBotUserAgent,
   normalizeAnalyticsTarget,
+  parseCountry,
+  parseUserAgent,
   shiftDay,
 } from '../src/server/storage/analytics.js';
 import { CONTENT_SCHEMA, createContentStore } from '../src/server/storage/content-store.js';
@@ -27,19 +31,21 @@ import { createNodeDatabase } from '../src/server/storage/sqlite.js';
 const siteSettings = JSON.parse(await readFile(new URL('../src/data/site.json', import.meta.url), 'utf8'));
 const sessionsSchema = await readFile(new URL('../migrations/002_sessions.sql', import.meta.url), 'utf8');
 const analyticsSchema = await readFile(new URL('../migrations/004_analytics.sql', import.meta.url), 'utf8');
+const analyticsDimensionsSchema = await readFile(new URL('../migrations/005_analytics_dimensions.sql', import.meta.url), 'utf8');
 
-const makePost = (slug = 'hello-world', title = '你好，世界', category = '软件工程与系统', pubDate = '2026-10-15') => ({
+const makePost = (slug = 'hello-world', title = '你好，世界', category = '软件工程与系统', pubDate = '2026-10-15', origin = 'ai') => ({
   slug,
-  data: { title, description: '摘要', pubDate, category, tags: [] },
+  data: { title, description: '摘要', pubDate, category, tags: [], origin },
   body: '## 标题\n\n正文内容。',
 });
 
-async function setupAnalyticsDb(t) {
+async function setupAnalyticsDb(t, { withDimensions = true } = {}) {
   const database = createNodeDatabase(':memory:');
   t.after(() => database.close());
   await database.exec(CONTENT_SCHEMA);
   await database.exec(sessionsSchema);
   await database.exec(analyticsSchema);
+  if (withDimensions) await database.exec(analyticsDimensionsSchema);
   let seq = 0;
   const store = createContentStore(database, {
     uuid: () => `rev-${++seq}`,
@@ -419,4 +425,117 @@ test('analytics view helpers format metrics, sort/filter rows and escape untrust
   assert.match(html, /今日浏览 \(PV\)/);
   assert.match(html, /2026-10-14/);
   assert.match(html, /首页/);
+  assert.match(html, /id="analytics-post-origin"/);
+
+  const enhancedHtml = analyticsView({
+    rangeDays: 30,
+    todayDay: '2026-10-15',
+    startDay: '2026-09-16',
+    summary: { todayViews: 3, todayVisitors: 2, rangeViews: 60, rangeVisitors: 30, totalViews: 60, totalVisitors: 30, totalCompletedReads: 9, avgReadSeconds: 95, completionRate: 0.3, newVisitors: 20, returningVisitors: 10, returnRate: 1 / 3 },
+    daily: [{ day: '2026-10-14', views: 20, visitors: 10, completedReads: 4, avgReadSeconds: 80 }],
+    posts,
+    pages: [{ path: '/', label: '首页', totalViews: 10, totalVisitors: 8, rangeViews: 10, rangeVisitors: 8 }],
+    originBreakdown: [{ key: 'human', label: '手写文章', postsCount: 1, totalViews: 40, totalVisitors: 20, avgReadSeconds: 150, completionRate: 0.6 }],
+    dimensions: {
+      referrers: [{ label: '<script>evil.example</script>', views: 5, visitors: 5, ratio: 0.5 }],
+      countries: [{ label: '中国大陆', views: 8, visitors: 8, ratio: 0.8 }],
+      devices: [{ label: '桌面端', views: 7, visitors: 7, ratio: 0.7 }],
+      os: [{ label: 'macOS', views: 7, visitors: 7, ratio: 0.7 }],
+      browsers: [{ label: 'Chrome', views: 6, visitors: 6, ratio: 0.6 }],
+      hourly: [{ hour: '20', views: 5, visitors: 3 }],
+    },
+  });
+  assert.doesNotMatch(enhancedHtml, /<script>evil/);
+  assert.match(enhancedHtml, /&lt;script&gt;evil\.example&lt;\/script&gt;/);
+  assert.match(enhancedHtml, /24 小时活跃时段分布/);
+  assert.match(enhancedHtml, /不同创作形式阅读表现/);
+});
+
+test('visitorId deduplicates across IP switches, detects returning visitors and collects dimensions cleanly', async t => {
+  const { store } = await setupAnalyticsDb(t);
+  await store.savePost(makePost('handwritten-note', '手写随笔', '生活随笔与杂项', '2026-10-10', 'human'), { publish: true });
+  await store.savePost(makePost('curated-note', '整理笔记', '软件工程与系统', '2026-10-11', 'ai'), { publish: true });
+
+  // 验证解析 helpers 与前端匿名访客 ID / Referrer 剥离逻辑
+  assert.equal(beijingHour(Date.parse('2026-10-15T12:30:00Z')), '20');
+  assert.equal(classifyReferrer('https://www.google.com/search?q=secret', 'https://huaoblog.cn'), 'Google 搜索');
+  assert.equal(classifyReferrer('https://huaoblog.cn/posts/abc', 'https://huaoblog.cn'), '站内跳转');
+  assert.equal(classifyReferrer('', 'https://huaoblog.cn'), '直接访问');
+  assert.equal(extractReferrer('https://github.com/user/repo?token=xyz', 'https://huaoblog.cn'), 'github.com');
+  assert.equal(extractReferrer('https://huaoblog.cn/posts', 'https://huaoblog.cn'), 'internal');
+
+  assert.deepEqual(parseUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'), {
+    device: '移动端', os: 'iOS', browser: 'Safari',
+  });
+  assert.deepEqual(parseUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0'), {
+    device: '桌面端', os: 'macOS', browser: 'Edge',
+  });
+  assert.equal(parseCountry(new Request('https://huaoblog.cn', { headers: { 'cf-ipcountry': 'CN' } })), '中国大陆');
+  assert.equal(parseCountry(new Request('https://huaoblog.cn', { headers: { 'cf-ipcountry': 'JP' } })), '日本');
+
+  const bag = new Map();
+  const mockStorage = { getItem: k => bag.get(k) ?? null, setItem: (k, v) => bag.set(k, v) };
+  const vid1 = getOrCreateVisitorId(mockStorage, () => 'visitor-uuid-12345678');
+  const vid2 = getOrCreateVisitorId(mockStorage, () => 'other-uuid-87654321');
+  assert.equal(vid1, 'visitor-uuid-12345678');
+  assert.equal(vid2, 'visitor-uuid-12345678');
+
+  // 同一 visitorId 在同一天从 Wi-Fi (IP A) 切换到 5G (IP B) 访问站点，仍算同一个独立访客且记为新访客
+  const day1 = Date.parse('2026-10-15T12:15:00Z'); // 北京 20:15
+  const reqWifi = new Request('https://huaoblog.cn/api/v1/analytics/collect', {
+    headers: { 'cf-connecting-ip': '203.0.113.10', 'cf-ipcountry': 'CN', 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/131.0.0.0 Safari/537.36' },
+  });
+  const req5g = new Request('https://huaoblog.cn/api/v1/analytics/collect', {
+    headers: { 'cf-connecting-ip': '198.51.100.88', 'cf-ipcountry': 'CN', 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/131.0.0.0 Safari/537.36' },
+  });
+
+  const idA = await store.resolveVisitorIdentity(reqWifi, beijingDay(day1), { visitorId: vid1 });
+  const idB = await store.resolveVisitorIdentity(req5g, beijingDay(day1), { visitorId: vid1 });
+  assert.equal(idA.visitorHash, idB.visitorHash);
+  assert.equal(idA.clientHash, idB.clientHash);
+
+  await store.recordAnalyticsView({
+    targetType: 'post', targetKey: 'handwritten-note', visitorHash: idA.visitorHash, clientHash: idA.clientHash,
+    dimensions: { referrer: 'Google 搜索', device: '桌面端', os: 'macOS', browser: 'Chrome', country: '中国大陆', hour: '20' },
+    now: day1,
+  });
+  await store.recordAnalyticsView({
+    targetType: 'post', targetKey: 'curated-note', visitorHash: idB.visitorHash, clientHash: idB.clientHash,
+    dimensions: { referrer: '站内跳转', device: '桌面端', os: 'macOS', browser: 'Chrome', country: '中国大陆', hour: '20' },
+    now: day1 + 1000,
+  });
+  // 切换网络后继续提交阅读完成依然归入同一访客
+  await store.recordAnalyticsEngagement({
+    targetType: 'post', targetKey: 'handwritten-note', visitorHash: idB.visitorHash, durationDelta: 90, completed: true, now: day1 + 2000,
+  });
+
+  // 第二天该访客再次回访，识别为 returning 回访客
+  const day2 = day1 + 86400 * 1000;
+  const idDay2 = await store.resolveVisitorIdentity(req5g, beijingDay(day2), { visitorId: vid1 });
+  assert.notEqual(idDay2.visitorHash, idA.visitorHash);
+  assert.equal(idDay2.clientHash, idA.clientHash);
+  await store.recordAnalyticsView({
+    targetType: 'page', targetKey: '/', visitorHash: idDay2.visitorHash, clientHash: idDay2.clientHash,
+    dimensions: { referrer: '直接访问', device: '桌面端', os: 'macOS', browser: 'Chrome', country: '中国大陆', hour: '20' },
+    now: day2,
+  });
+
+  const report = await store.getAnalyticsReport({ days: 7, now: day2 });
+  assert.equal(report.summary.newVisitors, 1);
+  assert.equal(report.summary.returningVisitors, 1);
+  assert.equal(report.summary.returnRate, 0.5);
+  assert.equal(report.dimensions.countries[0].label, '中国大陆');
+  assert.equal(report.dimensions.devices[0].label, '桌面端');
+  assert.equal(report.dimensions.hourly.find(h => h.hour === '20').views, 3);
+  const humanStats = report.originBreakdown.find(o => o.key === 'human');
+  assert.equal(humanStats.totalViews, 1);
+  assert.equal(humanStats.avgReadSeconds, 90);
+  assert.equal(humanStats.completionRate, 1);
+
+  // 未运行 005 迁移的孤立老表也可降级正常运行
+  const { store: legacyStore } = await setupAnalyticsDb(t, { withDimensions: false });
+  const legacyRes = await legacyStore.recordAnalyticsView({
+    targetType: 'page', targetKey: '/', visitorHash: 'hash-legacy', dimensions: { country: '中国大陆' }, now: day1,
+  });
+  assert.equal(legacyRes.accepted, true);
 });
